@@ -1,0 +1,14 @@
+CC      = gcc
+CFLAGS  = -O2 -Wall -std=c99
+LDFLAGS = -lSDL2 -lSDL2_image -lSDL2_ttf -lm
+
+TARGET  = dofus-arena
+SRC     = main.c
+
+all: $(TARGET)
+
+$(TARGET): $(SRC)
+    $(CC) $(CFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
+
+clean:
+    rm -f $(TARGET)
