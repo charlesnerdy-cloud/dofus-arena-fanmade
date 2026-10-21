@@ -26,6 +26,7 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,8 +54,11 @@ typedef int Sock;
 #define GRID_H 10
 #define TILE   48
 #define MAP_THEME_COUNT 8
-#define CUT_SHEET_COLS 6
-#define CUT_SHEET_CELL 80
+#define CHARACTER_FRAME_W 16
+#define CHARACTER_FRAME_H 16
+#define CHARACTER_ROW_COUNT 12
+#define CHARACTER_SEQUENCE_COUNT 5
+#define CHARACTER_SEQUENCE_FRAME_COUNT 4
 #define SPELL_ICON_COLS 9
 #define SPELL_ICON_ROWS 8
 #define EMOTE_COLS 16
@@ -63,6 +67,7 @@ typedef int Sock;
 #define EMOTE_CELL_H 13
 #define VFX_FRAME_COUNT 30
 #define VFX_FRAME_MS 33
+#define VFX_REDUCED_DURATION_MS 1200
 #define WIN_W  (GRID_W * TILE)
 #define WIN_H  (GRID_H * TILE + 160)   /* bandeau UI en bas            */
 #define PORT   7777
@@ -94,25 +99,40 @@ typedef int Sock;
 /* ------------------------------------------------------------------ */
 /* Assets                                                              */
 /* ------------------------------------------------------------------ */
-#define UI_HP_BAR_X 25
-#define UI_HP_BAR_Y 86
-#define UI_HP_BAR_W 266
-#define UI_HP_BAR_H 36
-#define UI_HEADER_X 15
-#define UI_HEADER_Y 16
-#define UI_HEADER_W 994
-#define UI_HEADER_H 50
+#define UI_HP_BAR_X 5
+#define UI_HP_BAR_Y 73
+#define UI_HP_BAR_W 91
+#define UI_HP_BAR_H 19
+#define UI_PANEL_X 0
+#define UI_PANEL_Y 112
+#define UI_PANEL_W 94
+#define UI_PANEL_H 80
+#define UI_PANEL_BORDER 8
 #define UI_OK_X 744
 #define UI_OK_Y 459
 #define UI_OK_W 120
 #define UI_OK_H 54
+#define MAX_MANIFEST_FRAMES 1024
+#define MANIFEST_FRAME_NAME_MAX 96
 
 static SDL_Texture *g_ui_atlas;
+static int g_ui_atlas_width;
+static int g_ui_atlas_height;
 static SDL_Texture *g_tilesheet;
-static SDL_Texture *g_character_cut_sheet;
+static SDL_Texture *g_characters_sheet;
 static SDL_Texture *g_spell_icons;
 static SDL_Texture *g_emote_sheet;
 static SDL_Texture *g_vfx_frames[VFX_FRAME_COUNT];
+
+typedef struct {
+    SDL_Rect source;
+    char name[MANIFEST_FRAME_NAME_MAX];
+} SpriteManifestFrame;
+
+static SpriteManifestFrame g_ui_frames[MAX_MANIFEST_FRAMES];
+static int g_ui_frame_count;
+static SpriteManifestFrame g_character_frames[MAX_MANIFEST_FRAMES];
+static int g_character_frame_count;
 
 typedef enum {
     SFX_MENU_SELECT,
@@ -123,6 +143,8 @@ typedef enum {
     SFX_MOVE,
     SFX_VICTORY,
     SFX_GAME_OVER,
+    SFX_PACIFY,
+    SFX_ENCOURAGE,
     SFX_COUNT
 } SoundEffect;
 
@@ -145,23 +167,38 @@ static const char *SOUND_PATHS[SFX_COUNT] = {
     "assets/Sounds/DeathUndead.mp3",
     "assets/Sounds/Footstep.mp3",
     "assets/Sounds/Victory.mp3",
-    "assets/Sounds/GameOver.mp3"
+    "assets/Sounds/GameOver.mp3",
+    "assets/Sounds/Balance_Calm.wav",
+    "assets/Sounds/Balance_Encourage.wav"
 };
 
-static const int CLASS_CUT_INDEX[N_CLASSES] = {
-    23,  /* Iop */
-    3,   /* Cra */
-    8,   /* Ecaflip */
-    24,  /* Eniripsa */
+static const int CLASS_CHARACTER_ROW[N_CLASSES] = {
+    1,   /* Iop */
+    10,  /* Cra */
+    3,   /* Ecaflip */
+    11,  /* Eniripsa */
     7,   /* Enutrof */
-    2,   /* Sram */
-    28,  /* Sacrieur */
-    14,  /* Sadida */
-    18,  /* Osamodas */
-    16,  /* Xelor */
-    1,   /* Feca */
-    9,   /* Pandawa */
-    27   /* Roublard */
+    4,   /* Sram */
+    0,   /* Sacrieur */
+    8,   /* Sadida */
+    9,   /* Osamodas */
+    6,   /* Xelor */
+    5,   /* Feca */
+    3,   /* Pandawa */
+    4    /* Roublard */
+};
+
+static const int CHARACTER_FRAME_X[CHARACTER_SEQUENCE_COUNT]
+                                  [CHARACTER_SEQUENCE_FRAME_COUNT] = {
+    {16, 30, 44, 58},
+    {82, 96, 110, 124},
+    {146, 160, 174, 188},
+    {212, 228, 244, 260},
+    {278, 294, 310, 326}
+};
+
+static const int CHARACTER_FRAME_WIDTH[CHARACTER_SEQUENCE_COUNT] = {
+    14, 14, 14, 16, 16
 };
 
 static const SDL_Rect MAP_FLOOR_RECTS[MAP_THEME_COUNT] = {
@@ -562,6 +599,8 @@ typedef struct {
     int       turn_count;
     int       team_size;
     int       setup_unit;
+    int       solo_mode;
+    Uint32    ai_next_action_ms;
     int       turn_order[MAX_FIGHTERS];
     int       turn_pos;
     int       team_size_choice;
@@ -585,9 +624,23 @@ typedef struct {
     char      chat_input[256];
     char      chat_log[6][128];        /* derniers messages             */
     int       chat_log_n;
+    Uint32    social_last_chat_ms[2];
+    int       social_chat_burst[2];
+    Uint32    social_last_emote_ms[2];
+    int       social_emote_burst[2];
+    Uint32    social_last_pacify_ms;
+    Uint32    social_last_encourage_ms;
     int       emote_menu_open;
     int       in_game_menu_open;
     int       surrender_confirm;
+    int       settings_open;
+    int       music_volume;
+    int       sfx_volume;
+    int       colorblind_mode;
+    int       reduce_flashing;
+    int       subtitles_when_muted;
+    char      audio_subtitle[64];
+    Uint32    audio_subtitle_until;
     int       emote_fighter;
     int       emote_index;
     Uint32    emote_until;
@@ -612,7 +665,12 @@ static void advance_setup(Game *g);
 static int fighter_at(const Game *g, int x, int y);
 static int manhattan(int x1, int y1, int x2, int y2);
 static void show_emote(Game *g, int who, int emote);
-static void play_sound(SoundEffect sound);
+static void play_sound(Game *g, SoundEffect sound);
+static void set_social_sound_volume(void);
+static void try_play_social_cue(Game *g, SoundEffect sound,
+                                unsigned probability_percent);
+static void process_social_message(Game *g, int team, const char *message);
+static void process_social_emote(Game *g, int team);
 
 static void favorites_load(Game *g)
 {
@@ -746,6 +804,7 @@ static void show_emote(Game *g, int who, int emote)
     g->emote_index = emote;
     g->emote_until = SDL_GetTicks() + 2500;
     g->emote_menu_open = 0;
+    process_social_emote(g, who / g->team_size);
     snprintf(msg, sizeof msg, "EMOTE %d %d", who, emote);
     net_send(g, msg);
 }
@@ -768,6 +827,8 @@ static void reset_match(Game *g)
 {
     int i;
     g->state = ST_PICK;
+    g->solo_mode = 0;
+    g->ai_next_action_ms = 0;
     g->turn = 0;
     g->turn_count = 0;
     g->turn_pos = 0;
@@ -1012,7 +1073,7 @@ static void net_poll(Game *g)
                     g->f[who].x = a; g->f[who].y = b;
                     g->f[who].pm -= distance;
                     set_anim(g, who, ANIM_MOVE);
-                    play_sound(SFX_MOVE);
+                    play_sound(g, SFX_MOVE);
                 }
             }
         } else if (!strcmp(cmd, "SKILL") && sscanf(buf, "%*s %d %d %d %d", &who, &a, &b, &c) == 4) {
@@ -1032,6 +1093,7 @@ static void net_poll(Game *g)
                 g->emote_fighter = who;
                 g->emote_index = a;
                 g->emote_until = SDL_GetTicks() + 2500;
+                process_social_emote(g, who / g->team_size);
             }
         } else if (!strcmp(cmd, "SURRENDER")
                    && sscanf(buf, "%*s %d", &who) == 1) {
@@ -1048,6 +1110,7 @@ static void net_poll(Game *g)
             int rc = sscanf(buf, "%*s %d %n", &w, &n);
             if (rc == 1 && n >= 2 && w >= 0 && w < 2) {
                 char line[128];
+                process_social_message(g, w, buf + n);
                 snprintf(line, sizeof line, "T%d> %s", w + 1, buf + n);
                 if (g->chat_log_n < 6) {
                     snprintf(g->chat_log[g->chat_log_n], 128, "%s", line);
@@ -1303,7 +1366,11 @@ static void check_stuff_start(Game *g)
         if (g->class_chosen[i] < 0 || g->draft_ready[i] != 2
             || g->stuff_chosen[i] < 0 || g->stuff_ready[i] != 1)
             return;
-    if (g->net.role == NET_HOST) {
+    if (g->solo_mode) {
+        unsigned seed = (unsigned)time(NULL) ^ SDL_GetTicks()
+                      ^ (unsigned)clock();
+        start_battle(g, seed);
+    } else if (g->net.role == NET_HOST) {
         unsigned seed = (unsigned)time(NULL) ^ SDL_GetTicks()
                       ^ (unsigned)clock();
         char msg[32];
@@ -1311,6 +1378,65 @@ static void check_stuff_start(Game *g)
         net_send(g, msg);
         start_battle(g, seed);
     }
+}
+
+static int ai_draft_score(const Skill *skill)
+{
+    int score = skill->power * 4 + skill->range * 3 - skill->pa * 3;
+    if (skill->kind == SK_ATK)
+        return 100 + score;
+    if (skill->kind == SK_SPECIAL && skill->power > 0)
+        return 80 + score;
+    if (skill->kind == SK_HEAL)
+        return 50 + skill->power * 2 + skill->range - skill->pa;
+    return 20 + score;
+}
+
+static void prepare_ai_team(Game *g)
+{
+    int slot;
+    for (slot = 0; slot < g->team_size; slot++) {
+        int unit = unit_for_slot(g, 1, slot);
+        int cls = rand() % N_CLASSES;
+        int chosen[N_CLASS_SPELLS] = {0};
+        int pick;
+        g->class_chosen[unit] = cls;
+        for (pick = 0; pick < N_EQUIPPED; pick++) {
+            int spell, best = -1, best_score = -2147483647;
+            for (spell = 0; spell < N_CLASS_SPELLS; spell++) {
+                int score;
+                if (chosen[spell]) continue;
+                score = ai_draft_score(&CLASSES[cls].spells[spell]);
+                if (score > best_score) {
+                    best = spell;
+                    best_score = score;
+                }
+            }
+            if (best >= 0) {
+                chosen[best] = 1;
+                g->draft[unit][best] = 1;
+            }
+        }
+        g->draft_count[unit] = N_EQUIPPED;
+        g->draft_ready[unit] = 2;
+        g->stuff_chosen[unit] = 2;
+        g->stuff_ready[unit] = 1;
+        g->f[unit].elements[ELEM_AIR] = ELEMENT_POINTS;
+        g->f[unit].elements[ELEM_FIRE] = 0;
+        g->f[unit].elements[ELEM_EARTH] = 0;
+        g->f[unit].elements[ELEM_WATER] = 0;
+    }
+}
+
+static void start_solo_game(Game *g)
+{
+    reset_match(g);
+    g->my_index = 0;
+    g->team_size = g->team_size_choice;
+    g->solo_mode = 1;
+    srand((unsigned)time(NULL) ^ SDL_GetTicks());
+    prepare_ai_team(g);
+    g->menu_status[0] = 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1451,7 +1577,7 @@ static void try_move(Game *g, int tx, int ty)
     if (d == 0 || d > me->pm) return;
     me->x = tx; me->y = ty; me->pm -= d;
     set_anim(g, g->turn, ANIM_MOVE);
-    play_sound(SFX_MOVE);
+    play_sound(g, SFX_MOVE);
     char msg[64];
     snprintf(msg, sizeof msg, "MOVE %d %d %d", g->turn, tx, ty);
     net_send(g, msg);
@@ -1478,7 +1604,7 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
     int range = s->range + (pf ? pf->range_bonus : 0);
     f->pa -= s->pa;
     f->cd_left[idx] = s->cooldown;
-    play_sound(SFX_CAST);
+    play_sound(g, SFX_CAST);
     start_vfx(g, f->x, f->y);
 
     switch (s->kind) {
@@ -1488,7 +1614,7 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
                 && o && o->team != f->team
                 && los_clear(g, f->x, f->y, tx, ty)) {
                 start_vfx(g, tx, ty);
-                play_sound(SFX_HIT);
+                play_sound(g, SFX_HIT);
                 /* degats deterministes + panoplie (dmg% + puissance)     */
                 int dmg = ((s->power * (100 + f->atk_mod)) / 100)
                           * (100 + (pf ? pf->dmg_pct : 0)) / 100
@@ -1497,16 +1623,16 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
                 /* renvoi de dommages (Prespic) : l'attaquant subit     */
                 if (po && po->reflect > 0) {
                     f->hp -= po->reflect;
-                    play_sound(SFX_HIT);
+                    play_sound(g, SFX_HIT);
                     if (f->hp <= 0) {
                         f->hp = 0; f->alive = 0;
-                        play_sound(SFX_DEATH);
+                        play_sound(g, SFX_DEATH);
                         check_winner(g);
                     }
                 }
                 if (o->hp <= 0) {
                     o->hp = 0; o->alive = 0;
-                    play_sound(SFX_DEATH);
+                    play_sound(g, SFX_DEATH);
                     check_winner(g);
                 }
             }
@@ -1517,8 +1643,11 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
                 && (range == 0 || manhattan(f->x, f->y, tx, ty) <= range)) {
                 start_vfx(g, tx, ty);
                 int heal = (s->power * (100 + (pf ? pf->heal_pct : 0))) / 100;
+                int previous_hp = o->hp;
                 o->hp += heal;
                 if (o->hp > o->hp_max) o->hp = o->hp_max;
+                if (o->hp > previous_hp)
+                    try_play_social_cue(g, SFX_ENCOURAGE, 65);
             }
             break;
         case SK_BUFF:
@@ -1530,23 +1659,23 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
             if (s->power > 0 && o && o->team != f->team
                 && los_clear(g, f->x, f->y, tx, ty)) {
                 start_vfx(g, tx, ty);
-                play_sound(SFX_HIT);
+                play_sound(g, SFX_HIT);
                 int dmg = s->power + (pf ? pf->puissance : 0);
                 o->hp -= dmg;
                 if (po && po->reflect > 0) {
                     f->hp -= po->reflect;
-                    play_sound(SFX_HIT);
+                    play_sound(g, SFX_HIT);
                 }
                 if (o->hp > 0)
                     apply_air_penalty(g, target_idx, 10, 1);
                 if (o->hp <= 0) {
                     o->hp = 0; o->alive = 0;
-                    play_sound(SFX_DEATH);
+                    play_sound(g, SFX_DEATH);
                     check_winner(g);
                 }
                 if (f->hp <= 0) {
                     f->hp = 0; f->alive = 0;
-                    play_sound(SFX_DEATH);
+                    play_sound(g, SFX_DEATH);
                     check_winner(g);
                 }
             } else if (s->power > 0) {
@@ -1608,6 +1737,173 @@ static void end_turn(Game *g, int from_net)
     }
 }
 
+static int ai_position_score(Game *g, int x, int y, int range)
+{
+    int enemy, best = 2147483647;
+    for (enemy = 0; enemy < 2 * g->team_size; enemy++) {
+        Fighter *target = &g->f[enemy];
+        int distance, score;
+        if (!target->alive || target->team == 1) continue;
+        distance = manhattan(x, y, target->x, target->y);
+        score = abs(distance - range) * 10 + distance;
+        if (distance <= range && los_clear(g, x, y, target->x, target->y))
+            score -= 100;
+        if (score < best) best = score;
+    }
+    return best;
+}
+
+static void ai_take_turn_action(Game *g)
+{
+    Fighter *me = &g->f[g->turn];
+    Panoplie *pano = me->pano >= 0 && me->pano < N_PANOPLIES
+                    ? &PANOPLIES[me->pano] : NULL;
+    int best_spell = -1, best_target = -1, best_score = -1;
+    int spell, target;
+
+    if (g->state != ST_BATTLE || me->team != 1) return;
+
+    if (me->hp * 100 <= me->hp_max * 45) {
+        int best_heal = 0, heal_spell = -1, heal_target = -1;
+        for (spell = 0; spell < N_EQUIPPED; spell++) {
+            Skill *skill = &me->spells[spell];
+            if (skill->kind != SK_HEAL || skill->pa > me->pa
+                || me->cd_left[spell] > 0)
+                continue;
+            for (target = 0; target < 2 * g->team_size; target++) {
+                Fighter *ally = &g->f[target];
+                int range = skill->range + (pano ? pano->range_bonus : 0);
+                int heal, missing, useful;
+                if (!ally->alive || ally->team != 1
+                    || (range > 0
+                        && manhattan(me->x, me->y, ally->x, ally->y) > range))
+                    continue;
+                heal = skill->power * (100 + (pano ? pano->heal_pct : 0)) / 100;
+                missing = ally->hp_max - ally->hp;
+                useful = heal < missing ? heal : missing;
+                if (useful > best_heal) {
+                    best_heal = useful;
+                    heal_spell = spell;
+                    heal_target = target;
+                }
+            }
+        }
+        if (heal_spell >= 0) {
+            Fighter *ally = &g->f[heal_target];
+            cast_skill(g, g->turn, heal_spell, ally->x, ally->y);
+            return;
+        }
+    }
+
+    for (spell = 0; spell < N_EQUIPPED; spell++) {
+        Skill *skill = &me->spells[spell];
+        int range = skill->range + (pano ? pano->range_bonus : 0);
+        if ((skill->kind != SK_ATK
+             && !(skill->kind == SK_SPECIAL && skill->power > 0))
+            || skill->pa > me->pa || me->cd_left[spell] > 0)
+            continue;
+        for (target = 0; target < 2 * g->team_size; target++) {
+            Fighter *enemy = &g->f[target];
+            int distance, damage, score;
+            if (!enemy->alive || enemy->team == 1) continue;
+            distance = manhattan(me->x, me->y, enemy->x, enemy->y);
+            if (distance > range
+                || !los_clear(g, me->x, me->y, enemy->x, enemy->y))
+                continue;
+            if (skill->kind == SK_ATK) {
+                damage = skill->power * (100 + me->atk_mod) / 100;
+                damage = damage * (100 + (pano ? pano->dmg_pct : 0)) / 100
+                       + (pano ? pano->puissance : 0);
+            } else {
+                damage = skill->power + (pano ? pano->puissance : 0);
+            }
+            score = damage * 10 + (damage >= enemy->hp ? 1000 : 0)
+                  - skill->pa;
+            if (score > best_score) {
+                best_score = score;
+                best_spell = spell;
+                best_target = target;
+            }
+        }
+    }
+    if (best_spell >= 0) {
+        Fighter *enemy = &g->f[best_target];
+        cast_skill(g, g->turn, best_spell, enemy->x, enemy->y);
+        return;
+    }
+
+    if (me->atk_mod < 25) {
+        for (spell = 0; spell < N_EQUIPPED; spell++) {
+            Skill *skill = &me->spells[spell];
+            if (skill->kind == SK_BUFF && skill->pa <= me->pa
+                && me->cd_left[spell] == 0) {
+                cast_skill(g, g->turn, spell, me->x, me->y);
+                return;
+            }
+        }
+    }
+
+    if (me->pm > 0) {
+        int range = 1, current_score, best_score, best_x = me->x;
+        int best_y = me->y, x, y;
+        for (spell = 0; spell < N_EQUIPPED; spell++) {
+            Skill *skill = &me->spells[spell];
+            if ((skill->kind == SK_ATK
+                 || (skill->kind == SK_SPECIAL && skill->power > 0))
+                && skill->pa <= me->pa && me->cd_left[spell] == 0
+                && skill->range + (pano ? pano->range_bonus : 0) > range)
+                range = skill->range + (pano ? pano->range_bonus : 0);
+        }
+        current_score = ai_position_score(g, me->x, me->y, range);
+        best_score = current_score;
+        for (y = 0; y < g->map_height; y++) {
+            for (x = 0; x < g->map_width; x++) {
+                int distance, score;
+                if (g->cell[y][x] != CELL_GROUND || fighter_at(g, x, y) >= 0)
+                    continue;
+                distance = manhattan(me->x, me->y, x, y);
+                if (distance == 0 || distance > me->pm) continue;
+                score = ai_position_score(g, x, y, range);
+                if (score < best_score) {
+                    best_score = score;
+                    best_x = x;
+                    best_y = y;
+                }
+            }
+        }
+        if (best_x != me->x || best_y != me->y) {
+            int distance = manhattan(me->x, me->y, best_x, best_y);
+            me->x = best_x;
+            me->y = best_y;
+            me->pm -= distance;
+            set_anim(g, g->turn, ANIM_MOVE);
+            play_sound(g, SFX_MOVE);
+            return;
+        }
+    }
+
+    end_turn(g, 0);
+}
+
+static void ai_update(Game *g)
+{
+    Uint32 now;
+    if (!g->solo_mode || g->state != ST_BATTLE
+        || g->f[g->turn].team != 1)
+        return;
+    now = SDL_GetTicks();
+    if (g->ai_next_action_ms == 0) {
+        g->ai_next_action_ms = now + 600;
+        return;
+    }
+    if (now < g->ai_next_action_ms) return;
+    ai_take_turn_action(g);
+    if (g->state == ST_BATTLE && g->f[g->turn].team == 1)
+        g->ai_next_action_ms = SDL_GetTicks() + 600;
+    else
+        g->ai_next_action_ms = 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* rendu                                                               */
 /* ------------------------------------------------------------------ */
@@ -1627,99 +1923,16 @@ static SDL_Texture *load_asset(SDL_Renderer *r, const char *path)
     return t;
 }
 
-static int ui_pixel_is_background(Uint32 pixel, const SDL_PixelFormat *format)
-{
-    Uint8 red, green, blue, alpha;
-    SDL_GetRGBA(pixel, format, &red, &green, &blue, &alpha);
-    return alpha != 0 && red >= 245 && green >= 245 && blue >= 245;
-}
-
-static int ui_make_background_transparent(SDL_Surface *surface)
-{
-    int *queue, head = 0, tail = 0, x, y;
-    int width = surface->w, height = surface->h;
-    int pitch_pixels = surface->pitch / 4;
-    Uint32 *pixels;
-    Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);
-    size_t pixel_count = (size_t)width * (size_t)height;
-
-    queue = (int *)malloc(pixel_count * sizeof *queue);
-    if (!queue) return 0;
-    if (SDL_LockSurface(surface) < 0) {
-        fprintf(stderr, "Verrouillage de l'atlas UI impossible: %s\n",
-                SDL_GetError());
-        free(queue);
-        return 0;
-    }
-    pixels = (Uint32 *)surface->pixels;
-    for (x = 0; x < width; x++) {
-        int top = x;
-        int bottom = (height - 1) * pitch_pixels + x;
-        if (ui_pixel_is_background(pixels[top], surface->format)) {
-            pixels[top] = transparent;
-            queue[tail++] = top;
-        }
-        if (ui_pixel_is_background(pixels[bottom], surface->format)) {
-            pixels[bottom] = transparent;
-            queue[tail++] = bottom;
-        }
-    }
-    for (y = 1; y < height - 1; y++) {
-        int left = y * pitch_pixels;
-        int right = left + width - 1;
-        if (ui_pixel_is_background(pixels[left], surface->format)) {
-            pixels[left] = transparent;
-            queue[tail++] = left;
-        }
-        if (ui_pixel_is_background(pixels[right], surface->format)) {
-            pixels[right] = transparent;
-            queue[tail++] = right;
-        }
-    }
-    while (head < tail) {
-        int index = queue[head++];
-        int px = index % pitch_pixels;
-        int py = index / pitch_pixels;
-        int neighbors[4];
-        int count = 0, n;
-        if (px > 0) neighbors[count++] = index - 1;
-        if (px + 1 < width) neighbors[count++] = index + 1;
-        if (py > 0) neighbors[count++] = index - pitch_pixels;
-        if (py + 1 < height) neighbors[count++] = index + pitch_pixels;
-        for (n = 0; n < count; n++) {
-            int next = neighbors[n];
-            if (!ui_pixel_is_background(pixels[next], surface->format))
-                continue;
-            pixels[next] = transparent;
-            queue[tail++] = next;
-        }
-    }
-    SDL_UnlockSurface(surface);
-    free(queue);
-    return 1;
-}
-
 static void load_ui_atlas(SDL_Renderer *renderer)
 {
-    SDL_Surface *loaded = IMG_Load("assets/UI/OIG4.webp");
-    SDL_Surface *surface;
-    if (!loaded) {
-        fprintf(stderr, "Planche UI indisponible (assets/UI/OIG4.webp): %s\n",
+    SDL_Surface *surface = IMG_Load("assets/UI/UI.png");
+    if (!surface) {
+        fprintf(stderr, "Planche UI indisponible (assets/UI/UI.png): %s\n",
                 IMG_GetError());
         return;
     }
-    surface = SDL_ConvertSurfaceFormat(loaded, SDL_PIXELFORMAT_RGBA32, 0);
-    SDL_FreeSurface(loaded);
-    if (!surface) {
-        fprintf(stderr, "Conversion de l'atlas UI impossible: %s\n",
-                SDL_GetError());
-        return;
-    }
-    if (!ui_make_background_transparent(surface)) {
-        fprintf(stderr, "Transparence de l'atlas UI impossible: memoire insuffisante.\n");
-        SDL_FreeSurface(surface);
-        return;
-    }
+    g_ui_atlas_width = surface->w;
+    g_ui_atlas_height = surface->h;
     g_ui_atlas = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
     if (!g_ui_atlas) {
@@ -1733,14 +1946,247 @@ static void load_ui_atlas(SDL_Renderer *renderer)
 static void draw_ui_sprite(SDL_Renderer *renderer, SDL_Rect source,
                            SDL_Rect destination)
 {
-    if (g_ui_atlas)
+    if (g_ui_atlas && source.x >= 0 && source.y >= 0
+            && source.w > 0 && source.h > 0
+            && source.x <= g_ui_atlas_width - source.w
+            && source.y <= g_ui_atlas_height - source.h)
         SDL_RenderCopy(renderer, g_ui_atlas, &source, &destination);
 }
 
-static void play_sound(SoundEffect sound)
+static void draw_ui_panel(SDL_Renderer *renderer, SDL_Rect destination)
 {
-    if (g_audio_ready && sound >= 0 && sound < SFX_COUNT && g_sounds[sound])
+    int source_x[3] = {UI_PANEL_X, UI_PANEL_X + UI_PANEL_BORDER,
+                       UI_PANEL_X + UI_PANEL_W - UI_PANEL_BORDER};
+    int source_y[3] = {UI_PANEL_Y, UI_PANEL_Y + UI_PANEL_BORDER,
+                       UI_PANEL_Y + UI_PANEL_H - UI_PANEL_BORDER};
+    int source_w[3] = {UI_PANEL_BORDER, UI_PANEL_W - 2 * UI_PANEL_BORDER,
+                       UI_PANEL_BORDER};
+    int source_h[3] = {UI_PANEL_BORDER, UI_PANEL_H - 2 * UI_PANEL_BORDER,
+                       UI_PANEL_BORDER};
+    int dest_w[3] = {UI_PANEL_BORDER,
+                     destination.w - 2 * UI_PANEL_BORDER,
+                     UI_PANEL_BORDER};
+    int dest_h[3] = {UI_PANEL_BORDER,
+                     destination.h - 2 * UI_PANEL_BORDER,
+                     UI_PANEL_BORDER};
+    int x, y;
+
+    if (destination.w < 2 * UI_PANEL_BORDER
+            || destination.h < 2 * UI_PANEL_BORDER)
+        return;
+    for (y = 0; y < 3; y++) {
+        for (x = 0; x < 3; x++) {
+            SDL_Rect source = {source_x[x], source_y[y],
+                               source_w[x], source_h[y]};
+            SDL_Rect target = {destination.x + (x == 0 ? 0 :
+                                  x == 1 ? UI_PANEL_BORDER :
+                                  destination.w - UI_PANEL_BORDER),
+                               destination.y + (y == 0 ? 0 :
+                                  y == 1 ? UI_PANEL_BORDER :
+                                  destination.h - UI_PANEL_BORDER),
+                               dest_w[x], dest_h[y]};
+            draw_ui_sprite(renderer, source, target);
+        }
+    }
+}
+
+static void draw_ui_banner(SDL_Renderer *renderer, SDL_Rect destination)
+{
+    draw_ui_panel(renderer, destination);
+}
+
+static void apply_audio_settings(const Game *g)
+{
+    if (!g_audio_ready) return;
+    Mix_VolumeMusic(g->music_volume * MIX_MAX_VOLUME / 100);
+    Mix_Volume(-1, g->sfx_volume * MIX_MAX_VOLUME / 100);
+    set_social_sound_volume();
+}
+
+static void play_sound(Game *g, SoundEffect sound)
+{
+    static const char *SUBTITLES[SFX_COUNT] = {
+        "Menu", "Annuler", "Sort lance", "Impact", "Combattant KO",
+        "Deplacement", "Victoire", "Fin du combat",
+        "Pause de recentrage", "Encouragement"
+    };
+    if (sound < 0 || sound >= SFX_COUNT) return;
+    if (g->sfx_volume == 0 && g->subtitles_when_muted) {
+        snprintf(g->audio_subtitle, sizeof g->audio_subtitle, "%s",
+                 SUBTITLES[sound]);
+        g->audio_subtitle_until = SDL_GetTicks() + 1600;
+    }
+    if (g_audio_ready && g->sfx_volume > 0 && g_sounds[sound])
         Mix_PlayChannel(-1, g_sounds[sound], 0);
+}
+
+static void set_social_sound_volume(void)
+{
+    if (!g_sounds[SFX_PACIFY] || !g_sounds[SFX_ENCOURAGE])
+        return;
+    Mix_VolumeChunk(g_sounds[SFX_PACIFY], MIX_MAX_VOLUME * 32 / 100);
+    Mix_VolumeChunk(g_sounds[SFX_ENCOURAGE], MIX_MAX_VOLUME * 48 / 100);
+}
+
+static void play_social_cue(Game *g, SoundEffect sound)
+{
+    Uint32 now = SDL_GetTicks();
+    Uint32 *last_played = sound == SFX_PACIFY
+                        ? &g->social_last_pacify_ms
+                        : &g->social_last_encourage_ms;
+    Uint32 cooldown = sound == SFX_PACIFY ? 3500 : 1800;
+    if (*last_played != 0 && now - *last_played < cooldown)
+        return;
+    *last_played = now ? now : 1;
+    play_sound(g, sound);
+}
+
+static void try_play_social_cue(Game *g, SoundEffect sound,
+                                unsigned probability_percent)
+{
+    if (probability_percent > 100)
+        probability_percent = 100;
+    if ((unsigned)(rand() % 100) < probability_percent)
+        play_social_cue(g, sound);
+}
+
+static void normalize_social_text(const char *source, char *target,
+                                 size_t target_size)
+{
+    size_t out = 0;
+    const unsigned char *p = (const unsigned char *)source;
+    while (*p && out + 1 < target_size) {
+        unsigned char c = *p++;
+        if (c < 0x80) {
+            if (isalnum(c))
+                target[out++] = (char)tolower(c);
+            else if (out == 0 || target[out - 1] != ' ')
+                target[out++] = ' ';
+        } else if (c == 0xc3 && *p) {
+            unsigned char accent = *p++;
+            char folded = 0;
+            if (accent == 0xa0 || accent == 0xa2 || accent == 0xa4)
+                folded = 'a';
+            else if (accent == 0xa7)
+                folded = 'c';
+            else if (accent == 0xa8 || accent == 0xa9 || accent == 0xaa
+                     || accent == 0xab)
+                folded = 'e';
+            else if (accent == 0xae || accent == 0xaf)
+                folded = 'i';
+            else if (accent == 0xb1)
+                folded = 'n';
+            else if (accent == 0xb2 || accent == 0xb4 || accent == 0xb6)
+                folded = 'o';
+            else if (accent == 0xb9 || accent == 0xba || accent == 0xbc
+                     || accent == 0xbd || accent == 0xbe)
+                folded = 'u';
+            else if (accent == 0xbf)
+                folded = 'y';
+            if (folded)
+                target[out++] = folded;
+            else if (out == 0 || target[out - 1] != ' ')
+                target[out++] = ' ';
+        } else if (out == 0 || target[out - 1] != ' ') {
+            target[out++] = ' ';
+        }
+    }
+    while (out > 0 && target[out - 1] == ' ')
+        out--;
+    target[out] = '\0';
+}
+
+static int social_text_has_phrase(const char *text, const char *phrase)
+{
+    char padded_text[520];
+    char padded_phrase[96];
+    size_t text_length = strlen(text);
+    size_t phrase_length = strlen(phrase);
+    if (text_length + 3 > sizeof padded_text
+            || phrase_length + 3 > sizeof padded_phrase)
+        return 0;
+    padded_text[0] = ' ';
+    memcpy(padded_text + 1, text, text_length);
+    padded_text[text_length + 1] = ' ';
+    padded_text[text_length + 2] = '\0';
+    padded_phrase[0] = ' ';
+    memcpy(padded_phrase + 1, phrase, phrase_length);
+    padded_phrase[phrase_length + 1] = ' ';
+    padded_phrase[phrase_length + 2] = '\0';
+    return strstr(padded_text, padded_phrase) != NULL;
+}
+
+static void process_social_message(Game *g, int team, const char *message)
+{
+    static const char *TOXIC_PHRASES[] = {
+        "idiot", "stupid", "dumb", "noob", "loser", "trash",
+        "moron", "you suck", "piece of shit", "shut up", "stfu",
+        "useless", "kill yourself", "hate you", "connard", "connasse",
+        "debile", "nul", "nulle", "ta gueule", "ferme la",
+        "va te faire voir", "encule", "va mourir"
+    };
+    static const char *SUPPORTIVE_PHRASES[] = {
+        "gg", "wp", "well played", "good game", "nice play", "thanks",
+        "thank you", "bravo", "merci", "bien joue", "courage",
+        "good luck", "you got this", "respect", "sorry", "pardon"
+    };
+    char normalized[512];
+    Uint32 now;
+    size_t i;
+    int toxic = 0, supportive = 0;
+    if (!message || team < 0 || team >= 2)
+        return;
+    normalize_social_text(message, normalized, sizeof normalized);
+    for (i = 0; i < sizeof TOXIC_PHRASES / sizeof TOXIC_PHRASES[0]; i++)
+        if (social_text_has_phrase(normalized, TOXIC_PHRASES[i])) {
+            toxic = 1;
+            break;
+        }
+    if (!toxic)
+        for (i = 0; i < sizeof SUPPORTIVE_PHRASES
+                       / sizeof SUPPORTIVE_PHRASES[0]; i++)
+            if (social_text_has_phrase(normalized, SUPPORTIVE_PHRASES[i])) {
+                supportive = 1;
+                break;
+            }
+    if (toxic) {
+        try_play_social_cue(g, SFX_PACIFY, 70);
+        return;
+    }
+    if (supportive) {
+        try_play_social_cue(g, SFX_ENCOURAGE, 65);
+        return;
+    }
+
+    now = SDL_GetTicks();
+    if (g->social_chat_burst[team] == 0
+            || now - g->social_last_chat_ms[team] > 6000)
+        g->social_chat_burst[team] = 1;
+    else
+        g->social_chat_burst[team]++;
+    g->social_last_chat_ms[team] = now;
+    if (g->social_chat_burst[team] >= 4) {
+        g->social_chat_burst[team] = 0;
+        try_play_social_cue(g, SFX_PACIFY, 45);
+    }
+}
+
+static void process_social_emote(Game *g, int team)
+{
+    Uint32 now;
+    if (team < 0 || team >= 2)
+        return;
+    now = SDL_GetTicks();
+    if (g->social_emote_burst[team] == 0
+            || now - g->social_last_emote_ms[team] > 6000)
+        g->social_emote_burst[team] = 1;
+    else
+        g->social_emote_burst[team]++;
+    g->social_last_emote_ms[team] = now;
+    if (g->social_emote_burst[team] >= 4) {
+        g->social_emote_burst[team] = 0;
+        try_play_social_cue(g, SFX_PACIFY, 45);
+    }
 }
 
 static void load_audio(void)
@@ -1755,7 +2201,6 @@ static void load_audio(void)
         return;
     }
     g_audio_ready = 1;
-    Mix_VolumeMusic(MIX_MAX_VOLUME / 3);
     g_menu_music = Mix_LoadMUS("assets/BGM/Menu/ES_Dragon's Honor - Yi Nantiro.mp3");
     if (!g_menu_music)
         fprintf(stderr, "SDL_mixer: musique menu indisponible: %s\n",
@@ -1772,6 +2217,7 @@ static void load_audio(void)
             fprintf(stderr, "SDL_mixer: effet sonore indisponible (%s): %s\n",
                     SOUND_PATHS[i], Mix_GetError());
     }
+    set_social_sound_volume();
 }
 
 static void play_music_for_state(GameState state)
@@ -1797,8 +2243,8 @@ static void load_visual_effects(SDL_Renderer *renderer)
 {
     int i;
     char path[160];
-    g_character_cut_sheet =
-        load_asset(renderer, "assets/character/character_cut_sheet.png");
+    g_characters_sheet =
+        load_asset(renderer, "assets/character/Characters.png");
     g_spell_icons = load_asset(renderer, "assets/character/spells_icon/spell4.webp");
     g_emote_sheet = load_asset(renderer, "assets/bubble_emotes.png");
     for (i = 0; i < VFX_FRAME_COUNT; i++) {
@@ -1837,21 +2283,41 @@ static SDL_Rect emote_option_rect(int option)
     return r;
 }
 
-static void draw_character_sprite(SDL_Renderer *renderer, int index,
-                                  SDL_Rect destination, int tint_opponent)
+static void draw_character_sprite(SDL_Renderer *renderer, int row, int sequence,
+                                  int frame, SDL_Rect destination,
+                                  int tint_opponent)
 {
     SDL_Rect source;
-    if (!g_character_cut_sheet || index < 0 || index >= 30) return;
-    source.x = (index % CUT_SHEET_COLS) * CUT_SHEET_CELL;
-    source.y = (index / CUT_SHEET_COLS) * CUT_SHEET_CELL;
-    source.w = CUT_SHEET_CELL;
-    source.h = CUT_SHEET_CELL;
+    SDL_Rect target = destination;
+    int frame_index = frame % CHARACTER_SEQUENCE_FRAME_COUNT;
+    if (!g_characters_sheet || row < 0 || row >= CHARACTER_ROW_COUNT
+        || sequence < 0 || sequence >= CHARACTER_SEQUENCE_COUNT)
+        return;
+    source.x = CHARACTER_FRAME_X[sequence][frame_index];
+    source.y = row * CHARACTER_FRAME_H;
+    source.w = CHARACTER_FRAME_WIDTH[sequence];
+    source.h = CHARACTER_FRAME_H;
+    target.w = destination.w * source.w / CHARACTER_FRAME_W;
+    target.x += (destination.w - target.w) / 2;
     if (tint_opponent)
-        SDL_SetTextureColorMod(g_character_cut_sheet, 255, 190, 190);
+        SDL_SetTextureColorMod(g_characters_sheet,
+                               255,
+                               tint_opponent == 2 ? 220 : 190,
+                               tint_opponent == 2 ? 90 : 190);
     else
-        SDL_SetTextureColorMod(g_character_cut_sheet, 255, 255, 255);
-    SDL_RenderCopy(renderer, g_character_cut_sheet, &source, &destination);
-    SDL_SetTextureColorMod(g_character_cut_sheet, 255, 255, 255);
+        SDL_SetTextureColorMod(g_characters_sheet, 255, 255, 255);
+    SDL_RenderCopy(renderer, g_characters_sheet, &source, &target);
+    SDL_SetTextureColorMod(g_characters_sheet, 255, 255, 255);
+}
+
+static int character_sequence_for_anim(AnimState anim)
+{
+    switch (anim) {
+        case ANIM_MOVE: return 1;
+        case ANIM_ATTACK: return 2;
+        case ANIM_IDLE:
+        default: return 0;
+    }
 }
 
 static void draw_emote(Game *g, SDL_Renderer *renderer)
@@ -1927,6 +2393,7 @@ static void draw_ingame_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
         panel = surrender_dialog();
         SDL_SetRenderDrawColor(renderer, 28, 22, 22, 255);
         SDL_RenderFillRect(renderer, &panel);
+        draw_ui_panel(renderer, panel);
         SDL_SetRenderDrawColor(renderer, 215, 80, 70, 255);
         SDL_RenderDrawRect(renderer, &panel);
         draw_text(renderer, font, "Surrender this match?", panel.x + 78,
@@ -1950,6 +2417,7 @@ static void draw_ingame_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
     panel = ingame_menu_panel();
     SDL_SetRenderDrawColor(renderer, 24, 23, 28, 255);
     SDL_RenderFillRect(renderer, &panel);
+    draw_ui_panel(renderer, panel);
     SDL_SetRenderDrawColor(renderer, 200, 170, 115, 255);
     SDL_RenderDrawRect(renderer, &panel);
     draw_text(renderer, font, "GAME MENU", panel.x + 104, panel.y + 16, white);
@@ -1976,7 +2444,15 @@ static void draw_vfx(Game *g, SDL_Renderer *renderer)
     SDL_Rect dst;
     if (!g->vfx_active) return;
     age = SDL_GetTicks() - g->vfx_started;
-    frame = (int)(age / VFX_FRAME_MS);
+    if (g->reduce_flashing) {
+        if (age >= VFX_REDUCED_DURATION_MS) {
+            g->vfx_active = 0;
+            return;
+        }
+        frame = 15;
+    } else {
+        frame = (int)(age / VFX_FRAME_MS);
+    }
     if (frame >= VFX_FRAME_COUNT) {
         g->vfx_active = 0;
         return;
@@ -2045,9 +2521,12 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
     sy = map_origin_y(g) + f->y * TILE;
     SDL_Rect d = {sx, sy, TILE, TILE};
 
-    if (g_character_cut_sheet) {
-        draw_character_sprite(r, CLASS_CUT_INDEX[f->cls], d,
-                              f->team != g->my_index);
+    if (g_characters_sheet) {
+        draw_character_sprite(r, CLASS_CHARACTER_ROW[f->cls],
+                              character_sequence_for_anim(f->anim),
+                              f->anim_frame, d,
+                              f->team == g->my_index ? 0
+                              : g->colorblind_mode ? 2 : 1);
     } else {
         SDL_SetRenderDrawColor(r, f->team == g->my_index ? 40 : 200,
                                f->team == g->my_index ? 120 : 40,
@@ -2056,10 +2535,16 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
     }
     /* marqueur du joueur actif */
     if (g->state == ST_BATTLE && g->turn == idx) {
-        if (f->team == g->my_index)
+        if (g->colorblind_mode) {
+            if (f->team == g->my_index)
+                SDL_SetRenderDrawColor(r, 45, 155, 255, 255);
+            else
+                SDL_SetRenderDrawColor(r, 255, 205, 45, 255);
+        } else if (f->team == g->my_index) {
             SDL_SetRenderDrawColor(r, 40, 255, 80, 255);
-        else
+        } else {
             SDL_SetRenderDrawColor(r, 255, 55, 55, 255);
+        }
         SDL_RenderDrawRect(r, &d);
         SDL_Rect active = {d.x + 2, d.y + 2, d.w - 4, d.h - 4};
         SDL_RenderDrawRect(r, &active);
@@ -2100,8 +2585,21 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
 /* rectangles cliquables (partages rendu / clics)                      */
 static SDL_Rect menu_btn_host(void)  { SDL_Rect r = {20, 70, 320, 40};  return r; }
 static SDL_Rect menu_btn_join(void)  { SDL_Rect r = {20, 120, 320, 40}; return r; }
+static SDL_Rect menu_btn_solo(void)  { SDL_Rect r = {350, 170, 200, 40}; return r; }
 static SDL_Rect menu_btn_ipfield(void){SDL_Rect r = {350, 120, 200, 40};return r; }
 static SDL_Rect menu_size_btn(int i) { SDL_Rect r = {350 + i*66, 70, 60, 40}; return r; }
+static SDL_Rect menu_settings_btn(void) { SDL_Rect r = {550, 70, 112, 40}; return r; }
+static SDL_Rect settings_panel(void) { SDL_Rect r = {72, 64, 528, 512}; return r; }
+static SDL_Rect settings_row(int row)
+{ SDL_Rect r = {96, 144 + row * 52, 480, 42}; return r; }
+static SDL_Rect settings_minus_btn(int row)
+{ SDL_Rect r = {454, 149 + row * 52, 36, 32}; return r; }
+static SDL_Rect settings_plus_btn(int row)
+{ SDL_Rect r = {500, 149 + row * 52, 36, 32}; return r; }
+static SDL_Rect settings_toggle_btn(int row)
+{ SDL_Rect r = {444, 149 + row * 52, 120, 32}; return r; }
+static SDL_Rect settings_back_btn(void)
+{ SDL_Rect r = {264, 510, 144, 38}; return r; }
 static SDL_Rect favorite_btn(int i)  { SDL_Rect r = {20 + i*126, 445, 118, 34}; return r; }
 /* clavier virtuel pour l'IP (12 touches : 123456 / 7890.⌫ / OK)        */
 static SDL_Rect menu_kbd(int i)     { SDL_Rect r = {20 + (i%6)*55, 180 + (i/6)*45, 50, 40}; return r; }
@@ -2126,6 +2624,93 @@ static SDL_Rect surrender_dialog_button(int confirm)
 static int pt_in(SDL_Rect r, int x, int y)
 { return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; }
 
+static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    static const char *labels[] = {
+        "Volume de la musique",
+        "Volume des effets sonores",
+        "Taille de fenetre",
+        "Mode daltonien",
+        "Reduire les flashs (epilepsie)",
+        "Sous-titres si effets muets"
+    };
+    SDL_Rect panel = settings_panel();
+    SDL_Color white = {245, 235, 215, 255};
+    SDL_Color muted = {175, 165, 150, 255};
+    int i, mx, my;
+    SDL_GetMouseState(&mx, &my);
+
+    SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
+    SDL_RenderFillRect(r, &panel);
+    draw_ui_panel(r, panel);
+    draw_ui_banner(r, (SDL_Rect){88, 75, 496, 52});
+    draw_text(r, font, "PARAMETRES", 270, 91, white);
+    for (i = 0; i < 6; i++) {
+        SDL_Rect row = settings_row(i);
+        SDL_SetRenderDrawColor(r, 31, 27, 28, 240);
+        SDL_RenderFillRect(r, &row);
+        draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, row);
+        draw_text(r, font, labels[i], row.x + 14, row.y + 12, white);
+        if (i < 2) {
+            SDL_Rect minus = settings_minus_btn(i);
+            SDL_Rect plus = settings_plus_btn(i);
+            int volume = i == 0 ? g->music_volume : g->sfx_volume;
+            draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, minus);
+            draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, plus);
+            draw_text(r, font, "-", minus.x + 14, minus.y + 7, white);
+            draw_text(r, font, "+", plus.x + 13, plus.y + 7, white);
+            {
+                char value[8];
+                snprintf(value, sizeof value, "%d%%", volume);
+                draw_text(r, font, value, 540, row.y + 12, white);
+            }
+        } else if (i == 2) {
+            draw_text(r, font, "672 x 640 (fixe)", 448, row.y + 12, white);
+        } else {
+            SDL_Rect toggle = settings_toggle_btn(i);
+            int enabled = i == 3 ? g->colorblind_mode
+                        : i == 4 ? g->reduce_flashing
+                                 : g->subtitles_when_muted;
+            SDL_SetRenderDrawColor(r, enabled ? 57 : 65,
+                                   enabled ? 105 : 53,
+                                   enabled ? 70 : 49, 255);
+            SDL_RenderFillRect(r, &toggle);
+            draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, toggle);
+            draw_text(r, font, enabled ? "OUI" : "NON",
+                      toggle.x + 12, toggle.y + 9, white);
+        }
+        if (pt_in(row, mx, my))
+            SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
+        else
+            SDL_SetRenderDrawColor(r, 115, 91, 66, 255);
+        SDL_RenderDrawRect(r, &row);
+    }
+    {
+        SDL_Rect back = settings_back_btn();
+        SDL_SetRenderDrawColor(r, 64, 48, 38, 255);
+        SDL_RenderFillRect(r, &back);
+        draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, back);
+        SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
+        SDL_RenderDrawRect(r, &back);
+        draw_text(r, font, "RETOUR", back.x + 42, back.y + 11, white);
+    }
+    draw_text(r, font, "ECHAP pour revenir au menu", 236, 558, muted);
+}
+
+static void draw_audio_subtitle(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    SDL_Rect banner;
+    if (!g->audio_subtitle[0]
+            || (Sint32)(g->audio_subtitle_until - SDL_GetTicks()) <= 0)
+        return;
+    banner = (SDL_Rect){WIN_W / 2 - 110, 6, 220, 38};
+    SDL_SetRenderDrawColor(r, 20, 17, 18, 240);
+    SDL_RenderFillRect(r, &banner);
+    draw_ui_panel(r, banner);
+    draw_text(r, font, g->audio_subtitle, banner.x + 20,
+              banner.y + 11, (SDL_Color){255, 240, 210, 255});
+}
+
 static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
 {
     Fighter *me = &g->f[g->turn];
@@ -2133,12 +2718,15 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
     SDL_Rect panel = {0, y0, WIN_W, 160};
     SDL_SetRenderDrawColor(r, 30, 30, 30, 255);
     SDL_RenderFillRect(r, &panel);
+    draw_ui_panel(r, (SDL_Rect){2, y0 + 2, WIN_W - 4, 156});
     char line[128];
     SDL_Color white = {255,255,255,255};
     snprintf(line, sizeof line, "T%d - Perso %d | PV: %d/%d PA: %d PM: %d INIT: %d",
              me->team + 1, g->turn % g->team_size + 1,
              me->hp, me->hp_max, me->pa, me->pm, me->initiative);
-    draw_text(r, font, line, 10, y0 + 6, white);
+    draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
+                   (SDL_Rect){8, y0 + 5, 24, 25});
+    draw_text(r, font, line, 38, y0 + 6, white);
     if (me->pano >= 0)
         draw_text(r, font, PANOPLIES[me->pano].name, 400, y0 + 6, white);
 
@@ -2152,6 +2740,7 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
         else
             SDL_SetRenderDrawColor(r, 55, 48, 42, 255);
         SDL_RenderFillRect(r, &b);
+        draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, b);
         SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
         SDL_RenderDrawRect(r, &b);
         if (g_spell_icons) {
@@ -2173,6 +2762,7 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
     if (my_turn) SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
     else         SDL_SetRenderDrawColor(r, 50, 50, 60, 255);
     SDL_RenderFillRect(r, &be);
+    draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, be);
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
     SDL_RenderDrawRect(r, &be);
     draw_text(r, font, my_turn ? "FIN DE TOUR" : "attendez...",
@@ -2228,7 +2818,9 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
                       (SDL_Color){200, 200, 200, 255});
     }
     if (!my_turn)
-        draw_text(r, font, "Tour de l'adversaire...", 500, y0 + 6, white);
+        draw_text(r, font, g->solo_mode ? "Tour de l'IA..."
+                                        : "Tour de l'adversaire...",
+                  500, y0 + 6, white);
 }
 
 
@@ -2242,17 +2834,36 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     int mx, my;
     SDL_GetMouseState(&mx, &my);
 
+    if (g->settings_open) {
+        draw_settings(r, font, g);
+        return;
+    }
+    SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
+    SDL_RenderClear(r);
+    draw_ui_panel(r, (SDL_Rect){8, 6, WIN_W - 16, 508});
+    draw_ui_banner(r, (SDL_Rect){14, 8, WIN_W - 28, 48});
     {
-        SDL_Rect frame = {UI_HEADER_X, UI_HEADER_Y,
-                          UI_HEADER_W, UI_HEADER_H};
-        SDL_Rect banner = {12, 10, 648, 42};
-        draw_ui_sprite(r, frame, banner);
-        draw_text(r, font, "DOFUS ARENA FANMADE - P2P", 26, 15, white);
-        draw_text(r, font, "Connexion directe UDP", 26, 32, grey);
-        draw_character_sprite(r, CLASS_CUT_INDEX[0],
+        draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
+                       (SDL_Rect){22, 15, 24, 25});
+        draw_text(r, font, "DOFUS ARENA FANMADE", 54, 13, white);
+        draw_text(r, font, "Solo contre l'IA ou duel en P2P", 54, 31, grey);
+        draw_character_sprite(r, CLASS_CHARACTER_ROW[0], 0, 0,
                               (SDL_Rect){548, 152, 60, 60}, 0);
-        draw_character_sprite(r, CLASS_CUT_INDEX[1],
+        draw_character_sprite(r, CLASS_CHARACTER_ROW[1], 0, 0,
                               (SDL_Rect){600, 152, 60, 60}, 1);
+    }
+    {
+        SDL_Rect settings = menu_settings_btn();
+        int hovered = pt_in(settings, mx, my);
+        SDL_SetRenderDrawColor(r, hovered ? 94 : 64,
+                               hovered ? 82 : 55,
+                               hovered ? 59 : 43, 255);
+        SDL_RenderFillRect(r, &settings);
+        draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, settings);
+        SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
+        SDL_RenderDrawRect(r, &settings);
+        draw_text(r, font, "OPTIONS", settings.x + 24,
+                  settings.y + 12, white);
     }
     draw_text(r, font, "Format :", 350, 48, grey);
     {
@@ -2318,6 +2929,20 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
               g->ip_editing ? (SDL_Color){255,220,80,255} : grey);
     draw_text(r, font, "UDP : 7777", 560, 132, white);
 
+    {
+        SDL_Rect solo = menu_btn_solo();
+        int hovered = pt_in(solo, mx, my);
+        int enabled = g->net.sock == SOCK_INVALID;
+        SDL_SetRenderDrawColor(r, enabled ? (hovered ? 80 : 60) : 42,
+                               enabled ? (hovered ? 125 : 95) : 42,
+                               enabled ? (hovered ? 75 : 55) : 42, 255);
+        SDL_RenderFillRect(r, &solo);
+        SDL_SetRenderDrawColor(r, 225, 215, 175, 255);
+        SDL_RenderDrawRect(r, &solo);
+        draw_text(r, font, "JOUER SEUL (IA)", solo.x + 22,
+                  solo.y + 12, enabled ? white : grey);
+    }
+
     if (g->menu_status[0])
         draw_text(r, font, g->menu_status, 20, 280, white);
 
@@ -2329,6 +2954,8 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_text(r, font, "L'hote communique son IP publique au joueur distant.",
               20, 392, grey);
     draw_text(r, font, "FAVORIS (classe + panoplie) :", 20, 422, white);
+    draw_text(r, font, "L'IA prepare son equipe et joue seule contre vous.",
+              350, 218, grey);
     {
         int i;
         for (i = 0; i < MAX_FAVORITES; i++) {
@@ -2381,11 +3008,14 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
     snprintf(line, sizeof line, "T%d - PERSONNAGE %d : choisissez la classe",
              g->my_index + 1, g->setup_unit + 1);
     draw_text(r, font, line, 20, 20, white);
+    if (g->solo_mode)
+        draw_text(r, font, "Votre adversaire IA prepare son equipe.",
+                  330, 20, grey);
     int i;
     for (i = 0; i < N_CLASSES; i++) {
         snprintf(line, sizeof line, "%2d %-12s", i+1, CLASSES[i].name);
         /* classes sans sprite : grisees (Sadida en attente)          */
-        int has_sprite = CLASS_CUT_INDEX[i] >= 0;
+        int has_sprite = CLASS_CHARACTER_ROW[i] >= 0;
         SDL_Rect b = pick_class_rect(i);
         int mx, my;
         SDL_GetMouseState(&mx, &my);
@@ -2398,7 +3028,7 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderFillRect(r, &b);
         SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
         SDL_RenderDrawRect(r, &b);
-        draw_character_sprite(r, CLASS_CUT_INDEX[i],
+        draw_character_sprite(r, CLASS_CHARACTER_ROW[i], 0, 0,
                               (SDL_Rect){b.x, b.y, 28, 28}, 0);
         draw_text(r, font, line, b.x + 32, b.y + 6,
                   has_sprite ? white : grey);
@@ -2569,10 +3199,6 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
 static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
 {
     static const char *names[ELEMENT_COUNT] = {"AIR", "FEU", "TERRE", "EAU"};
-    static const SDL_Rect element_icons[ELEMENT_COUNT] = {
-        {490, 181, 120, 141}, {665, 181, 123, 141},
-        {831, 181, 124, 141}, {977, 181, 108, 141}
-    };
     Fighter *f = &g->f[unit_for_slot(g, g->my_index, g->setup_unit)];
     int i, total = 0;
     char line[128];
@@ -2590,8 +3216,6 @@ static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
               20, 100, grey);
     for (i = 0; i < ELEMENT_COUNT; i++) {
         SDL_Rect minus = element_btn(i, 0), plus = element_btn(i, 1);
-        SDL_Rect icon = {25, 158 + i * 60, 52, 52};
-        draw_ui_sprite(r, element_icons[i], icon);
         snprintf(line, sizeof line, "%s : %d", names[i], f->elements[i]);
         draw_text(r, font, line, 100, 169 + i*60, white);
         SDL_SetRenderDrawColor(r, 110, 65, 65, 255);
@@ -2662,6 +3286,9 @@ int main(int argc, char **argv)
     game.winner = -1;
     game.selected_favorite = -1;
     game.emote_fighter = -1;
+    game.music_volume = 33;
+    game.sfx_volume = 100;
+    game.subtitles_when_muted = 1;
     for (i = 0; i < MAX_FIGHTERS; i++) {
         game.class_chosen[i] = -1;
         game.draft_ready[i] = -1;
@@ -2673,6 +3300,7 @@ int main(int argc, char **argv)
     favorites_load(&game);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    srand((unsigned)time(NULL) ^ SDL_GetTicks() ^ (unsigned)clock());
     if ((IMG_Init(IMG_INIT_PNG | IMG_INIT_WEBP)
      & (IMG_INIT_PNG | IMG_INIT_WEBP)) != (IMG_INIT_PNG | IMG_INIT_WEBP)) {
     fprintf(stderr, "SDL_image (PNG/WebP): %s\n", IMG_GetError());
@@ -2684,7 +3312,23 @@ int main(int argc, char **argv)
     win = SDL_CreateWindow("Dofus Arena P2P - Fanmade",
                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                            WIN_W, WIN_H, 0);
+    if (!win) {
+        fprintf(stderr, "Fenetre SDL indisponible: %s\n", SDL_GetError());
+        return 1;
+    }
     ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+    if (!ren) {
+        fprintf(stderr, "Rendu accelere indisponible, repli logiciel: %s\n",
+                SDL_GetError());
+        ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
+    }
+    if (!ren) {
+        fprintf(stderr, "Rendu SDL indisponible: %s\n", SDL_GetError());
+        SDL_DestroyWindow(win);
+        return 1;
+    }
+    SDL_ShowWindow(win);
+    SDL_RaiseWindow(win);
     font = TTF_OpenFont("assets/font.ttf", 16);
 #ifdef _WIN32
     if (!font) {
@@ -2711,6 +3355,7 @@ int main(int argc, char **argv)
     load_ui_atlas(ren);
     load_visual_effects(ren);
     load_audio();
+    apply_audio_settings(&game);
 
     if (argc >= 2 && !strcmp(argv[1], "host")) {
         if (argc >= 3) {
@@ -2747,6 +3392,8 @@ int main(int argc, char **argv)
                     if (k == SDLK_RETURN) {
                         if (len > 0) {
                             char msg[300];
+                            process_social_message(&game, game.my_index,
+                                                   game.chat_input);
                             snprintf(msg, sizeof msg, "CHAT %d %s",
                                      game.my_index, game.chat_input);
                             net_send(&game, msg);
@@ -2776,6 +3423,9 @@ int main(int argc, char **argv)
                         game.chat_input[len] = (char)k;
                         game.chat_input[len + 1] = 0;
                     }
+                } else if (game.state == ST_MENU && game.settings_open) {
+                    if (k == SDLK_ESCAPE)
+                        game.settings_open = 0;
                 } else if (game.state == ST_MENU && game.ip_editing) {
                     size_t len = strlen(game.ip_text);
                     if (k == SDLK_RETURN || k == SDLK_ESCAPE) {
@@ -2818,12 +3468,12 @@ int main(int argc, char **argv)
                     static const int emotes[8] = {0,1,2,3,16,17,18,19};
                     if (k == SDLK_e) {
                         game.emote_menu_open = !game.emote_menu_open;
-                        play_sound(game.emote_menu_open
+                        play_sound(&game, game.emote_menu_open
                                    ? SFX_MENU_SELECT : SFX_MENU_CANCEL);
                     } else if (game.emote_menu_open
                                && k >= SDLK_1 && k <= SDLK_8) {
                         show_emote(&game, game.turn, emotes[k - SDLK_1]);
-                        play_sound(SFX_MENU_SELECT);
+                        play_sound(&game, SFX_MENU_SELECT);
                     }
                 }
             } else if (ev.type == SDL_TEXTINPUT
@@ -2841,7 +3491,39 @@ int main(int argc, char **argv)
                        && ev.button.button == SDL_BUTTON_LEFT) {
                 int mx = ev.button.x, my = ev.button.y;
                 if (game.state == ST_MENU) {
-                    if (game.ip_editing) {
+                    if (game.settings_open) {
+                        int row;
+                        if (pt_in(settings_back_btn(), mx, my)) {
+                            game.settings_open = 0;
+                        } else {
+                            for (row = 0; row < 2; row++) {
+                                int *volume = row == 0 ? &game.music_volume
+                                                       : &game.sfx_volume;
+                                if (pt_in(settings_minus_btn(row), mx, my)
+                                        && *volume > 0) {
+                                    *volume = *volume >= 10 ? *volume - 10 : 0;
+                                    apply_audio_settings(&game);
+                                } else if (pt_in(settings_plus_btn(row), mx, my)
+                                           && *volume < 100) {
+                                    *volume = *volume <= 90
+                                            ? *volume + 10 : 100;
+                                    apply_audio_settings(&game);
+                                }
+                            }
+                            for (row = 3; row < 6; row++) {
+                                if (!pt_in(settings_toggle_btn(row), mx, my))
+                                    continue;
+                                if (row == 3) {
+                                    game.colorblind_mode = !game.colorblind_mode;
+                                } else if (row == 4) {
+                                    game.reduce_flashing = !game.reduce_flashing;
+                                } else {
+                                    game.subtitles_when_muted =
+                                        !game.subtitles_when_muted;
+                                }
+                            }
+                        }
+                    } else if (game.ip_editing) {
                         /* clavier virtuel IP                            */
                         int kb;
                         for (kb = 0; kb < 12; kb++) {
@@ -2870,8 +3552,12 @@ int main(int argc, char **argv)
                         int handled = 0;
                         static const int sizes[3] = {1, 2, 5};
                         int q;
+                        if (pt_in(menu_settings_btn(), mx, my)) {
+                            game.settings_open = 1;
+                            handled = 1;
+                        }
                         for (q = 0; q < 3; q++) {
-                            if (pt_in(menu_size_btn(q), mx, my)) {
+                            if (!handled && pt_in(menu_size_btn(q), mx, my)) {
                                 game.team_size_choice = sizes[q];
                                 if (game.net.role == NET_HOST
                                     && !game.net.connected)
@@ -2891,6 +3577,11 @@ int main(int argc, char **argv)
                                          q + 1);
                                 handled = 1;
                             }
+                        }
+                        if (!handled && pt_in(menu_btn_solo(), mx, my)
+                            && game.net.sock == SOCK_INVALID) {
+                            start_solo_game(&game);
+                            handled = 1;
                         }
                         if (!handled && pt_in(bh, mx, my)
                             && game.net.sock == SOCK_INVALID) {
@@ -2959,7 +3650,7 @@ int main(int argc, char **argv)
                     }
                     if (handled) continue;
                     for (pick = 0; pick < N_CLASSES; pick++) {
-                        if (CLASS_CUT_INDEX[pick] < 0) continue;
+                        if (CLASS_CHARACTER_ROW[pick] < 0) continue;
                         if (pt_in(pick_class_rect(pick), mx, my)) {
                             game.class_chosen[unit] = pick;
                             if (game.selected_favorite >= 0
@@ -3086,14 +3777,14 @@ int main(int argc, char **argv)
                         for (option = 0; option < 8; option++) {
                             if (pt_in(emote_option_rect(option), mx, my)) {
                                 show_emote(&game, game.turn, emotes[option]);
-                                play_sound(SFX_MENU_SELECT);
+                                play_sound(&game, SFX_MENU_SELECT);
                                 handled = 1;
                                 break;
                             }
                         }
                         if (!handled) {
                             game.emote_menu_open = 0;
-                            play_sound(SFX_MENU_CANCEL);
+                            play_sound(&game, SFX_MENU_CANCEL);
                         }
                     }
                     if (!handled && pt_in(ingame_menu_btn(y0), mx, my)) {
@@ -3129,6 +3820,8 @@ int main(int argc, char **argv)
                         if (pt_in(chat_send(y0), mx, my)) {
                             if (game.chat_input[0]) {
                                 char msg[300];
+                                process_social_message(&game, game.my_index,
+                                                       game.chat_input);
                                 snprintf(msg, sizeof msg, "CHAT %d %s",
                                          game.my_index, game.chat_input);
                                 net_send(&game, msg);
@@ -3187,13 +3880,14 @@ int main(int argc, char **argv)
                 }
             }
         }
+        ai_update(&game);
         {
             int scene = game.state == ST_BATTLE ? 1
                       : game.state == ST_GAMEOVER ? 2 : 0;
             if (scene != audio_scene) {
                 play_music_for_state(game.state);
                 if (scene == 2)
-                    play_sound(game.winner == game.my_index
+                    play_sound(&game, game.winner == game.my_index
                                ? SFX_VICTORY : SFX_GAME_OVER);
                 audio_scene = scene;
             }
@@ -3203,6 +3897,11 @@ int main(int argc, char **argv)
         SDL_SetRenderDrawColor(ren, 15, 15, 15, 255);
         SDL_RenderClear(ren);
 
+        if (game.state == ST_PICK || game.state == ST_DRAFT
+                || game.state == ST_STUFF || game.state == ST_ELEMENTS) {
+            draw_ui_panel(ren, (SDL_Rect){4, 4, WIN_W - 8, WIN_H - 8});
+            draw_ui_banner(ren, (SDL_Rect){10, 6, WIN_W - 20, 44});
+        }
         switch (game.state) {
         case ST_MENU:     draw_menu(ren, font, &game); break;
         case ST_PICK:     draw_pick(ren, font, &game); break;
@@ -3230,15 +3929,23 @@ int main(int argc, char **argv)
             SDL_Rect banner = {20, WIN_H/2 - 55, WIN_W - 40, 58};
             SDL_SetRenderDrawColor(ren, 35, 28, 24, 235);
             SDL_RenderFillRect(ren, &banner);
+            draw_ui_panel(ren, banner);
             SDL_SetRenderDrawColor(ren, 205, 170, 105, 255);
             SDL_RenderDrawRect(ren, &banner);
-            snprintf(msg, sizeof msg, "%s gagne ! (clic pour quitter)",
-                     game.winner == game.my_index ? "Votre equipe" : "Equipe adverse");
+            if (game.solo_mode)
+                snprintf(msg, sizeof msg, "%s ! (clic pour quitter)",
+                         game.winner == game.my_index ? "Vous gagnez"
+                                                      : "L'IA gagne");
+            else
+                snprintf(msg, sizeof msg, "%s gagne ! (clic pour quitter)",
+                         game.winner == game.my_index
+                         ? "Votre equipe" : "Equipe adverse");
             draw_text(ren, font, msg, WIN_W/2 - 150, banner.y + 20, w);
             break;
         }
         }
 
+        draw_audio_subtitle(ren, font, &game);
         SDL_RenderPresent(ren);
         SDL_Delay(16);
     }
@@ -3247,7 +3954,7 @@ int main(int argc, char **argv)
         net_close(game.net.sock);
     if (g_ui_atlas) SDL_DestroyTexture(g_ui_atlas);
     if (g_tilesheet) SDL_DestroyTexture(g_tilesheet);
-    if (g_character_cut_sheet) SDL_DestroyTexture(g_character_cut_sheet);
+    if (g_characters_sheet) SDL_DestroyTexture(g_characters_sheet);
     if (g_spell_icons) SDL_DestroyTexture(g_spell_icons);
     if (g_emote_sheet) SDL_DestroyTexture(g_emote_sheet);
     for (i = 0; i < VFX_FRAME_COUNT; i++)

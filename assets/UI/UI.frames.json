@@ -1,0 +1,884 @@
+{
+  "image": "UI.png",
+  "image_size": {
+    "width": 344,
+    "height": 192
+  },
+  "frames": [
+    {
+      "x": 2,
+      "y": 1,
+      "w": 32,
+      "h": 32,
+      "name": "Pixel heart with an arrow in the middle"
+    },
+    {
+      "x": 37,
+      "y": 1,
+      "w": 29,
+      "h": 33,
+      "name": "Logo for the game minecraft"
+    },
+    {
+      "x": 102,
+      "y": 1,
+      "w": 25,
+      "h": 32,
+      "name": "MovePointGauje"
+    },
+    {
+      "x": 177,
+      "y": 1,
+      "w": 15,
+      "h": 17,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0"
+    },
+    {
+      "x": 246,
+      "y": 1,
+      "w": 97,
+      "h": 26,
+      "name": "DecorationUp"
+    },
+    {
+      "x": 70,
+      "y": 2,
+      "w": 29,
+      "h": 30,
+      "name": "Pixel pixel with an orange and black face"
+    },
+    {
+      "x": 193,
+      "y": 2,
+      "w": 15,
+      "h": 16,
+      "name": "Minecraft character in a minecraft avatar"
+    },
+    {
+      "x": 209,
+      "y": 2,
+      "w": 16,
+      "h": 16,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 226,
+      "y": 2,
+      "w": 16,
+      "h": 16,
+      "name": "Pixel with a blue hat on top of it"
+    },
+    {
+      "x": 129,
+      "y": 3,
+      "w": 14,
+      "h": 15,
+      "name": "Pixel pixel in the shape of a square"
+    },
+    {
+      "x": 145,
+      "y": 3,
+      "w": 14,
+      "h": 15,
+      "name": "Brown and black square with squares and squares"
+    },
+    {
+      "x": 161,
+      "y": 3,
+      "w": 14,
+      "h": 15,
+      "name": "Pixel pixel with a blue and yellow block"
+    },
+    {
+      "x": 177,
+      "y": 19,
+      "w": 15,
+      "h": 33,
+      "name": "Pixel art piece of a man in a suit and hat"
+    },
+    {
+      "x": 209,
+      "y": 19,
+      "w": 16,
+      "h": 17,
+      "name": "Pixel with a green cross on it"
+    },
+    {
+      "x": 226,
+      "y": 19,
+      "w": 16,
+      "h": 17,
+      "name": "Minecraft mod - minecraft mod - minecraft mod - minecraft mod -"
+    },
+    {
+      "x": 129,
+      "y": 21,
+      "w": 14,
+      "h": 15,
+      "name": "Square with squares and squares on it"
+    },
+    {
+      "x": 145,
+      "y": 21,
+      "w": 15,
+      "h": 62,
+      "name": "Bunch of different types of knives and knives"
+    },
+    {
+      "x": 161,
+      "y": 21,
+      "w": 14,
+      "h": 15,
+      "name": "Minecraft mod 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 193,
+      "y": 21,
+      "w": 14,
+      "h": 15,
+      "name": "Brown and black square with squares on it"
+    },
+    {
+      "x": 251,
+      "y": 26,
+      "w": 14,
+      "h": 14,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 266,
+      "y": 26,
+      "w": 14,
+      "h": 14,
+      "name": "Black square in the middle of a gray background"
+    },
+    {
+      "x": 281,
+      "y": 26,
+      "w": 13,
+      "h": 14,
+      "name": "Black square with a small square in the middle"
+    },
+    {
+      "x": 295,
+      "y": 26,
+      "w": 14,
+      "h": 14,
+      "name": "Black square on a gray background"
+    },
+    {
+      "x": 310,
+      "y": 26,
+      "w": 13,
+      "h": 14,
+      "name": "Black and white pixel pixel pixel pixel pixel pixel pixel pixel pixel"
+    },
+    {
+      "x": 324,
+      "y": 26,
+      "w": 14,
+      "h": 14,
+      "name": "Black square with a small square in the middle"
+    },
+    {
+      "x": 1,
+      "y": 35,
+      "w": 34,
+      "h": 34,
+      "name": "HPGauje"
+    },
+    {
+      "x": 36,
+      "y": 36,
+      "w": 31,
+      "h": 33,
+      "name": "ActionPointGauje"
+    },
+    {
+      "x": 102,
+      "y": 36,
+      "w": 25,
+      "h": 31,
+      "name": "MovePoint"
+    },
+    {
+      "x": 70,
+      "y": 37,
+      "w": 29,
+      "h": 30,
+      "name": "XPGauje"
+    },
+    {
+      "x": 129,
+      "y": 38,
+      "w": 14,
+      "h": 14,
+      "name": "Brown square with a black square in the middle"
+    },
+    {
+      "x": 161,
+      "y": 38,
+      "w": 14,
+      "h": 14,
+      "name": "Brown and black minecraft skin for minecraft"
+    },
+    {
+      "x": 193,
+      "y": 38,
+      "w": 14,
+      "h": 14,
+      "name": "Brown and black minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 209,
+      "y": 38,
+      "w": 14,
+      "h": 14,
+      "name": "Black and white photo of a black and white photo of a black and white"
+    },
+    {
+      "x": 225,
+      "y": 38,
+      "w": 15,
+      "h": 14,
+      "name": "Black square with a small square in the middle"
+    },
+    {
+      "x": 251,
+      "y": 41,
+      "w": 14,
+      "h": 15,
+      "name": "Square in the middle of a square"
+    },
+    {
+      "x": 266,
+      "y": 41,
+      "w": 14,
+      "h": 15,
+      "name": "Black square in the middle of a gray background"
+    },
+    {
+      "x": 281,
+      "y": 41,
+      "w": 13,
+      "h": 15,
+      "name": "Black square with a white background"
+    },
+    {
+      "x": 295,
+      "y": 41,
+      "w": 14,
+      "h": 15,
+      "name": "Black square in the middle of a gray background"
+    },
+    {
+      "x": 310,
+      "y": 41,
+      "w": 13,
+      "h": 15,
+      "name": "Black and brown minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 324,
+      "y": 41,
+      "w": 14,
+      "h": 15,
+      "name": "Black and brown minecraft minecraft mod"
+    },
+    {
+      "x": 129,
+      "y": 53,
+      "w": 15,
+      "h": 30,
+      "name": "Computer screen with a pixel on it"
+    },
+    {
+      "x": 161,
+      "y": 53,
+      "w": 14,
+      "h": 14,
+      "name": "Black and brown minecraft skin for minecraft"
+    },
+    {
+      "x": 177,
+      "y": 53,
+      "w": 15,
+      "h": 30,
+      "name": "Pixel style image of a man in a suit and tie"
+    },
+    {
+      "x": 193,
+      "y": 53,
+      "w": 15,
+      "h": 30,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 209,
+      "y": 53,
+      "w": 15,
+      "h": 30,
+      "name": "Black and white mineo mineo mineo mineo mineo mineo mineo mineo mine"
+    },
+    {
+      "x": 225,
+      "y": 53,
+      "w": 15,
+      "h": 14,
+      "name": "Black and white pixel"
+    },
+    {
+      "x": 248,
+      "y": 57,
+      "w": 18,
+      "h": 20,
+      "name": "Pixel in the shape of a square"
+    },
+    {
+      "x": 266,
+      "y": 57,
+      "w": 14,
+      "h": 14,
+      "name": "Black square in the middle of the screen"
+    },
+    {
+      "x": 281,
+      "y": 57,
+      "w": 13,
+      "h": 14,
+      "name": "Black square in the middle of a pixel"
+    },
+    {
+      "x": 295,
+      "y": 57,
+      "w": 14,
+      "h": 14,
+      "name": "Black square in the middle of the screen"
+    },
+    {
+      "x": 310,
+      "y": 57,
+      "w": 13,
+      "h": 14,
+      "name": "Brown and black square"
+    },
+    {
+      "x": 323,
+      "y": 57,
+      "w": 18,
+      "h": 20,
+      "name": "Pixeled image of a man in a suit"
+    },
+    {
+      "x": 161,
+      "y": 69,
+      "w": 14,
+      "h": 14,
+      "name": "Black and brown minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 225,
+      "y": 69,
+      "w": 15,
+      "h": 14,
+      "name": "Black and brown minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 3,
+      "y": 71,
+      "w": 94,
+      "h": 24,
+      "name": "XPBar"
+    },
+    {
+      "x": 103,
+      "y": 72,
+      "w": 22,
+      "h": 11,
+      "name": "Pixel in the style of a pixel"
+    },
+    {
+      "x": 248,
+      "y": 77,
+      "w": 93,
+      "h": 7,
+      "name": "Computer screen with a black background"
+    },
+    {
+      "x": 129,
+      "y": 85,
+      "w": 14,
+      "h": 12,
+      "name": "Minecraft mod - minecraft mod - minecraft mod - minecraft mod -"
+    },
+    {
+      "x": 145,
+      "y": 85,
+      "w": 14,
+      "h": 12,
+      "name": "Pixel with a brown face and brown hair"
+    },
+    {
+      "x": 105,
+      "y": 86,
+      "w": 18,
+      "h": 10,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 161,
+      "y": 86,
+      "w": 14,
+      "h": 11,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 180,
+      "y": 86,
+      "w": 10,
+      "h": 10,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 192,
+      "y": 86,
+      "w": 10,
+      "h": 10,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 204,
+      "y": 86,
+      "w": 10,
+      "h": 10,
+      "name": "Brown and white minecraft character"
+    },
+    {
+      "x": 228,
+      "y": 86,
+      "w": 10,
+      "h": 10,
+      "name": "Minecraft - minecraft - minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 216,
+      "y": 87,
+      "w": 10,
+      "h": 9,
+      "name": "Pixel with a brown face and brown hair"
+    },
+    {
+      "x": 248,
+      "y": 88,
+      "w": 94,
+      "h": 7,
+      "name": "Close up of a wooden chair"
+    },
+    {
+      "x": 39,
+      "y": 94,
+      "w": 5,
+      "h": 4,
+      "name": "Black and white image of a man with a beard"
+    },
+    {
+      "x": 47,
+      "y": 94,
+      "w": 3,
+      "h": 4,
+      "name": "Black and brown color palette"
+    },
+    {
+      "x": 54,
+      "y": 94,
+      "w": 4,
+      "h": 4,
+      "name": "Black and brown color scheme"
+    },
+    {
+      "x": 61,
+      "y": 94,
+      "w": 4,
+      "h": 4,
+      "name": "Black and brown minecraft creeper"
+    },
+    {
+      "x": 5,
+      "y": 96,
+      "w": 90,
+      "h": 15,
+      "name": "LittleXpBar"
+    },
+    {
+      "x": 248,
+      "y": 96,
+      "w": 94,
+      "h": 9,
+      "name": "Pixel style pixel with different colors and sizes"
+    },
+    {
+      "x": 204,
+      "y": 98,
+      "w": 11,
+      "h": 11,
+      "name": "Pixel with green and brown squares on it"
+    },
+    {
+      "x": 105,
+      "y": 99,
+      "w": 18,
+      "h": 10,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 129,
+      "y": 99,
+      "w": 14,
+      "h": 12,
+      "name": "Minecraft mod 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 145,
+      "y": 99,
+      "w": 14,
+      "h": 12,
+      "name": "Minecraft character with a brown hair and brown eyes"
+    },
+    {
+      "x": 180,
+      "y": 99,
+      "w": 11,
+      "h": 10,
+      "name": "Face of a man with brown hair and brown eyes"
+    },
+    {
+      "x": 192,
+      "y": 99,
+      "w": 10,
+      "h": 10,
+      "name": "Face of a lion in minecraft"
+    },
+    {
+      "x": 216,
+      "y": 99,
+      "w": 10,
+      "h": 10,
+      "name": "Pixel with a green and brown face"
+    },
+    {
+      "x": 228,
+      "y": 99,
+      "w": 11,
+      "h": 10,
+      "name": "Pixel in the shape of a man ' s face"
+    },
+    {
+      "x": 161,
+      "y": 100,
+      "w": 14,
+      "h": 11,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 256,
+      "y": 104,
+      "w": 87,
+      "h": 38,
+      "name": "Chest with a bunch of flowers in it"
+    },
+    {
+      "x": 1,
+      "y": 111,
+      "w": 100,
+      "h": 81,
+      "name": "WindowsDecoration"
+    },
+    {
+      "x": 192,
+      "y": 111,
+      "w": 17,
+      "h": 18,
+      "name": "Pixel with a green face on it"
+    },
+    {
+      "x": 210,
+      "y": 111,
+      "w": 17,
+      "h": 18,
+      "name": "Pixel with a blue and brown face"
+    },
+    {
+      "x": 230,
+      "y": 112,
+      "w": 10,
+      "h": 10,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 242,
+      "y": 112,
+      "w": 10,
+      "h": 10,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 105,
+      "y": 114,
+      "w": 11,
+      "h": 13,
+      "name": "Minecraft mod 1 0 0 0"
+    },
+    {
+      "x": 117,
+      "y": 114,
+      "w": 11,
+      "h": 13,
+      "name": "Minecraft mod for minecraft"
+    },
+    {
+      "x": 129,
+      "y": 114,
+      "w": 11,
+      "h": 13,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 141,
+      "y": 115,
+      "w": 11,
+      "h": 12,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 153,
+      "y": 115,
+      "w": 11,
+      "h": 12,
+      "name": "Man in a minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 166,
+      "y": 115,
+      "w": 11,
+      "h": 11,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 178,
+      "y": 115,
+      "w": 11,
+      "h": 11,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 230,
+      "y": 123,
+      "w": 10,
+      "h": 11,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 242,
+      "y": 123,
+      "w": 10,
+      "h": 11,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    },
+    {
+      "x": 101,
+      "y": 130,
+      "w": 14,
+      "h": 14,
+      "name": "Brown square with a black square in the middle"
+    },
+    {
+      "x": 116,
+      "y": 130,
+      "w": 14,
+      "h": 14,
+      "name": "Brown square with a black square in the middle"
+    },
+    {
+      "x": 131,
+      "y": 130,
+      "w": 13,
+      "h": 14,
+      "name": "Pixel with a black and brown face on it"
+    },
+    {
+      "x": 145,
+      "y": 130,
+      "w": 14,
+      "h": 14,
+      "name": "Black and brown square with a small square in the middle"
+    },
+    {
+      "x": 160,
+      "y": 130,
+      "w": 13,
+      "h": 14,
+      "name": "Black square with a red border on it"
+    },
+    {
+      "x": 175,
+      "y": 132,
+      "w": 10,
+      "h": 11,
+      "name": "Pixel with a purple face on it"
+    },
+    {
+      "x": 188,
+      "y": 133,
+      "w": 10,
+      "h": 10,
+      "name": "Cross made out of squares on a gray background"
+    },
+    {
+      "x": 187,
+      "y": 138,
+      "w": 156,
+      "h": 54,
+      "name": "Screenshot of the dungeon dungeon dungeon dungeon dungeon dungeon"
+    },
+    {
+      "x": 101,
+      "y": 145,
+      "w": 14,
+      "h": 14,
+      "name": "Brown square with a black square in the middle"
+    },
+    {
+      "x": 116,
+      "y": 145,
+      "w": 14,
+      "h": 14,
+      "name": "Brown square with a black square in the middle"
+    },
+    {
+      "x": 131,
+      "y": 145,
+      "w": 13,
+      "h": 14,
+      "name": "Pixel with a black square in the middle"
+    },
+    {
+      "x": 145,
+      "y": 145,
+      "w": 14,
+      "h": 14,
+      "name": "Black and brown square with a small square in the middle"
+    },
+    {
+      "x": 160,
+      "y": 145,
+      "w": 13,
+      "h": 14,
+      "name": "Brown and black square in the middle of a gray background"
+    },
+    {
+      "x": 175,
+      "y": 147,
+      "w": 10,
+      "h": 12,
+      "name": "Pixel with a brown face and brown hair"
+    },
+    {
+      "x": 187,
+      "y": 149,
+      "w": 12,
+      "h": 13,
+      "name": "Minecraft creepie minecraft creepie creepie minecraft creepie creepie"
+    },
+    {
+      "x": 101,
+      "y": 161,
+      "w": 14,
+      "h": 14,
+      "name": "Brown square with a black square in the middle"
+    },
+    {
+      "x": 116,
+      "y": 161,
+      "w": 14,
+      "h": 14,
+      "name": "Black and brown minecraft mod"
+    },
+    {
+      "x": 131,
+      "y": 161,
+      "w": 13,
+      "h": 14,
+      "name": "Black square in the middle of the screen"
+    },
+    {
+      "x": 145,
+      "y": 161,
+      "w": 14,
+      "h": 14,
+      "name": "Black square in the middle of a square"
+    },
+    {
+      "x": 161,
+      "y": 163,
+      "w": 11,
+      "h": 11,
+      "name": "Minecraft minecraft minecraft minecraft minecraft minecraft minecraft"
+    },
+    {
+      "x": 174,
+      "y": 163,
+      "w": 11,
+      "h": 11,
+      "name": "Pixel with the face of a man in the middle of the image"
+    },
+    {
+      "x": 187,
+      "y": 163,
+      "w": 12,
+      "h": 13,
+      "name": "Minecraft creeper with a green and brown face"
+    },
+    {
+      "x": 101,
+      "y": 177,
+      "w": 14,
+      "h": 14,
+      "name": "Brown square with a black square in the middle"
+    },
+    {
+      "x": 116,
+      "y": 177,
+      "w": 14,
+      "h": 14,
+      "name": "Black and brown pixel with a black square in the middle"
+    },
+    {
+      "x": 131,
+      "y": 177,
+      "w": 13,
+      "h": 14,
+      "name": "Black square in the middle of a pixel"
+    },
+    {
+      "x": 145,
+      "y": 177,
+      "w": 14,
+      "h": 14,
+      "name": "Black and white minecraft skin"
+    },
+    {
+      "x": 161,
+      "y": 178,
+      "w": 11,
+      "h": 11,
+      "name": "Pixel with a brown face and brown hair"
+    },
+    {
+      "x": 174,
+      "y": 178,
+      "w": 11,
+      "h": 11,
+      "name": "Minecraft mod for minecraft 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    }
+  ]
+}

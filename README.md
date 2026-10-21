@@ -4,6 +4,7 @@ Jeu de combat tactique 1v1 en Peer-to-Peer inspiré de Dofus Arena, en C / SDL2.
 
 - P2P en UDP (port 7777) : `./dofus-arena host` / `./dofus-arena join <ip>`
 - Modes 1v1, 2v2 et 5v5 : chaque joueur controle une equipe T1/T2
+- Mode solo : jouez contre une IA qui prepare son equipe et joue ses tours automatiquement
 - 13 classes, 16 sorts chacune, draft de 4 sorts par personnage
 - Arènes générées aléatoirement (9–14 × 7–10 cases), contours et dimensions variables,
   décor de donjon tiré de `assets/tiles/tilesheet.png`
@@ -64,18 +65,68 @@ different prefix, use `sudo make install PREFIX=/path/to/prefix`.
   normalement tant qu'aucune de ces actions n'est choisie.
 
 ## Ressources audio et interface
-- L'interface utilise l'atlas `assets/UI/OIG4.webp` (fond blanc périphérique
-  rendu transparent), notamment pour l'en-tête et les barres de vie.
-- La planche demande le support WebP de SDL_image. Le mixage audio utilise
+- L'interface charge l'atlas transparent `assets/UI/UI.png` pour les cadres
+  du menu, des ecrans de preparation et du HUD de combat, ainsi que pour les
+  barres de vie. Le menu **OPTIONS** regroupe le volume de la musique et des
+  effets, le mode daltonien, la reduction des flashs et les sous-titres des
+  effets muets. La fenetre reste en taille fixe (672 x 640).
+- Le mixage audio utilise
   SDL_mixer et ses décodeurs MP3; si un fichier audio n'est pas pris en charge,
   le jeu affiche le chemin et l'erreur dans la sortie standard d'erreur.
-- Les personnages en combat et dans la sélection de classes sont extraits de
-  `assets/character/character_cut_sheet.png`. Les associations de classes sont
-  documentées dans `assets/character/class_sprite_retrieval.json` : elles
-  utilisent une recherche sémantique locale sur des descriptions visuelles
-  curatées, puis une vérification manuelle. Elles ne sont ni des résultats d'un
-  modèle vectoriel ni des identifications officielles DOFUS.
+- Des sons discrets de pacification et d'encouragement répondent avec une
+  probabilité modérée aux insultes/spams du chat, aux messages de soutien et
+  aux soins réussis ; les actions de combat normales ne sont pas évaluées.
+- Les personnages en combat et dans la sélection de classes utilisent
+  `assets/character/Characters.png` : une planche transparente de 12 lignes,
+  avec cinq séquences de quatre frames par ligne. Les trois premières font
+  14×16 pixels, les deux dernières 16×16 ; chaque frame est découpée à sa
+  position réelle et centrée sans étirement horizontal. Les classes sont
+  associées aux lignes par ressemblance visuelle ; certaines partagent une ligne
+  et ces associations ne sont pas des identifications officielles DOFUS.
 - Pour produire un exécutable Windows natif, utilisez MinGW-w64 et les paquets
   SDL2, SDL2_image (PNG/WebP), SDL2_ttf et SDL2_mixer avec les codecs MP3. Sous
   Windows, `make` produit `dofus-arena.exe`; les DLL SDL doivent se trouver à
   côté de l'exécutable ou dans le `PATH`.
+
+## Outil intelligent de découpe des sprites
+
+L'outil Python permet de sélectionner des frames avec des rectangles
+indépendants, d'inspecter chaque découpe et d'exporter les coordonnées JSON ou
+les images PNG. Il demande Python avec Tkinter et Pillow :
+
+    python -m pip install Pillow
+    python tools/sprite_frame_selector.py
+
+On peut aussi ouvrir une autre planche en la passant en argument. Dans l'outil,
+glissez sur l'image pour sélectionner une frame, ajustez le zoom avec la
+molette ou les boutons `+`/`-`, et faites un clic milieu/droit-glisser pour
+déplacer la vue. Un clic droit ouvre le menu contextuel des découpes
+intelligentes, des actions manuelles, de l'annulation et de l'export ; après
+avoir sélectionné une zone, utilisez-le pour lancer rapidement **Smart grid**
+ou la détection des objets connectés. Donnez un nom à la sélection puis cliquez
+**Add selection**.
+Pour découper automatiquement plusieurs frames, sélectionnez une seule bande
+horizontale, réglez **Auto-slice gap** si des parties d'une frame sont séparées,
+puis cliquez **Auto-slice selection**. Vérifiez les rectangles et les aperçus
+avant d'exporter : la détection utilise la transparence, et chaque frame peut
+avoir une taille ou un alignement différent.
+Pour ajouter une découpe manuellement, saisissez ses coordonnées **X/Y** et sa
+largeur/hauteur **W/H**, puis cliquez **Add manual slice**. **Lock proportion**
+conserve le rapport largeur/hauteur quand vous modifiez l'une des dimensions.
+**Preview** montre le rectangle sans l'ajouter ; sélectionnez une découpe
+existante pour modifier ses coordonnées, puis cliquez **Apply to selected**.
+**Undo** ou `Ctrl+Z` annule les dernières créations, suppressions, détections et
+modifications.
+**Smart grid** détecte les bandes horizontales et verticales d'une grille
+espacée. **Auto-slice objects** sépare les composants connectés ; choisissez
+une connectivité 4 ou 8 pour décider si les pixels en diagonale sont liés.
+**Alpha threshold** ignore les pixels transparents ou très pâles, **Min pixels**
+filtre les petits débris, et **Padding** conserve une marge transparente autour
+des découpes détectées. L'aperçu affiche aussi l'emprise visible pour aider à
+repérer un rectangle trop serré ou trop large.
+**Analyze & slice** choisit automatiquement entre l'analyse de grille et les
+composants connectés. Le mode **Foreground: auto** utilise la transparence
+lorsqu'elle est présente, ou estime le fond dominant sur les bords pour les
+planches opaques ; réglez **Color tolerance** pour inclure ou exclure davantage
+de couleurs proches du fond. Vous pouvez aussi faire un clic droit sur un pixel
+de fond puis choisir **Use clicked pixel as background** pour l'échantillonner.
