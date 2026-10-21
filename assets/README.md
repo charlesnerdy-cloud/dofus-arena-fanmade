@@ -32,6 +32,11 @@ un spam détecté), avec un délai anti-répétition et un volume atténué. Les
 sont locaux et non punitifs ; les actions de combat normales ne sont pas
 évaluées comme toxiques.
 
+Le bot solo peut utiliser un petit réseau neuronal embarqué (`tools/bot_model.h`).
+Ses poids sont préentraînés avec des exemples tactiques synthétiques ; il
+reclasse les attaques selon les dégâts, les mises KO et le coût en PA. Il
+fonctionne hors ligne et ne s'entraîne pas sur les données des joueurs.
+
 ## Personnages ajoutés
 
 Les captions de personnages sont indexées localement dans

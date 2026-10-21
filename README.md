@@ -4,7 +4,7 @@ Jeu de combat tactique 1v1 en Peer-to-Peer inspiré de Dofus Arena, en C / SDL2.
 
 - P2P en UDP (port 7777) : `./dofus-arena host` / `./dofus-arena join <ip>`
 - Modes 1v1, 2v2 et 5v5 : chaque joueur controle une equipe T1/T2
-- Mode solo : jouez contre une IA qui prepare son equipe et joue ses tours automatiquement
+- Mode solo : jouez contre une IA classique ou un bot neuronal embarqué qui affine le choix des attaques
 - 13 classes, 16 sorts chacune, draft de 4 sorts par personnage
 - Arènes générées aléatoirement (9–14 × 7–10 cases), contours et dimensions variables,
   décor de donjon tiré de `assets/tiles/tilesheet.png`
@@ -76,6 +76,15 @@ different prefix, use `sudo make install PREFIX=/path/to/prefix`.
 - Des sons discrets de pacification et d'encouragement répondent avec une
   probabilité modérée aux insultes/spams du chat, aux messages de soutien et
   aux soins réussis ; les actions de combat normales ne sont pas évaluées.
+- En solo, le bouton **BOT : CLASSIQUE / RESEAU NEURONAL** permet de choisir
+  l'adversaire. Le petit réseau préentraîné est embarqué dans le binaire,
+  fonctionne hors ligne et classe les attaques selon les dégâts, les mises
+  KO et le coût en PA. Son entraînement reproductible sur exemples tactiques
+  synthétiques est disponible avec `python tools/train_bot_model.py` après
+  `python -m pip install numpy`.
+  Il n'enregistre ni n'apprend à partir des parties des joueurs. Après un
+  combat solo, un conseil général et bienveillant s'affiche pour aider à
+  réfléchir aux choix de portée et de sorts.
 - Les personnages en combat et dans la sélection de classes utilisent
   `assets/character/Characters.png` : une planche transparente de 12 lignes,
   avec cinq séquences de quatre frames par ligne. Les trois premières font

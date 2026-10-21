@@ -32,6 +32,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include "tools/bot_model.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -600,6 +601,7 @@ typedef struct {
     int       team_size;
     int       setup_unit;
     int       solo_mode;
+    int       neural_bot;
     Uint32    ai_next_action_ms;
     int       turn_order[MAX_FIGHTERS];
     int       turn_pos;
@@ -1753,12 +1755,40 @@ static int ai_position_score(Game *g, int x, int y, int range)
     return best;
 }
 
+static float neural_attack_score(const Fighter *enemy, const Skill *skill,
+                                 int damage)
+{
+    float inputs[BOT_NN_INPUTS];
+    float hidden[BOT_NN_HIDDEN];
+    int i, j;
+    inputs[0] = enemy->hp_max > 0
+              ? (float)damage / (float)enemy->hp_max : 0.0f;
+    if (inputs[0] > 1.0f) inputs[0] = 1.0f;
+    if (inputs[0] < 0.0f) inputs[0] = 0.0f;
+    inputs[1] = damage >= enemy->hp ? 1.0f : 0.0f;
+    inputs[2] = enemy->hp_max > 0
+              ? (float)enemy->hp / (float)enemy->hp_max : 0.0f;
+    inputs[3] = (float)skill->pa / 10.0f;
+    for (j = 0; j < BOT_NN_HIDDEN; j++) {
+        float value = BOT_NN_B1[0][j];
+        for (i = 0; i < BOT_NN_INPUTS; i++)
+            value += inputs[i] * BOT_NN_W1[i][j];
+        hidden[j] = value > 0.0f ? value : 0.0f;
+    }
+    {
+        float score = BOT_NN_B2[0][0];
+        for (j = 0; j < BOT_NN_HIDDEN; j++)
+            score += hidden[j] * BOT_NN_W2[0][j];
+        return score;
+    }
+}
+
 static void ai_take_turn_action(Game *g)
 {
     Fighter *me = &g->f[g->turn];
     Panoplie *pano = me->pano >= 0 && me->pano < N_PANOPLIES
                     ? &PANOPLIES[me->pano] : NULL;
-    int best_spell = -1, best_target = -1, best_score = -1;
+    int best_spell = -1, best_target = -1, best_score = -2147483647;
     int spell, target;
 
     if (g->state != ST_BATTLE || me->team != 1) return;
@@ -1817,8 +1847,12 @@ static void ai_take_turn_action(Game *g)
             } else {
                 damage = skill->power + (pano ? pano->puissance : 0);
             }
-            score = damage * 10 + (damage >= enemy->hp ? 1000 : 0)
-                  - skill->pa;
+            if (g->neural_bot)
+                score = (int)(neural_attack_score(enemy, skill, damage)
+                              * 1000.0f);
+            else
+                score = damage * 10 + (damage >= enemy->hp ? 1000 : 0)
+                      - skill->pa;
             if (score > best_score) {
                 best_score = score;
                 best_spell = spell;
@@ -2586,6 +2620,7 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
 static SDL_Rect menu_btn_host(void)  { SDL_Rect r = {20, 70, 320, 40};  return r; }
 static SDL_Rect menu_btn_join(void)  { SDL_Rect r = {20, 120, 320, 40}; return r; }
 static SDL_Rect menu_btn_solo(void)  { SDL_Rect r = {350, 170, 200, 40}; return r; }
+static SDL_Rect menu_btn_bot_model(void) { SDL_Rect r = {350, 216, 200, 34}; return r; }
 static SDL_Rect menu_btn_ipfield(void){SDL_Rect r = {350, 120, 200, 40};return r; }
 static SDL_Rect menu_size_btn(int i) { SDL_Rect r = {350 + i*66, 70, 60, 40}; return r; }
 static SDL_Rect menu_settings_btn(void) { SDL_Rect r = {550, 70, 112, 40}; return r; }
@@ -2942,6 +2977,18 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_text(r, font, "JOUER SEUL (IA)", solo.x + 22,
                   solo.y + 12, enabled ? white : grey);
     }
+    {
+        SDL_Rect model = menu_btn_bot_model();
+        int hovered = pt_in(model, mx, my);
+        SDL_SetRenderDrawColor(r, hovered ? 75 : 52, hovered ? 78 : 55,
+                               hovered ? 112 : 78, 255);
+        SDL_RenderFillRect(r, &model);
+        SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
+        SDL_RenderDrawRect(r, &model);
+        draw_text(r, font, g->neural_bot ? "BOT : NEURONAL"
+                                         : "BOT : CLASSIQUE",
+                  model.x + 8, model.y + 9, white);
+    }
 
     if (g->menu_status[0])
         draw_text(r, font, g->menu_status, 20, 280, white);
@@ -2954,8 +3001,6 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_text(r, font, "L'hote communique son IP publique au joueur distant.",
               20, 392, grey);
     draw_text(r, font, "FAVORIS (classe + panoplie) :", 20, 422, white);
-    draw_text(r, font, "L'IA prepare son equipe et joue seule contre vous.",
-              350, 218, grey);
     {
         int i;
         for (i = 0; i < MAX_FAVORITES; i++) {
@@ -3583,6 +3628,15 @@ int main(int argc, char **argv)
                             start_solo_game(&game);
                             handled = 1;
                         }
+                        if (!handled && pt_in(menu_btn_bot_model(), mx, my)
+                            && game.net.sock == SOCK_INVALID) {
+                            game.neural_bot = !game.neural_bot;
+                            snprintf(game.menu_status, sizeof game.menu_status,
+                                     game.neural_bot
+                                     ? "Bot neuronal embarque selectionne."
+                                     : "Bot classique selectionne.");
+                            handled = 1;
+                        }
                         if (!handled && pt_in(bh, mx, my)
                             && game.net.sock == SOCK_INVALID) {
                             if (game.net.role == NET_JOIN) {
@@ -3926,7 +3980,8 @@ int main(int argc, char **argv)
         case ST_GAMEOVER: {
             SDL_Color w = {255,255,255,255};
             char msg[64];
-            SDL_Rect banner = {20, WIN_H/2 - 55, WIN_W - 40, 58};
+            SDL_Rect banner = {20, WIN_H/2 - 55, WIN_W - 40,
+                               game.solo_mode ? 86 : 58};
             SDL_SetRenderDrawColor(ren, 35, 28, 24, 235);
             SDL_RenderFillRect(ren, &banner);
             draw_ui_panel(ren, banner);
@@ -3941,6 +3996,11 @@ int main(int argc, char **argv)
                          game.winner == game.my_index
                          ? "Votre equipe" : "Equipe adverse");
             draw_text(ren, font, msg, WIN_W/2 - 150, banner.y + 20, w);
+            if (game.solo_mode)
+                draw_text(ren, font,
+                          "Astuce : surveille la portee et la ligne de vue.",
+                          WIN_W/2 - 190, banner.y + 54,
+                          (SDL_Color){220,210,185,255});
             break;
         }
         }
