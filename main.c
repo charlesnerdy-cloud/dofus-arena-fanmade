@@ -106,6 +106,7 @@ typedef int Sock;
 #define N_DOFUS 6
 #define MAX_TEAM_SIZE 5
 #define MAX_FIGHTERS (MAX_TEAM_SIZE * 2)
+#define MAX_SUMMONS 32
 #define MAX_FAVORITES 5
 #define ELEMENT_COUNT 4
 #define ELEMENT_POINTS 100
@@ -701,7 +702,20 @@ typedef struct {
 } Net;
 
 /* ------------------------------------------------------------------ */
-/* état global du jeu                                                  */
+/* Invocations (creatures invoquees sur l'arene)                        */
+/* ------------------------------------------------------------------ */
+typedef struct {
+    int  active;
+    int  team;
+    int  owner;      /* indice du combattant invoqueur                  */
+    int  x, y;
+    int  hp;
+    int  hp_max;
+    char name[32];
+} Summon;
+
+/* ------------------------------------------------------------------ */
+/* Ǹtat global du jeu                                                  */
 /* ------------------------------------------------------------------ */
 typedef enum { ST_MENU, ST_PICK, ST_DRAFT, ST_STUFF, ST_ELEMENTS,
                ST_DOFUS, ST_ACHIEVEMENTS, ST_BATTLE, ST_GAMEOVER } GameState;
