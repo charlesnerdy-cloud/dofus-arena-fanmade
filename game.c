@@ -89,6 +89,7 @@ typedef int Sock;
 
 #define ANIM_FRAME_MS 150              /* durée d'une frame             */
 #define ANIM_ATK_MS   600              /* durée totale de l'anim attaque */
+#define ANIM_FRAMES_PER_CLASS 4
 
 /* ------------------------------------------------------------------ */
 /* Assets                                                              */
@@ -683,6 +684,16 @@ static int net_open(Game *g, NetRole role, const char *host_ip)
 {
     g->net.sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (g->net.sock == SOCK_INVALID) return 0;
+#ifdef _WIN32
+    {
+        u_long nonblocking = 1;
+        if (ioctlsocket(g->net.sock, FIONBIO, &nonblocking) == SOCKET_ERROR) {
+            net_close(g->net.sock);
+            g->net.sock = SOCK_INVALID;
+            return 0;
+        }
+    }
+#endif
     g->net.role = role;
     g->net.has_peer = 0;
     g->net.connected = 0;
@@ -892,7 +903,12 @@ static void net_poll(Game *g)
     for (;;) {
         struct sockaddr_in from;
         socklen_t flen = sizeof from;
-        int n = (int)recvfrom(g->net.sock, buf, sizeof buf - 1, MSG_DONTWAIT,
+        int n = (int)recvfrom(g->net.sock, buf, sizeof buf - 1,
+#ifdef _WIN32
+                              0,
+#else
+                              MSG_DONTWAIT,
+#endif
                               (struct sockaddr*)&from, &flen);
         if (n <= 0) break;
         buf[n] = 0;
@@ -1888,6 +1904,11 @@ static void draw_emote_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
     draw_text(renderer, font, "EMOTES - 1 a 8 ou clic", bg.x + 46,
               bg.y + 4, white);
 }
+
+static SDL_Rect ingame_menu_panel(void);
+static SDL_Rect ingame_menu_option(int option);
+static SDL_Rect surrender_dialog(void);
+static SDL_Rect surrender_dialog_button(int confirm);
 
 static void draw_ingame_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
 {
