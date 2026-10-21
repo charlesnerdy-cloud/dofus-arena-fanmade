@@ -19,8 +19,12 @@
  *   - clic gauche = sélectionner / valider / cibler
  * Déroulement : MENU -> PICK (classe) -> DRAFT (4 sorts) -> STUFF
  *               (panoplie) -> BATTLE
- *
- * ==========================================================================*/
+  *
+  * ==========================================================================*/
+
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 199309L
+#endif
 
 #ifdef __ANDROID__
 #include <SDL.h>
@@ -61,9 +65,18 @@ typedef int Sock;
 /* ------------------------------------------------------------------ */
 /* Constantes                                                          */
 /* ------------------------------------------------------------------ */
+#if !SDL_VERSION_ATLEAST(2, 0, 18)
+#error "SDL 2.0.18 ou superieur requis (SDL_RenderGeometry, rendu isometrique)"
+#endif
+
 #define GRID_W 14
 #define GRID_H 10
 #define TILE   48
+/* rendu isometrique 2.5D : tuiles en losange, murs extrudes           */
+#define ISO_TILE_W 56
+#define ISO_TILE_H 28
+#define ISO_WALL_H 20
+#define ISO_EDGE_H 14
 #define MAP_THEME_COUNT 8
 #define CHARACTER_FRAME_W 16
 #define CHARACTER_FRAME_H 16
@@ -134,6 +147,31 @@ static SDL_Texture *g_characters_sheet;
 static SDL_Texture *g_spell_icons;
 static SDL_Texture *g_emote_sheet;
 static SDL_Texture *g_vfx_frames[VFX_FRAME_COUNT];
+static SDL_Renderer *g_ren;      /* pour la conversion souris -> logique */
+
+/* Fenetre redimensionnable : le rendu reste en 672x640 logiques,
+ * mis a l'echelle automatiquement par SDL (bandes noires si besoin).
+ * Les evenements souris arrivent en pixels fenetre : on convertit.      */
+static void point_logical(int wx, int wy, int *lx, int *ly)
+{
+    float sx = 1.0f, sy = 1.0f;
+    SDL_Rect vp = {0, 0, WIN_W, WIN_H};
+    if (g_ren) {
+        SDL_RenderGetScale(g_ren, &sx, &sy);
+        SDL_RenderGetViewport(g_ren, &vp);
+        if (sx <= 0.0f) sx = 1.0f;
+        if (sy <= 0.0f) sy = 1.0f;
+    }
+    *lx = (int)((wx - vp.x) / sx);
+    *ly = (int)((wy - vp.y) / sy);
+}
+
+static void mouse_logical(int *lx, int *ly)
+{
+    int wx, wy;
+    SDL_GetMouseState(&wx, &wy);
+    point_logical(wx, wy, lx, ly);
+}
 
 typedef struct {
     SDL_Rect source;
@@ -163,6 +201,23 @@ static Mix_Music *g_menu_music;
 static Mix_Music *g_battle_music[4];
 static Mix_Chunk *g_sounds[SFX_COUNT];
 static int g_audio_ready;
+static int g_current_music_track = -1; /* piste de combat en cours       */
+
+/* Horloge haute precision : nanosecondes (QPC sous Windows).          */
+static long long music_ns_now(void)
+{
+#ifndef _WIN32
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) return -1;
+    return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+#else
+    static LARGE_INTEGER freq = {0};
+    LARGE_INTEGER now;
+    if (freq.QuadPart == 0) QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&now);
+    return now.QuadPart * 1000000000LL / freq.QuadPart;
+#endif
+}
 
 static const char *BATTLE_MUSIC_PATHS[4] = {
     "assets/BGM/ES_Expiation - Christoffer Moe Ditlevsen.mp3",
@@ -245,241 +300,241 @@ typedef struct {
     Skill       spells[N_CLASS_SPELLS];
 } ClassDef;
 
-/* Les 13 classes de Dofus, 16 sorts chacune (grimoire fanmade).        */
+/* Les 13 classes de Dofus, 16 sorts chacun (grimoire fanmade).        */
 static ClassDef CLASSES[N_CLASSES] = {
-    {"Iop", {
-        {"Pression",          SK_ATK,     3, 1, 12, 0},
-        {"Couper",            SK_ATK,     3, 1, 15, 1},
-        {"Epée Divine",       SK_ATK,     4, 4, 18, 0},
-        {"Epée Céleste",      SK_ATK,     5, 3, 24, 3},
-        {"Colère de Iop",     SK_ATK,     5, 2, 30, 3},
-        {"Epée Destructrice", SK_ATK,     5, 4, 26, 3},
-        {"Intimidation",      SK_ATK,     4, 3, 16, 2},
-        {"Mutilation",        SK_ATK,     4, 1, 19, 1},
-        {"Bond",              SK_SPECIAL, 2, 3, 0,  2},
-        {"Amplification",     SK_SPECIAL, 3, 2, 6,  2},
-        {"Cautérisation",     SK_HEAL,   3, 0, 10, 3},
-        {"Vitalité",          SK_HEAL,   4, 0, 14, 3},
-        {"Concentration",     SK_BUFF,   2, 0, 20, 4},
-        {"Compulsion",        SK_BUFF,   2, 0, 15, 3},
-        {"Foudre",            SK_SPECIAL, 4, 5, 14, 3},
-        {"Bourrasque",        SK_SPECIAL, 3, 4, 9,  2},
+    {"Iop Cogneur", {
+        {"Poing Fracas",       SK_ATK,     3, 1, 12, 0},
+        {"Taillade Fun",       SK_ATK,     3, 1, 15, 1},
+        {"Epée Géante",        SK_ATK,     4, 4, 18, 0},
+        {"Epée Olympe",        SK_ATK,     5, 3, 24, 3},
+        {"Courroux Turbo",     SK_ATK,     5, 2, 30, 3},
+        {"Tronçonneuse",       SK_ATK,     5, 4, 26, 3},
+        {"Look Sadique",       SK_ATK,     4, 3, 16, 2},
+        {"Petit Rognon",       SK_ATK,     4, 1, 19, 1},
+        {"Petit Saut",         SK_SPECIAL, 2, 3, 0,  2},
+        {"Vitamine C",         SK_SPECIAL, 3, 2, 6,  2},
+        {"Pansement",          SK_HEAL,   3, 0, 10, 3},
+        {"Grand Repas",        SK_HEAL,   4, 0, 14, 3},
+        {"Café Serré",         SK_BUFF,   2, 0, 20, 4},
+        {"Trop de Café",       SK_BUFF,   2, 0, 15, 3},
+        {"Giga Tonnerre",      SK_SPECIAL, 4, 5, 14, 3},
+        {"Courant d'Air",      SK_SPECIAL, 3, 4, 9,  2},
     }},
-    {"Cra", {
-        {"Flèche Magique",    SK_ATK,     3, 8, 14, 0},
-        {"Flèche Enflammée",  SK_ATK,     4, 7, 18, 1},
-        {"Flèche Glacée",     SK_ATK,     3, 7, 11, 0},
-        {"Flèche Absorbante", SK_ATK,     4, 6, 16, 1},
-        {"Tir Puissant",      SK_ATK,     5, 7, 26, 3},
-        {"Flèche Punitive",   SK_ATK,     4, 8, 20, 2},
-        {"Arc Magique",       SK_ATK,     4, 6, 20, 2},
-        {"Flèche Destructrice",SK_ATK,    5, 7, 24, 3},
-        {"Flèche Recul",      SK_SPECIAL, 3, 4, 8,  2},
-        {"Œil de Taupe",      SK_SPECIAL, 3, 6, 0,  4},
-        {"Flèche Cinglante",  SK_SPECIAL, 3, 6, 9,  2},
-        {"Tir Immobilisant",  SK_SPECIAL, 4, 7, 0,  4},
-        {"Tir Critique",      SK_BUFF,   2, 0, 18, 4},
-        {"Maîtrise de l'Arc", SK_BUFF,   3, 0, 22, 5},
-        {"Tir Éloigné",       SK_BUFF,   2, 0, 14, 3},
-        {"Fuite",             SK_SPECIAL, 2, 3, 0,  2},
+    {"Cra Fléchard", {
+        {"Flèche Géniale",     SK_ATK,     3, 8, 14, 0},
+        {"Flèche BBQ",         SK_ATK,     4, 7, 18, 1},
+        {"Flèche Glaçon",      SK_ATK,     3, 7, 11, 0},
+        {"Flèche Vampire",     SK_ATK,     4, 6, 16, 1},
+        {"Tir Énorme",         SK_ATK,     5, 7, 26, 3},
+        {"Flèche Réveil",      SK_ATK,     4, 8, 20, 2},
+        {"Gros Bourdon",       SK_ATK,     4, 6, 20, 2},
+        {"Flèche TNT",         SK_ATK,     5, 7, 24, 3},
+        {"Flèche Butoir",      SK_SPECIAL, 3, 4, 8,  2},
+        {"Regard Laser",       SK_SPECIAL, 3, 6, 0,  4},
+        {"Flèche Croque",      SK_SPECIAL, 3, 6, 9,  2},
+        {"Colle Forte",        SK_SPECIAL, 4, 7, 0,  4},
+        {"Mode Boss",          SK_BUFF,   2, 0, 18, 4},
+        {"Cours d'Archer",     SK_BUFF,   3, 0, 22, 5},
+        {"Télécommande",       SK_BUFF,   2, 0, 14, 3},
+        {"Recette Fuite",      SK_SPECIAL, 2, 3, 0,  2},
     }},
-    {"Ecaflip", {
-        {"Pile ou Face",      SK_ATK,     3, 3, 16, 0},
-        {"Tout ou Rien",      SK_ATK,     4, 5, 22, 2},
-        {"Rekop",             SK_ATK,     5, 1, 32, 4},
-        {"Griffe Joueuse",    SK_ATK,     3, 1, 14, 0},
-        {"Bluff",             SK_ATK,     3, 4, 17, 1},
-        {"Roue de la Fortune",SK_ATK,     4, 3, 21, 2},
-        {"Esprit Félin",      SK_ATK,     4, 2, 18, 1},
-        {"Griffe Céleste",    SK_ATK,     5, 3, 26, 3},
-        {"Bond du Chat",      SK_SPECIAL, 2, 4, 0,  2},
-        {"Roulette",          SK_SPECIAL, 2, 0, 25, 5},
-        {"Contrepied",        SK_SPECIAL, 3, 4, 8,  2},
-        {"Glyphe Chanceux",   SK_SPECIAL, 4, 5, 12, 3},
-        {"Chance d'Ecaflip",  SK_BUFF,   2, 0, 18, 4},
-        {"Trèfle",            SK_BUFF,   3, 0, 22, 5},
-        {"Odorat",            SK_BUFF,   2, 0, 14, 3},
-        {"Félintuition",      SK_BUFF,   3, 0, 25, 5},
+    {"Ecaflip Casino", {
+        {"Lance Pièce",        SK_ATK,     3, 3, 16, 0},
+        {"Pari Gagnant",       SK_ATK,     4, 5, 22, 2},
+        {"Rekop Serré",        SK_ATK,     5, 1, 32, 4},
+        {"Griffe Chatte",      SK_ATK,     3, 1, 14, 0},
+        {"Fausse Barbe",       SK_ATK,     3, 4, 17, 1},
+        {"Roue Bazar",         SK_ATK,     4, 3, 21, 2},
+        {"Neuf Vies",          SK_ATK,     4, 2, 18, 1},
+        {"Griffe Ouragan",     SK_ATK,     5, 3, 26, 3},
+        {"Bond Chaton",        SK_SPECIAL, 2, 4, 0,  2},
+        {"Jackpot",            SK_SPECIAL, 2, 0, 25, 5},
+        {"Pied Ninja",         SK_SPECIAL, 3, 4, 8,  2},
+        {"Cagnotte",           SK_SPECIAL, 4, 5, 12, 3},
+        {"Chat Chanceux",      SK_BUFF,   2, 0, 18, 4},
+        {"Triple Trèfle",      SK_BUFF,   3, 0, 22, 5},
+        {"Nez de Chien",       SK_BUFF,   2, 0, 14, 3},
+        {"6ème Sens",          SK_BUFF,   3, 0, 25, 5},
     }},
-    {"Eniripsa", {
-        {"Mot Soignant",      SK_HEAL,   3, 5, 20, 0},
-        {"Mot Curatif",       SK_HEAL,   4, 6, 28, 2},
-        {"Mot de Régénération",SK_HEAL,  4, 0, 12, 3},
-        {"Mot d'Amitié",      SK_HEAL,   3, 7, 16, 2},
-        {"Mot de Sacrifice",  SK_HEAL,   5, 0, 34, 4},
-        {"Mot de Prévention", SK_SPECIAL, 3, 0, 15, 3},
-        {"Mot Interdit",      SK_ATK,    4, 4, 15, 0},
-        {"Mot Drainant",      SK_ATK,    4, 5, 13, 1},
-        {"Mot Ours",          SK_ATK,    5, 3, 25, 3},
-        {"Mot de Frayeur",    SK_SPECIAL, 2, 4, 8,  2},
-        {"Mot d'Impuissance", SK_SPECIAL, 4, 5, 0,  4},
-        {"Mot de Silence",    SK_SPECIAL, 3, 6, 0,  3},
-        {"Mot de Volonté",    SK_BUFF,   2, 0, 15, 3},
-        {"Mot de Vigueur",    SK_BUFF,   3, 0, 20, 4},
-        {"Mot Stimulant",     SK_SPECIAL, 3, 0, 12, 3},
-        {"Mot d'Amour",       SK_HEAL,   4, 3, 22, 3},
+    {"Eniripsa Blouse", {
+        {"Mot Pansement",      SK_HEAL,   3, 5, 20, 0},
+        {"Mot Câlin",          SK_HEAL,   4, 6, 28, 2},
+        {"Mot Soupe",          SK_HEAL,   4, 0, 12, 3},
+        {"Mot BFF",            SK_HEAL,   3, 7, 16, 2},
+        {"Mot Héros",          SK_HEAL,   5, 0, 34, 4},
+        {"Mot Gilet Jaune",    SK_SPECIAL, 3, 0, 15, 3},
+        {"Mot Vulgaire",       SK_ATK,    4, 4, 15, 0},
+        {"Mot Sucette",        SK_ATK,    4, 5, 13, 1},
+        {"Mot Grizzli",        SK_ATK,    5, 3, 25, 3},
+        {"Mot Boo",            SK_SPECIAL, 2, 4, 8,  2},
+        {"Mot Frein",          SK_SPECIAL, 4, 5, 0,  4},
+        {"Mot Chut",           SK_SPECIAL, 3, 6, 0,  3},
+        {"Mot Courage",        SK_BUFF,   2, 0, 15, 3},
+        {"Mot Éclair",         SK_BUFF,   3, 0, 20, 4},
+        {"Mot Kiwi",           SK_SPECIAL, 3, 0, 12, 3},
+        {"Mot Bisou",          SK_HEAL,   4, 3, 22, 3},
     }},
-    {"Enutrof", {
-        {"Lancer de Pièces",  SK_ATK,     3, 6, 13, 0},
-        {"Pelle Fantôme",     SK_ATK,     4, 3, 17, 0},
-        {"Pelle Massacrante", SK_ATK,     5, 2, 28, 3},
-        {"Pelle de Jugement", SK_ATK,     4, 4, 20, 2},
-        {"Maladresse",        SK_SPECIAL, 3, 5, 9,  2},
-        {"Sac Animé",         SK_SPECIAL, 3, 2, 10, 3},
-        {"Force de l'Age",    SK_SPECIAL, 4, 4, 12, 3},
-        {"Coffrage",          SK_SPECIAL, 2, 5, 0,  5},
-        {"Roulage de Pelle",  SK_ATK,     5, 1, 24, 2},
-        {"Accélération Poussée",SK_SPECIAL,3, 3, 0, 3},
-        {"Châtiment de l'Eau",SK_ATK,     4, 5, 19, 2},
-        {"Pelle Fantomatique",SK_ATK,     3, 4, 15, 0},
-        {"Chance d'Eca",      SK_BUFF,   2, 0, 18, 4},
-        {"Trésor",            SK_BUFF,   3, 0, 20, 4},
-        {"Rétention",         SK_SPECIAL, 3, 3, 0,  3},
-        {"Glyphe de Chance",  SK_SPECIAL, 4, 0, 14, 4},
+    {"Enutrof Magot", {
+        {"Lancer Chrome",      SK_ATK,     3, 6, 13, 0},
+        {"Pelle Polterge",     SK_ATK,     4, 3, 17, 0},
+        {"Pelleteuse XL",      SK_ATK,     5, 2, 28, 3},
+        {"Pelle Arbitre",      SK_ATK,     4, 4, 20, 2},
+        {"Doigt Trapu",        SK_SPECIAL, 3, 5, 9,  2},
+        {"Sac TrucMuch",       SK_SPECIAL, 3, 2, 10, 3},
+        {"Age de Bronze",      SK_SPECIAL, 4, 4, 12, 3},
+        {"Sous Verre",         SK_SPECIAL, 2, 5, 0,  5},
+        {"Pelle Roulo",        SK_ATK,     5, 1, 24, 2},
+        {"Turbo Bateau",       SK_SPECIAL, 3, 3, 0,  3},
+        {"Jet Karcher",        SK_ATK,     4, 5, 19, 2},
+        {"Pelle Cachée",       SK_ATK,     3, 4, 15, 0},
+        {"Bon Karma",          SK_BUFF,   2, 0, 18, 4},
+        {"Or en Barre",        SK_BUFF,   3, 0, 20, 4},
+        {"Main Rouillée",      SK_SPECIAL, 3, 3, 0,  3},
+        {"Coup de Pot",        SK_SPECIAL, 4, 0, 14, 4},
     }},
-    {"Sram", {
-        {"Coup Sournois",     SK_ATK,     4, 1, 22, 0},
-        {"Arnaque",           SK_ATK,     3, 1, 14, 0},
-        {"Piège de Masse",    SK_ATK,     4, 4, 19, 2},
-        {"Piège d'Emboîtement",SK_ATK,    5, 5, 24, 3},
-        {"Attaque Trompeuse", SK_ATK,     3, 2, 16, 1},
-        {"Frappe du Sram",    SK_ATK,     4, 3, 20, 2},
-        {"Fourbe Lame",       SK_ATK,     5, 2, 27, 3},
-        {"Poignard Prodige",  SK_ATK,     4, 1, 21, 2},
-        {"Peur",              SK_SPECIAL, 2, 3, 8,  2},
-        {"Invisibilité",     SK_SPECIAL, 3, 0, 0,  5},
-        {"Double",            SK_SPECIAL, 4, 0, 0,  6},
-        {"Piège Empoisonné",  SK_SPECIAL, 3, 4, 11, 3},
-        {"Fourbe",            SK_BUFF,   2, 0, 20, 4},
-        {"Mépris",            SK_BUFF,   3, 0, 18, 4},
-        {"Piège de Silence",  SK_SPECIAL, 4, 6, 0,  4},
-        {"Concentration de Sram",SK_BUFF, 2, 0, 16, 3},
+    {"Sram Fourbe", {
+        {"Coup Fantôme",       SK_ATK,     4, 1, 22, 0},
+        {"Sale Astuce",        SK_ATK,     3, 1, 14, 0},
+        {"Piège Géant",        SK_ATK,     4, 4, 19, 2},
+        {"Piège Sardine",      SK_ATK,     5, 5, 24, 3},
+        {"Faux Coup",          SK_ATK,     3, 2, 16, 1},
+        {"Frappe Ratou",       SK_ATK,     4, 3, 20, 2},
+        {"Lame Traître",       SK_ATK,     5, 2, 27, 3},
+        {"Poignard Star",      SK_ATK,     4, 1, 21, 2},
+        {"Bouh Spécial",       SK_SPECIAL, 2, 3, 8,  2},
+        {"Caméléon",           SK_SPECIAL, 3, 0, 0,  5},
+        {"Carton Double",      SK_SPECIAL, 4, 0, 0,  6},
+        {"Piège Vespa",        SK_SPECIAL, 3, 4, 11, 3},
+        {"Mode Vilain",        SK_BUFF,   2, 0, 20, 4},
+        {"Refus Sauvage",      SK_BUFF,   3, 0, 18, 4},
+        {"Piège Zip",          SK_SPECIAL, 4, 6, 0,  4},
+        {"Zoom Digital",       SK_BUFF,   2, 0, 16, 3},
     }},
-    {"Sacrieur", {
-        {"Pied du Sacrieur",  SK_ATK,     3, 1, 15, 0},
-        {"Attaque Furieuse",  SK_ATK,     4, 1, 20, 1},
-        {"Punition",          SK_ATK,     5, 1, 28, 2},
-        {"Frappe du Sacrieur",SK_ATK,     4, 2, 21, 2},
-        {"Morsure du Chien",  SK_ATK,     3, 1, 16, 1},
-        {"Chatiment Colereux",SK_ATK,     5, 3, 26, 3},
-        {"Furie Sacrée",      SK_ATK,     5, 1, 30, 4},
-        {"Larcère",           SK_ATK,     4, 3, 19, 2},
-        {"Furie",             SK_BUFF,   2, 0, 25, 5},
-        {"Châtiment",         SK_BUFF,   2, 0, 22, 5},
-        {"Attirance",         SK_SPECIAL, 2, 6, 0,  2},
-        {"Transposition",     SK_SPECIAL, 3, 5, 0,  3},
-        {"Sacrifice",         SK_HEAL,   4, 0, 15, 4},
-        {"Châtiment Vital",   SK_HEAL,   5, 0, 30, 5},
-        {"Dérobade",          SK_SPECIAL, 2, 3, 0,  2},
-        {"Châtiment de l'Air",SK_BUFF,   3, 0, 28, 5},
+    {"Sacrieur Maso", {
+        {"Coup de Genoux",     SK_ATK,     3, 1, 15, 0},
+        {"Roulade Rageuse",    SK_ATK,     4, 1, 20, 1},
+        {"Taloches XL",        SK_ATK,     5, 1, 28, 2},
+        {"Frappe Turbiñe",     SK_ATK,     4, 2, 21, 2},
+        {"Morsure Oufti",      SK_ATK,     3, 1, 16, 1},
+        {"Tonnerre Colère",    SK_ATK,     5, 3, 26, 3},
+        {"Fou Furieux",        SK_ATK,     5, 1, 30, 4},
+        {"Coup Piquant",       SK_ATK,     4, 3, 19, 2},
+        {"Adrénaline",         SK_BUFF,   2, 0, 25, 5},
+        {"Contre Plaque",      SK_BUFF,   2, 0, 22, 5},
+        {"Aimant Kédoz",       SK_SPECIAL, 2, 6, 0,  2},
+        {"Coucou Swap",        SK_SPECIAL, 3, 5, 0,  3},
+        {"Râle de Soin",       SK_HEAL,   4, 0, 15, 4},
+        {"Recharge Vie",       SK_HEAL,   5, 0, 30, 5},
+        {"Non Contact",        SK_SPECIAL, 2, 3, 0,  2},
+        {"Roquettes Air",      SK_BUFF,   3, 0, 28, 5},
     }},
-    {"Sadida", {
-        {"Ronce",             SK_ATK,     3, 5, 16, 0},
-        {"Ronce Agressive",   SK_ATK,     4, 5, 21, 2},
-        {"Ronce Insolente",   SK_ATK,     5, 4, 27, 3},
-        {"Ronce Apaisante",   SK_ATK,     4, 4, 18, 1},
-        {"Feu de Brousse",    SK_ATK,     4, 3, 19, 2},
-        {"Sacrifice",         SK_HEAL,   4, 3, 18, 3},
-        {"Herbe Folle",       SK_SPECIAL, 2, 4, 8,  2},
-        {"Surinvasion",       SK_BUFF,   3, 0, 15, 4},
-        {"Arbre",             SK_SPECIAL, 3, 0, 12, 4},
-        {"Venteux",           SK_SPECIAL, 3, 3, 6,  2},
-        {"Feu Grégeois",      SK_ATK,     5, 5, 25, 3},
-        {"Ronce Dévastatrice",SK_ATK,     5, 3, 29, 4},
-        {"Tremblement",       SK_SPECIAL, 4, 5, 13, 3},
-        {"Poussée",           SK_SPECIAL, 3, 3, 8,  2},
-        {"Ronce Gloursonne",  SK_ATK,     3, 3, 17, 1},
-        {"Sève Vitale",       SK_HEAL,   3, 0, 12, 2},
+    {"Sadida Ronceux", {
+        {"Ronce CureDent",     SK_ATK,     3, 5, 16, 0},
+        {"Ronce Brutale",      SK_ATK,     4, 5, 21, 2},
+        {"Ronce Vanneuse",     SK_ATK,     5, 4, 27, 3},
+        {"Ronce Gentle",       SK_ATK,     4, 4, 18, 1},
+        {"BBQ Brousse",        SK_ATK,     4, 3, 19, 2},
+        {"Bouquet Guérit",     SK_HEAL,   4, 3, 18, 3},
+        {"Herbe Rigolote",     SK_SPECIAL, 2, 4, 8,  2},
+        {"Envahisseur",        SK_BUFF,   3, 0, 15, 4},
+        {"Arbre Ami",          SK_SPECIAL, 3, 0, 12, 4},
+        {"Vent Pollen",        SK_SPECIAL, 3, 3, 6,  2},
+        {"Feu de Greg",        SK_ATK,     5, 5, 25, 3},
+        {"Ronce Bulldozer",    SK_ATK,     5, 3, 29, 4},
+        {"Trempe Plot",        SK_SPECIAL, 4, 5, 13, 3},
+        {"Pousse-Vous",        SK_SPECIAL, 3, 3, 8,  2},
+        {"Ronce Glourbo",      SK_ATK,     3, 3, 17, 1},
+        {"Sève Revive",        SK_HEAL,   3, 0, 12, 2},
     }},
-    {"Osamodas", {
-        {"Griffe",            SK_ATK,     3, 4, 15, 0},
-        {"Frappe du Bwork",   SK_ATK,     5, 3, 27, 3},
-        {"Tofu",              SK_ATK,     2, 5,  8, 0},
-        {"Fouet",             SK_ATK,     4, 2, 18, 1},
-        {"Griffe Spectrale",  SK_ATK,     4, 4, 20, 2},
-        {"Cri du Bouftou",    SK_ATK,     3, 3, 15, 0},
-        {"Corbeau Noir",      SK_ATK,     5, 6, 26, 3},
-        {"Crocs Mulou",       SK_ATK,     4, 1, 22, 2},
-        {"Bénédiction Animale",SK_BUFF,   3, 0, 20, 4},
-        {"Piqûre Motivante",  SK_BUFF,   2, 0, 15, 3},
-        {"Cri de l'Ours",     SK_SPECIAL, 2, 0, 10, 3},
-        {"Corbeau",           SK_SPECIAL, 3, 4, 9,  2},
-        {"Invocation de Tofu",SK_SPECIAL, 3, 2, 0,  3},
-        {"Bouclier Animé",    SK_SPECIAL, 4, 0, 16, 4},
-        {"Résistance Magique",SK_BUFF,   3, 0, 22, 5},
-        {"Sanglier Déchaîné", SK_ATK,     5, 4, 24, 3},
+    {"Osamodas Zoo", {
+        {"Patou Patte",        SK_ATK,     3, 4, 15, 0},
+        {"Bwork Boxing",       SK_ATK,     5, 3, 27, 3},
+        {"Kebab Volant",       SK_ATK,     2, 5,  8, 0},
+        {"Fouet Crème",        SK_ATK,     4, 2, 18, 1},
+        {"Patte Fantôme",      SK_ATK,     4, 4, 20, 2},
+        {"Beee!",              SK_ATK,     3, 3, 15, 0},
+        {"Corbeau Rock",       SK_ATK,     5, 6, 26, 3},
+        {"Crocs Crocro",       SK_ATK,     4, 1, 22, 2},
+        {"Bien-être Zoo",      SK_BUFF,   3, 0, 20, 4},
+        {"Piqûre Café",        SK_BUFF,   2, 0, 15, 3},
+        {"Grrr Précieux",      SK_SPECIAL, 2, 0, 10, 3},
+        {"Mouette Ruse",       SK_SPECIAL, 3, 4, 9,  2},
+        {"Lâche Tofu !",       SK_SPECIAL, 3, 2, 0,  3},
+        {"Coque Dure",         SK_SPECIAL, 4, 0, 16, 4},
+        {"Imperméable",        SK_BUFF,   3, 0, 22, 5},
+        {"Sanglier Fête",      SK_ATK,     5, 4, 24, 3},
     }},
-    {"Xelor", {
-        {"Aiguille",          SK_ATK,     3, 4, 14, 0},
-        {"Gelure",            SK_ATK,     4, 4, 17, 1},
-        {"Horloge",           SK_ATK,     5, 3, 25, 3},
-        {"Sablier du Temps",  SK_SPECIAL, 3, 3, 0,  4},
-        {"Ralentissement",    SK_SPECIAL,  2, 6, 0,  3},
-        {"Cadran Xelor",      SK_BUFF,   3, 0, 22, 5},
-        {"Contre",            SK_BUFF,    2, 0, 15, 3},
-        {"Fuite de Xelor",    SK_SPECIAL,  2, 3, 0,  2},
-        {"Poussière Temporelle",SK_ATK,   4, 5, 19, 2},
-        {"Rayon Obscur",      SK_ATK,     4, 4, 18, 1},
-        {"Aiguille Cherchuse",SK_ATK,     5, 6, 24, 3},
-        {"Frappe de Xelor",   SK_ATK,     4, 2, 20, 2},
-        {"Téléportation",     SK_SPECIAL, 3, 7, 0,  4},
-        {"Démotivation",      SK_SPECIAL, 3, 5, 0,  3},
-        {"Remise du Temps",   SK_SPECIAL, 4, 0, 18, 4},
-        {"Glyphe de Xelor",   SK_SPECIAL, 4, 4, 12, 3},
+    {"Xelor Retard", {
+        {"Aiguille Heure",     SK_ATK,     3, 4, 14, 0},
+        {"Frigo Portatif",     SK_ATK,     4, 4, 17, 1},
+        {"Toc Tic Boum",       SK_ATK,     5, 3, 25, 3},
+        {"Sablier Cassé",      SK_SPECIAL, 3, 3, 0,  4},
+        {"Escargot Net",       SK_SPECIAL,  2, 6, 0,  3},
+        {"Réveil Musclé",      SK_BUFF,   3, 0, 22, 5},
+        {"Parapluvie",         SK_BUFF,    2, 0, 15, 3},
+        {"Souris Fuit",        SK_SPECIAL,  2, 3, 0,  2},
+        {"Poussière Pouf",     SK_ATK,     4, 5, 19, 2},
+        {"Laser Obscur",       SK_ATK,     4, 4, 18, 1},
+        {"Aiguille Radar",     SK_ATK,     5, 6, 24, 3},
+        {"Frappe Chrono",      SK_ATK,     4, 2, 20, 2},
+        {"Porte Secrète",      SK_SPECIAL, 3, 7, 0,  4},
+        {"Pas le Moral",       SK_SPECIAL, 3, 5, 0,  3},
+        {"Replay Diva",        SK_SPECIAL, 4, 0, 18, 4},
+        {"Mini Montre",        SK_SPECIAL, 4, 4, 12, 3},
     }},
-    {"Feca", {
-        {"Attaque Naturelle",  SK_ATK,     3, 4, 13, 0},
-        {"Glyphe d'Agression",SK_ATK,     5, 3, 25, 3},
-        {"Glyphe Enflammé",   SK_ATK,     4, 2, 18, 2},
-        {"Bouclier Féca",     SK_SPECIAL, 2, 0, 10, 2},
-        {"Armure Terrestre",  SK_SPECIAL, 3, 0, 15, 3},
-        {"Immunité",          SK_SPECIAL, 4, 0, 20, 5},
-        {"Rétention",         SK_SPECIAL, 3, 3, 8,  3},
-        {"Trêve",             SK_SPECIAL, 3, 0, 12, 4},
-        {"Nuage Moskito",     SK_ATK,     3, 5, 14, 0},
-        {"Attaque Nuageuse",  SK_ATK,     4, 4, 17, 1},
-        {"Glyphe de Silence", SK_SPECIAL, 4, 4, 0,  4},
-        {"Bouclier Terrestre",SK_BUFF,   3, 0, 20, 4},
-        {"Bouclier de Feu",   SK_SPECIAL, 3, 0, 14, 3},
-        {"Retour du Bâton",   SK_ATK,     4, 1, 19, 2},
-        {"Tremblement de Terre",SK_ATK,   5, 4, 26, 3},
-        {"Bulbesacre",        SK_SPECIAL, 4, 0, 18, 4},
+    {"Feca Boucliné", {
+        {"Baffe Naturelle",    SK_ATK,     3, 4, 13, 0},
+        {"Glyphe Colère",      SK_ATK,     5, 3, 25, 3},
+        {"Glyphe Friteuse",    SK_ATK,     4, 2, 18, 2},
+        {"Petit Plastron",     SK_SPECIAL, 2, 0, 10, 2},
+        {"Doudoune Terre",     SK_SPECIAL, 3, 0, 15, 3},
+        {"Anti Tout",          SK_SPECIAL, 4, 0, 20, 5},
+        {"Poignet Serre",      SK_SPECIAL, 3, 3, 8,  3},
+        {"Pause Clope",        SK_SPECIAL, 3, 0, 12, 4},
+        {"Nuage Punaises",     SK_ATK,     3, 5, 14, 0},
+        {"Pluie Haches",       SK_ATK,     4, 4, 17, 1},
+        {"Glyphe Muet",        SK_SPECIAL, 4, 4, 0,  4},
+        {"Sac de Sable",       SK_BUFF,   3, 0, 20, 4},
+        {"Pare Silex",         SK_SPECIAL, 3, 0, 14, 3},
+        {"Bâton Boomerang",    SK_ATK,     4, 1, 19, 2},
+        {"Séisme XXL",         SK_ATK,     5, 4, 26, 3},
+        {"Bulbig Bulbe",       SK_SPECIAL, 4, 0, 18, 4},
     }},
-    {"Pandawa", {
-        {"Poison Lame",       SK_ATK,     4, 2, 18, 0},
-        {"Vent Ethyl",        SK_ATK,     4, 4, 20, 2},
-        {"Gueule de Bois",    SK_ATK,     5, 1, 26, 3},
-        {"Lait de Bambou",    SK_HEAL,    3, 3, 18, 2},
-        {"Vulnérabilité",     SK_SPECIAL, 2, 4, 0,  3},
-        {"Karcham",           SK_SPECIAL, 3, 1, 0,  3},
-        {"Picole",            SK_BUFF,    2, 0, 18, 4},
-        {"Boison de Potion",  SK_BUFF,    2, 0, 18, 4},
-        {"Bond du Pandawa",   SK_SPECIAL, 2, 3, 0,  2},
-        {"Fracasse",          SK_ATK,     4, 3, 21, 2},
-        {"Punch du Pandawa",  SK_ATK,     3, 1, 16, 0},
-        {"Souffle Alcoolisé", SK_ATK,     5, 3, 25, 3},
-        {"Cham Chaam",        SK_SPECIAL, 4, 2, 0,  4},
-        {"Bambou Malheureux", SK_ATK,     4, 4, 19, 2},
-        {"Gobelet",           SK_SPECIAL, 3, 0, 12, 3},
-        {"Zéro Absolu",       SK_SPECIAL, 4, 5, 14, 3},
+    {"Pandawa Bourre", {
+        {"Lame Imbibée",       SK_ATK,     4, 2, 18, 0},
+        {"Haleine Turbo",      SK_ATK,     4, 4, 20, 2},
+        {"Rage de Crâne",      SK_ATK,     5, 1, 26, 3},
+        {"Café au Lait",       SK_HEAL,    3, 3, 18, 2},
+        {"Point Faible",       SK_SPECIAL, 2, 4, 0,  3},
+        {"Frisbee Pote",       SK_SPECIAL, 3, 1, 0,  3},
+        {"Canon de Poulpe",    SK_BUFF,    2, 0, 18, 4},
+        {"Cocktail Folie",     SK_BUFF,    2, 0, 18, 4},
+        {"Bond Bambou",        SK_SPECIAL, 2, 3, 0,  2},
+        {"Macadam Fracas",     SK_ATK,     4, 3, 21, 2},
+        {"Punch Coco",         SK_ATK,     3, 1, 16, 0},
+        {"Boum Haleine",       SK_ATK,     5, 3, 25, 3},
+        {"Tai Chi Pote",       SK_SPECIAL, 4, 2, 0,  4},
+        {"Bambou Boudeur",     SK_ATK,     4, 4, 19, 2},
+        {"Grande Gorgée",      SK_SPECIAL, 3, 0, 12, 3},
+        {"Pôle Nord XXL",      SK_SPECIAL, 4, 5, 14, 3},
     }},
-    {"Roublard", {   /* classe en attente : non sélectionnable */
-        {"Pistolet",          SK_ATK,     3, 5, 15, 0},
-        {"Perforation",       SK_ATK,     4, 6, 19, 1},
-        {"Bombe",             SK_ATK,     4, 6, 24, 2},
-        {"Mise à Terre",      SK_ATK,     5, 2, 30, 4},
-        {"Câble",             SK_SPECIAL, 2, 3, 0,  2},
-        {"Ruse",              SK_SPECIAL, 3, 5, 0,  4},
-        {"Roublardise",       SK_BUFF,    2, 0, 20, 4},
-        {"Escroquerie",       SK_SPECIAL, 3, 4, 10, 3},
-        {"Fumigation",        SK_SPECIAL, 3, 0, 0,  3},
-        {"Poudre Noire",      SK_ATK,     5, 5, 27, 3},
-        {"Tir de Précision",  SK_ATK,     4, 7, 21, 2},
-        {"Charge Explosive",  SK_ATK,     5, 4, 26, 3},
-        {"Détonation",        SK_ATK,     4, 3, 22, 2},
-        {"Carabine",          SK_ATK,     3, 6, 17, 1},
-        {"Retraite Estrade",  SK_SPECIAL, 2, 4, 0,  2},
-        {"Poison Mortel",     SK_SPECIAL, 4, 5, 13, 3},
+    {"Roublard Boom", {
+        {"Plomb Chocolat",     SK_ATK,     3, 5, 15, 0},
+        {"Trépan Surprise",    SK_ATK,     4, 6, 19, 1},
+        {"Pièce Montée",       SK_ATK,     4, 6, 24, 2},
+        {"Superchute",         SK_ATK,     5, 2, 30, 4},
+        {"Lasso Internet",     SK_SPECIAL, 2, 3, 0,  2},
+        {"Croche Pater",       SK_SPECIAL, 3, 5, 0,  4},
+        {"Classe Mulot",       SK_BUFF,    2, 0, 20, 4},
+        {"Ponzi Partout",      SK_SPECIAL, 3, 4, 10, 3},
+        {"Fumigène Disco",     SK_SPECIAL, 3, 0, 0,  3},
+        {"Poudre Rasta",       SK_ATK,     5, 5, 27, 3},
+        {"Lunette Sniper",     SK_ATK,     4, 7, 21, 2},
+        {"Colis Suspect",      SK_ATK,     5, 4, 26, 3},
+        {"Boum Grillot",       SK_ATK,     4, 3, 22, 2},
+        {"Carabine Noël",      SK_ATK,     3, 6, 17, 1},
+        {"Sortie Crous",       SK_SPECIAL, 2, 4, 0,  2},
+        {"Fiole Mystère",      SK_SPECIAL, 4, 5, 13, 3},
     }},
 };
 
@@ -643,6 +698,12 @@ typedef struct {
     int       social_emote_burst[2];
     Uint32    social_last_pacify_ms;
     Uint32    social_last_encourage_ms;
+    /* --- contre musical anti-humiliation ---                          */
+    int       anti_humil_active;       /* contre en cours               */
+    int       anti_humil_prev_track;   /* piste avant le contre         */
+    int       anti_humil_used[4];      /* pistes deja employées         */
+    Uint32    anti_humil_restore_ms;   /* reprise programmée           */
+    long long anti_humil_last_ns;      /* horodatage ns du dernier acte */
     int       emote_menu_open;
     int       in_game_menu_open;
     int       surrender_confirm;
@@ -666,6 +727,8 @@ typedef struct {
 /* prototypes des fonctions moteur utilisées par net_poll */
 static void apply_skill_remote(Game *g, int who, int idx, int tx, int ty);
 static void end_turn(Game *g, int from_net);
+static int move_distance(const Game *g, int sx, int sy, int tx, int ty);
+static int fighter_at(const Game *g, int x, int y);
 static void sync_draft(Game *g, int who);
 static void check_draft_start(Game *g);
 static void start_battle(Game *g, unsigned seed);
@@ -684,6 +747,8 @@ static void try_play_social_cue(Game *g, SoundEffect sound,
                                 unsigned probability_percent);
 static void process_social_message(Game *g, int team, const char *message);
 static void process_social_emote(Game *g, int team);
+static void anti_humil_music(Game *g, long long trigger_ns);
+static void anti_humil_restore(Game *g);
 
 static void favorites_load(Game *g)
 {
@@ -1082,7 +1147,7 @@ static void net_poll(Game *g)
                 && b >= 0 && b < g->map_height
                 && g->cell[b][a] == CELL_GROUND
                 && fighter_at(g, a, b) < 0 && g->state == ST_BATTLE) {
-                int distance = manhattan(g->f[who].x, g->f[who].y, a, b);
+                int distance = move_distance(g, g->f[who].x, g->f[who].y, a, b);
                 if (distance > 0 && distance <= g->f[who].pm) {
                     g->f[who].x = a; g->f[who].y = b;
                     g->f[who].pm -= distance;
@@ -1209,14 +1274,40 @@ static void build_fighter(Game *g, int idx)
     }
 }
 
+static int map_pixel_w(const Game *g)
+{
+    return (g->map_width + g->map_height) * (ISO_TILE_W / 2);
+}
+
+static int map_pixel_h(const Game *g)
+{
+    return (g->map_width + g->map_height) * (ISO_TILE_H / 2);
+}
+
 static int map_origin_x(const Game *g)
 {
-    return ((GRID_W - g->map_width) * TILE) / 2;
+    /* l'arene s'etend de -h*28 a +w*28 : on la centre horizontalement */
+    return (WIN_W - map_pixel_w(g)) / 2
+         + g->map_height * (ISO_TILE_W / 2);
 }
 
 static int map_origin_y(const Game *g)
 {
-    return ((GRID_H - g->map_height) * TILE) / 2;
+    return ((GRID_H * TILE) - map_pixel_h(g)) / 2;
+}
+
+/* Sommet haut du losange de la case (i, j)                             */
+static void iso_top_vertex(const Game *g, int i, int j, int *x, int *y)
+{
+    *x = map_origin_x(g) + (i - j) * (ISO_TILE_W / 2);
+    *y = map_origin_y(g) + (i + j) * (ISO_TILE_H / 2);
+}
+
+/* Centre du losange de la case (i, j)                                  */
+static void iso_center(const Game *g, int i, int j, int *x, int *y)
+{
+    iso_top_vertex(g, i, j, x, y);
+    *y += ISO_TILE_H / 2;
 }
 
 static unsigned map_random(unsigned *state)
@@ -1475,6 +1566,43 @@ static int fighter_at(const Game *g, int x, int y)
     return -1;
 }
 
+/* distances de marche reelles (BFS) : contourne murs, fosses et
+ * combattants ; -1 si la case est inatteignable. Deterministe des
+ * deux cotes du reseau (meme carte, meme resultat).                    */
+static void move_distances(const Game *g, int sx, int sy,
+                           int dist[GRID_H][GRID_W])
+{
+    int qx[GRID_W * GRID_H], qy[GRID_W * GRID_H];
+    int head = 0, tail = 0, x, y, d;
+    static const int dx4[4] = {1, -1, 0, 0};
+    static const int dy4[4] = {0, 0, 1, -1};
+    memset(dist, 0xFF, GRID_H * GRID_W * sizeof(int));
+    if (g->cell[sy][sx] != CELL_GROUND) return;
+    dist[sy][sx] = 0;
+    qx[tail] = sx; qy[tail] = sy; tail++;
+    while (head < tail) {
+        x = qx[head]; y = qy[head]; head++;
+        for (d = 0; d < 4; d++) {
+            int nx = x + dx4[d], ny = y + dy4[d];
+            if (nx < 0 || ny < 0 || nx >= g->map_width
+                || ny >= g->map_height) continue;
+            if (dist[ny][nx] != -1) continue;
+            if (g->cell[ny][nx] != CELL_GROUND) continue;
+            if (fighter_at(g, nx, ny) >= 0) continue;
+            dist[ny][nx] = dist[y][x] + 1;
+            qx[tail] = nx; qy[tail] = ny; tail++;
+        }
+    }
+}
+
+static int move_distance(const Game *g, int sx, int sy, int tx, int ty)
+{
+    int dist[GRID_H][GRID_W];
+    if (sx == tx && sy == ty) return 0;
+    move_distances(g, sx, sy, dist);
+    return dist[ty][tx];
+}
+
 static int team_has_living(const Game *g, int team)
 {
     int i;
@@ -1592,9 +1720,11 @@ static void try_move(Game *g, int tx, int ty)
     if (g->cell[ty][tx] != CELL_GROUND) return;   /* mur ou fausse     */
     if (g->state != ST_BATTLE || me->team != g->my_index) return;
     if (fighter_at(g, tx, ty) >= 0) return;
-    int d = manhattan(me->x, me->y, tx, ty);
-    if (d == 0 || d > me->pm) return;
-    me->x = tx; me->y = ty; me->pm -= d;
+    {
+        int d = move_distance(g, me->x, me->y, tx, ty);
+        if (d <= 0 || d > me->pm) return;
+        me->x = tx; me->y = ty; me->pm -= d;
+    }
     set_anim(g, g->turn, ANIM_MOVE);
     play_sound(g, SFX_MOVE);
     char msg[64];
@@ -2234,6 +2364,11 @@ static void process_social_emote(Game *g, int team)
     else
         g->social_emote_burst[team]++;
     g->social_last_emote_ms[team] = now;
+    /*Trois emotes en six secondes = vague d'humiliation : le contre   */
+    if (g->social_emote_burst[team] == 3) {
+        g->anti_humil_last_ns = music_ns_now();
+        anti_humil_music(g, g->anti_humil_last_ns);
+    }
     if (g->social_emote_burst[team] >= 4) {
         g->social_emote_burst[team] = 0;
         try_play_social_cue(g, SFX_PACIFY, 45);
@@ -2271,19 +2406,98 @@ static void load_audio(void)
     set_social_sound_volume();
 }
 
-static void play_music_for_state(GameState state)
+static void play_music_for_state(Game *g, GameState state)
 {
     if (!g_audio_ready) return;
     if (state == ST_BATTLE) {
         int track = (int)(SDL_GetTicks() % 4);
         if (g_battle_music[track])
             Mix_PlayMusic(g_battle_music[track], -1);
+        g_current_music_track = track;
+        memset(g->anti_humil_used, 0, sizeof g->anti_humil_used);
+        g->anti_humil_active = 0;
+        g->anti_humil_prev_track = track;
     } else if (state == ST_MENU || state == ST_PICK || state == ST_DRAFT
                || state == ST_STUFF || state == ST_ELEMENTS) {
         if (g_menu_music) Mix_PlayMusic(g_menu_music, -1);
-    } else {
-        Mix_HaltMusic();
+        g_current_music_track = -1;
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Contre musical anti-humiliation (Pour le Bien et le Bon)            */
+/* ------------------------------------------------------------------ */
+
+/* LA musique répond, tunnée, en un temps mesuré à la nanoseconde.     */
+static void anti_humil_music(Game *g, long long trigger_ns)
+{
+    long long detect_ns, span, t0, t1;
+    int counter, tries;
+    const char *path, *title;
+    if (!g_audio_ready || g->state != ST_BATTLE
+            || g_current_music_track < 0)
+        return;
+    detect_ns = music_ns_now();
+    if (trigger_ns < 0)
+        trigger_ns = detect_ns;
+    span = detect_ns - trigger_ns;
+    /* la piste rivale est tirée des nanosecondes (déterministe)       */
+    counter = (int)((detect_ns / 1000LL) % 4);
+    for (tries = 0; tries < 4; tries++) {
+        if (counter != g_current_music_track
+                && !g->anti_humil_used[counter]
+                && g_battle_music[counter])
+            break;
+        counter = (counter + 1) % 4;
+    }
+    if (counter == g_current_music_track
+            || !g_battle_music[counter])
+        return;
+    if (!g->anti_humil_active)
+        g->anti_humil_prev_track = g_current_music_track;
+    g->anti_humil_used[counter] = 1;
+    g->anti_humil_restore_ms = SDL_GetTicks() + 8000;
+    path = BATTLE_MUSIC_PATHS[counter];
+    title = strstr(path, "BGM/") ? strstr(path, "BGM/") + 4 : path;
+    if (!title) title = path;
+    /* la bascule elle-meme est chronometree au ns pres                */
+    t0 = music_ns_now();
+    Mix_PlayMusic(g_battle_music[counter], -1);
+    t1 = music_ns_now();
+    g_current_music_track = counter;
+    g->anti_humil_active = 1;
+    fprintf(stderr,
+            "ANTI-HUMILIATION: la musique riposte (%.40s) — visee %lld ns "
+            "apres trigger, bascule en %lld ns, reprise dans %u ms. "
+            "Pour le Bien et le Bon.\n",
+            title, span, t1 - t0, 8000);
+}
+
+/* reprise de la piste d'origine, elle aussi chronometree au ns pres   */
+static void anti_humil_restore(Game *g)
+{
+    long long t0, t1;
+    const char *path, *title;
+    if (!g->anti_humil_active) return;
+    if (g->state != ST_BATTLE) {
+        g->anti_humil_active = 0;
+        return;
+    }
+    if ((Sint32)(SDL_GetTicks() - g->anti_humil_restore_ms) < 0)
+        return;
+    path = BATTLE_MUSIC_PATHS[g->anti_humil_prev_track < 0
+                              ? 0 : g->anti_humil_prev_track];
+    title = strstr(path, "BGM/") ? strstr(path, "BGM/") + 4 : path;
+    t0 = music_ns_now();
+    if (g_battle_music[g->anti_humil_prev_track])
+        Mix_PlayMusic(g_battle_music[g->anti_humil_prev_track], -1);
+    t1 = music_ns_now();
+    g_current_music_track = g->anti_humil_prev_track;
+    g->anti_humil_active = 0;
+    fprintf(stderr,
+            "ANTI-HUMILIATION: la musique pardonne (retour %.40s) en "
+            "%lld ns. Pour le Bien et le Bon.\n",
+            title, t1 - t0);
 }
 
 static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
@@ -2385,8 +2599,12 @@ static void draw_emote(Game *g, SDL_Renderer *renderer)
     f = &g->f[g->emote_fighter];
     if (!f->alive) return;
     src = emote_icon_rect(g->emote_index);
-    dst.x = map_origin_x(g) + f->x * TILE + TILE / 2 - 18;
-    dst.y = map_origin_y(g) + f->y * TILE - 42;
+    {
+        int ex, ey;
+        iso_center(g, f->x, f->y, &ex, &ey);
+        dst.x = ex - 18;
+        dst.y = ey - TILE - 38;
+    }
     dst.w = 36;
     dst.h = 39;
     SDL_RenderCopy(renderer, g_emote_sheet, &src, &dst);
@@ -2403,7 +2621,7 @@ static void draw_emote_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
     SDL_RenderFillRect(renderer, &bg);
     SDL_SetRenderDrawColor(renderer, 225, 205, 150, 255);
     SDL_RenderDrawRect(renderer, &bg);
-    SDL_GetMouseState(&mx, &my);
+    mouse_logical(&mx, &my);
     for (i = 0; i < 8; i++) {
         SDL_Rect option = emote_option_rect(i);
         SDL_Rect src = emote_icon_rect(emotes[i]);
@@ -2441,7 +2659,7 @@ static void draw_ingame_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
     SDL_Rect panel;
     int mx, my, i;
     if (!g->in_game_menu_open) return;
-    SDL_GetMouseState(&mx, &my);
+    mouse_logical(&mx, &my);
     if (g->surrender_confirm) {
         panel = surrender_dialog();
         SDL_SetRenderDrawColor(renderer, 28, 22, 22, 255);
@@ -2511,8 +2729,12 @@ static void draw_vfx(Game *g, SDL_Renderer *renderer)
         return;
     }
     if (!g_vfx_frames[frame]) return;
-    dst.x = map_origin_x(g) + g->vfx_x * TILE + TILE / 2 - 35;
-    dst.y = map_origin_y(g) + g->vfx_y * TILE + TILE / 2 - 30;
+    {
+        int vx, vy;
+        iso_center(g, g->vfx_x, g->vfx_y, &vx, &vy);
+        dst.x = vx - 35;
+        dst.y = vy - 34;
+    }
     dst.w = 70;
     dst.h = 60;
     SDL_RenderCopy(renderer, g_vfx_frames[frame], NULL, &dst);
@@ -2531,48 +2753,280 @@ static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
     SDL_DestroyTexture(t);
 }
 
+/* ------------------------------------------------------------------ */
+/* primitives isometriques (losanges textures / colores)               */
+/* ------------------------------------------------------------------ */
+static SDL_Vertex geo_vertex(float x, float y, float u, float v,
+                             Uint8 r, Uint8 gr, Uint8 b, Uint8 a)
+{
+    SDL_Vertex vt;
+    vt.position.x = x;
+    vt.position.y = y;
+    vt.color.r = r;
+    vt.color.g = gr;
+    vt.color.b = b;
+    vt.color.a = a;
+    vt.tex_coord.x = u;
+    vt.tex_coord.y = v;
+    return vt;
+}
+
+/* quad texturé : p1=TL p2=TR p3=BR p4=BL de la tuile source           */
+static void geo_textured_quad(SDL_Renderer *r, SDL_Texture *tex,
+                              const SDL_Rect *src,
+                              float x1, float y1, float x2, float y2,
+                              float x3, float y3, float x4, float y4,
+                              Uint8 shade)
+{
+    int tw = 1, th = 1;
+    float u0, v0, u1, v1;
+    SDL_Vertex v[6];
+    if (!tex) return;
+    SDL_QueryTexture(tex, NULL, NULL, &tw, &th);
+    u0 = (float)src->x / tw;        v0 = (float)src->y / th;
+    u1 = (float)(src->x + src->w) / tw;
+    v1 = (float)(src->y + src->h) / th;
+    v[0] = geo_vertex(x1, y1, u0, v0, shade, shade, shade, 255);
+    v[1] = geo_vertex(x2, y2, u1, v0, shade, shade, shade, 255);
+    v[2] = geo_vertex(x3, y3, u1, v1, shade, shade, shade, 255);
+    v[3] = geo_vertex(x1, y1, u0, v0, shade, shade, shade, 255);
+    v[4] = geo_vertex(x3, y3, u1, v1, shade, shade, shade, 255);
+    v[5] = geo_vertex(x4, y4, u0, v1, shade, shade, shade, 255);
+    SDL_RenderGeometry(r, tex, v, 6, NULL, 0);
+}
+
+/* losange translucide (zones vertes / bleues, survol)                  */
+static void iso_fill_diamond(SDL_Renderer *r, Game *g, int i, int j,
+                             SDL_Color c)
+{
+    int px, py, hw = ISO_TILE_W / 2, hh = ISO_TILE_H / 2;
+    SDL_Vertex v[6];
+    iso_top_vertex(g, i, j, &px, &py);
+    v[0] = geo_vertex((float)px,        (float)py,          0, 0,
+                      c.r, c.g, c.b, c.a);
+    v[1] = geo_vertex((float)(px + hw), (float)(py + hh),   0, 0,
+                      c.r, c.g, c.b, c.a);
+    v[2] = geo_vertex((float)px,        (float)(py + 2*hh), 0, 0,
+                      c.r, c.g, c.b, c.a);
+    v[3] = v[0];
+    v[4] = v[2];
+    v[5] = geo_vertex((float)(px - hw), (float)(py + hh),   0, 0,
+                      c.r, c.g, c.b, c.a);
+    SDL_RenderGeometry(r, NULL, v, 6, NULL, 0);
+}
+
+static void iso_outline_diamond(SDL_Renderer *r, Game *g, int i, int j,
+                                SDL_Color c)
+{
+    int px, py, hw = ISO_TILE_W / 2, hh = ISO_TILE_H / 2;
+    iso_top_vertex(g, i, j, &px, &py);
+    SDL_SetRenderDrawColor(r, c.r, c.g, c.b, c.a);
+    SDL_RenderDrawLine(r, px, py, px + hw, py + hh);
+    SDL_RenderDrawLine(r, px + hw, py + hh, px, py + 2 * hh);
+    SDL_RenderDrawLine(r, px, py + 2 * hh, px - hw, py + hh);
+    SDL_RenderDrawLine(r, px - hw, py + hh, px, py);
+}
+
+/* losange texturé (dessus de tuile), relevé de « lift » pixels        */
+static void iso_textured_diamond(SDL_Renderer *r, SDL_Texture *tex,
+                                 const SDL_Rect *src, int px, int py,
+                                 int lift, Uint8 shade)
+{
+    int hw = ISO_TILE_W / 2, hh = ISO_TILE_H / 2;
+    geo_textured_quad(r, tex, src,
+                      (float)px,        (float)(py - lift),
+                      (float)(px + hw), (float)(py + hh - lift),
+                      (float)px,        (float)(py + 2 * hh - lift),
+                      (float)(px - hw), (float)(py + hh - lift),
+                      shade);
+}
+
+/* face verticale (cote de mur / falaise) entre deux bords de losange  */
+static void iso_side_face(SDL_Renderer *r, SDL_Texture *tex,
+                          const SDL_Rect *src,
+                          int x1, int y1, int x2, int y2, int depth,
+                          Uint8 shade)
+{
+    geo_textured_quad(r, tex, src,
+                      (float)x1, (float)(y1 - depth),
+                      (float)x2, (float)(y2 - depth),
+                      (float)x2, (float)y2,
+                      (float)x1, (float)y1,
+                      shade);
+}
+
+/* case survolee par la souris (test point dans losange)               */
+static int iso_pick(const Game *g, int mx, int my, int *pi, int *pj)
+{
+    int i, j;
+    *pi = -1;
+    *pj = -1;
+    if (g->map_width <= 0 || g->map_height <= 0) return 0;
+    for (j = 0; j < g->map_height; j++)
+        for (i = 0; i < g->map_width; i++) {
+            int cx, cy, dx, dy;
+            if (g->cell[j][i] == CELL_VOID) continue;
+            iso_center(g, i, j, &cx, &cy);
+            dx = mx - cx;
+            dy = my - cy;
+            if (abs(dx) * ISO_TILE_H + abs(dy) * ISO_TILE_W
+                <= ISO_TILE_W * ISO_TILE_H / 2) {
+                *pi = i;
+                *pj = j;
+                return 1;
+            }
+        }
+    return 0;
+}
+
 static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
 {
-    SDL_Rect d = {map_origin_x(g) + i * TILE,
-                  map_origin_y(g) + j * TILE, TILE, TILE};
-    const SDL_Rect *src = NULL;
-    if (g_tilesheet) {
-        if (cell == CELL_VOID)
-            src = &MAP_VOID_RECTS[g->map_theme];
-        else if (cell == CELL_GROUND)
-            src = &MAP_FLOOR_RECTS[g->map_theme];
-        else if (cell == CELL_WALL)
-            src = &MAP_WALL_RECTS[g->map_theme];
-        else
-            src = &MAP_VOID_RECTS[g->map_theme];
-        SDL_RenderCopy(r, g_tilesheet, src, &d);
-    } else {
-        switch (cell) {
-            case CELL_WALL:  SDL_SetRenderDrawColor(r, 120, 90, 60, 255); break;
-            case CELL_GAP:   SDL_SetRenderDrawColor(r, 40, 40, 70, 255);  break;
-            case CELL_VOID:  SDL_SetRenderDrawColor(r, 15, 15, 15, 255);  break;
-            default:         SDL_SetRenderDrawColor(r, 60, 140, 60, 255);  break;
+    int px, py, hw = ISO_TILE_W / 2, hh = ISO_TILE_H / 2;
+    const SDL_Rect *floor_src = &MAP_FLOOR_RECTS[g->map_theme];
+    const SDL_Rect *wall_src  = &MAP_WALL_RECTS[g->map_theme];
+    const SDL_Rect *void_src  = &MAP_VOID_RECTS[g->map_theme];
+    iso_top_vertex(g, i, j, &px, &py);
+    if (cell == CELL_VOID) return;
+
+    if (cell == CELL_WALL) {
+        /* bloc 2.5D : deux faces + dessus relevé                       */
+        if (g_tilesheet) {
+            iso_side_face(r, g_tilesheet, wall_src,
+                          px - hw, py + hh, px, py + 2 * hh,
+                          ISO_WALL_H, 150);
+            iso_side_face(r, g_tilesheet, wall_src,
+                          px, py + 2 * hh, px + hw, py + hh,
+                          ISO_WALL_H, 110);
+            iso_textured_diamond(r, g_tilesheet, wall_src, px, py,
+                                 ISO_WALL_H, 255);
+        } else {
+            SDL_SetRenderDrawColor(r, 85, 60, 40, 255);
+            SDL_RenderDrawLine(r, px - hw, py + hh - ISO_WALL_H, px, py + 2*hh - ISO_WALL_H);
+            SDL_RenderDrawLine(r, px - hw, py + hh, px, py + 2 * hh);
+            SDL_RenderDrawLine(r, px - hw, py + hh, px - hw, py + hh - ISO_WALL_H);
+            SDL_SetRenderDrawColor(r, 60, 42, 28, 255);
+            SDL_RenderDrawLine(r, px, py + 2 * hh, px + hw, py + hh);
+            iso_fill_diamond(r, g, i, j, (SDL_Color){120, 90, 60, 255});
         }
-        SDL_RenderFillRect(r, &d);
+        return;
     }
-    if (cell != CELL_GROUND && cell != CELL_VOID) {
-        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
-        SDL_RenderDrawRect(r, &d);
-    } else if (!g_tilesheet && cell == CELL_GROUND) {
-        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
-        SDL_RenderDrawRect(r, &d);
+
+    if (cell == CELL_GAP) {
+        /* fosse : sombre, bloque le deplacement mais pas la vue        */
+        if (g_tilesheet)
+            iso_textured_diamond(r, g_tilesheet, void_src, px, py, 0, 70);
+        else
+            iso_fill_diamond(r, g, i, j, (SDL_Color){25, 25, 35, 255});
+        return;
+    }
+
+    /* sol : falaises sur les bords de l'arene (ile flottante)         */
+    {
+        int sw = (j + 1 < g->map_height) ? g->cell[j + 1][i] : CELL_VOID;
+        int se = (i + 1 < g->map_width)  ? g->cell[j][i + 1] : CELL_VOID;
+        if (sw == CELL_VOID)
+            iso_side_face(r, g_tilesheet ? g_tilesheet : NULL, floor_src,
+                          px - hw, py + hh, px, py + 2 * hh,
+                          ISO_EDGE_H, 130);
+        if (se == CELL_VOID)
+            iso_side_face(r, g_tilesheet ? g_tilesheet : NULL, floor_src,
+                          px, py + 2 * hh, px + hw, py + hh,
+                          ISO_EDGE_H, 100);
+    }
+    if (g_tilesheet)
+        iso_textured_diamond(r, g_tilesheet, floor_src, px, py, 0, 255);
+    else
+        iso_fill_diamond(r, g, i, j, (SDL_Color){60, 140, 60, 255});
+}
+
+/* zone verte : toutes les cases atteignables avec les PM restants     */
+static void draw_move_zone(SDL_Renderer *r, Game *g, int hover_i, int hover_j)
+{
+    Fighter *me = &g->f[g->turn];
+    int dist[GRID_H][GRID_W];
+    int i, j;
+    if (g->state != ST_BATTLE || me->team != g->my_index) return;
+    if (g->sel_skill >= 0) return;          /* mode sort : zone bleue    */
+    move_distances(g, me->x, me->y, dist);
+    for (j = 0; j < g->map_height; j++)
+        for (i = 0; i < g->map_width; i++) {
+            int d = dist[j][i];
+            if (d <= 0 || d > me->pm) continue;
+            if (i == hover_i && j == hover_j)
+                iso_fill_diamond(r, g, i, j,
+                                 (SDL_Color){130, 255, 150, 170});
+            else
+                iso_fill_diamond(r, g, i, j,
+                                 (SDL_Color){60, 210, 90, 100});
+        }
+}
+
+/* zone bleue : portee du sort selectionne (1-4 ou clic sur la barre)  */
+static void draw_spell_zone(SDL_Renderer *r, Game *g, int hover_i, int hover_j)
+{
+    Fighter *me = &g->f[g->turn];
+    Skill *s;
+    Panoplie *pf;
+    int range, i, j;
+    if (g->state != ST_BATTLE || g->sel_skill < 0) return;
+    if (me->team != g->my_index) return;
+    s = &me->spells[g->sel_skill];
+    pf = (me->pano >= 0 && me->pano < N_PANOPLIES) ? &PANOPLIES[me->pano]
+                                                   : NULL;
+    range = s->range + (pf ? pf->range_bonus : 0);
+    for (j = 0; j < g->map_height; j++)
+        for (i = 0; i < g->map_width; i++) {
+            int d;
+            if (g->cell[j][i] == CELL_VOID) continue;
+            d = manhattan(me->x, me->y, i, j);
+            if (d > range) continue;
+            if (range == 0 && d > 0) continue;  /* sort sur soi         */
+            if (i == hover_i && j == hover_j)
+                iso_fill_diamond(r, g, i, j,
+                                 (SDL_Color){150, 205, 255, 180});
+            else
+                iso_fill_diamond(r, g, i, j,
+                                 (SDL_Color){70, 140, 255, 100});
+        }
+}
+
+/* survol : ennemi en rouge, allie en vert, contour blanc sinon        */
+static void draw_hover_mark(SDL_Renderer *r, Game *g, int hover_i, int hover_j)
+{
+    int idx;
+    if (hover_i < 0 || g->state != ST_BATTLE) return;
+    idx = fighter_at(g, hover_i, hover_j);
+    if (idx >= 0) {
+        int enemy = g->f[idx].team != g->my_index;
+        SDL_Color fill;
+        if (g->colorblind_mode)
+            fill = enemy ? (SDL_Color){255, 205, 45, 120}
+                         : (SDL_Color){45, 155, 255, 120};
+        else
+            fill = enemy ? (SDL_Color){235, 60, 50, 120}
+                         : (SDL_Color){70, 230, 80, 120};
+        iso_fill_diamond(r, g, hover_i, hover_j, fill);
+        iso_outline_diamond(r, g, hover_i, hover_j,
+                            (SDL_Color){255, 255, 255, 220});
+    } else {
+        iso_outline_diamond(r, g, hover_i, hover_j,
+                            (SDL_Color){255, 255, 255, 110});
     }
 }
 
-/* dessine le combattant : frame courante du spritesheet ou repli       */
+/* dessine le combattant : frame courante du spritesheet ou repli
+ * (position isometrique : les pieds sur le centre du losange)          */
 static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
 {
     Fighter *f = &g->f[idx];
     int sx, sy;
+    SDL_Rect d;
     if (!f->alive) return;
-    sx = map_origin_x(g) + f->x * TILE;
-    sy = map_origin_y(g) + f->y * TILE;
-    SDL_Rect d = {sx, sy, TILE, TILE};
+    iso_center(g, f->x, f->y, &sx, &sy);
+    d.x = sx - TILE / 2;
+    d.y = sy - TILE + 6;
+    d.w = TILE;
+    d.h = TILE - 6;
 
     if (g_characters_sheet) {
         draw_character_sprite(r, CLASS_CHARACTER_ROW[f->cls],
@@ -2581,30 +3035,44 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
                               f->team == g->my_index ? 0
                               : g->colorblind_mode ? 2 : 1);
     } else {
-        SDL_SetRenderDrawColor(r, f->team == g->my_index ? 40 : 200,
-                               f->team == g->my_index ? 120 : 40,
-                               f->team == g->my_index ? 240 : 40, 255);
-        SDL_RenderFillRect(r, &d);
+        iso_fill_diamond(r, g, f->x, f->y,
+                         (SDL_Color){f->team == g->my_index ? 40 : 200,
+                                     f->team == g->my_index ? 120 : 40,
+                                     f->team == g->my_index ? 240 : 40,
+                                     255});
     }
-    /* marqueur du joueur actif */
+    /* marqueur du joueur actif : losange autour de sa case            */
     if (g->state == ST_BATTLE && g->turn == idx) {
-        if (g->colorblind_mode) {
-            if (f->team == g->my_index)
-                SDL_SetRenderDrawColor(r, 45, 155, 255, 255);
-            else
-                SDL_SetRenderDrawColor(r, 255, 205, 45, 255);
-        } else if (f->team == g->my_index) {
-            SDL_SetRenderDrawColor(r, 40, 255, 80, 255);
-        } else {
-            SDL_SetRenderDrawColor(r, 255, 55, 55, 255);
+        SDL_Color mark;
+        if (g->colorblind_mode)
+            mark = f->team == g->my_index
+                 ? (SDL_Color){45, 155, 255, 255}
+                 : (SDL_Color){255, 205, 45, 255};
+        else
+            mark = f->team == g->my_index
+                 ? (SDL_Color){40, 255, 80, 255}
+                 : (SDL_Color){255, 55, 55, 255};
+        iso_outline_diamond(r, g, f->x, f->y, mark);
+        {
+            int px, py;
+            iso_top_vertex(g, f->x, f->y, &px, &py);
+            px += ISO_TILE_W / 4;
+            py += ISO_TILE_H / 4;
+            SDL_SetRenderDrawColor(r, mark.r, mark.g, mark.b, mark.a);
+            SDL_RenderDrawLine(r, px, py, px, py + ISO_TILE_H / 2);
+            SDL_RenderDrawLine(r, px, py + ISO_TILE_H / 2,
+                               px - ISO_TILE_W / 4, py + ISO_TILE_H / 4);
+            SDL_RenderDrawLine(r, px - ISO_TILE_W / 4, py + ISO_TILE_H / 4,
+                               px, py);
+            SDL_RenderDrawLine(r, px, py,
+                               px + ISO_TILE_W / 4, py + ISO_TILE_H / 4);
+            SDL_RenderDrawLine(r, px + ISO_TILE_W / 4, py + ISO_TILE_H / 4,
+                               px, py + ISO_TILE_H / 2);
         }
-        SDL_RenderDrawRect(r, &d);
-        SDL_Rect active = {d.x + 2, d.y + 2, d.w - 4, d.h - 4};
-        SDL_RenderDrawRect(r, &active);
     }
     /* barre de vie du nouvel atlas UI, ou repli colore                 */
     {
-        SDL_Rect hb = {sx + 4, sy - 9, TILE - 8, 8};
+        SDL_Rect hb = {sx - 18, sy - TILE - 4, 36, 8};
         SDL_Rect bar = {UI_HP_BAR_X, UI_HP_BAR_Y, UI_HP_BAR_W, UI_HP_BAR_H};
         draw_ui_sprite(r, bar, hb);
         if (!g_ui_atlas) {
@@ -2629,8 +3097,8 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
     char hp[32];
     snprintf(hp, sizeof hp, "%d", f->hp);
     SDL_Color c = {255, 255, 255, 255};
-    draw_text(r, font, CLASSES[f->cls].name, sx + 4, sy - 18, c);
-    draw_text(r, font, hp, sx + TILE/2 - 8, sy + TILE/2 - 8, c);
+    draw_text(r, font, CLASSES[f->cls].name, sx - 26, sy - TILE - 18, c);
+    draw_text(r, font, hp, sx - 10, sy - 20, c);
     if (g->emote_fighter == idx && g->emote_until > SDL_GetTicks())
         draw_emote(g, r);
 }
@@ -2692,7 +3160,7 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
     SDL_Color white = {245, 235, 215, 255};
     SDL_Color muted = {175, 165, 150, 255};
     int i, mx, my;
-    SDL_GetMouseState(&mx, &my);
+    mouse_logical(&mx, &my);
 
     SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
     SDL_RenderFillRect(r, &panel);
@@ -2775,14 +3243,14 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
     draw_ui_panel(r, (SDL_Rect){2, y0 + 2, WIN_W - 4, 156});
     char line[128];
     SDL_Color white = {255,255,255,255};
-    snprintf(line, sizeof line, "T%d - Perso %d | PV: %d/%d PA: %d PM: %d INIT: %d",
-             me->team + 1, g->turn % g->team_size + 1,
+    snprintf(line, sizeof line,
+             "Tour %d T%dP%d | PV%d/%d PA%d PM%d INIT%d",
+             g->turn_count + 1, me->team + 1,
+             g->turn % g->team_size + 1,
              me->hp, me->hp_max, me->pa, me->pm, me->initiative);
     draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
                    (SDL_Rect){8, y0 + 5, 24, 25});
     draw_text(r, font, line, 38, y0 + 6, white);
-    if (me->pano >= 0)
-        draw_text(r, font, PANOPLIES[me->pano].name, 400, y0 + 6, white);
 
     int k;
     for (k = 0; k < N_EQUIPPED; k++) {
@@ -2823,6 +3291,9 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
               be.x + 12, be.y + 6, white);
     draw_text(r, font, "clic case = se deplacer / cibler",
               be.x + 12, be.y + 26, white);
+    if (me->pano >= 0)
+        /* ligne du bas, a droite de l'aide : pas de chevauchement      */
+        draw_text(r, font, PANOPLIES[me->pano].name, 340, be.y + 26, white);
     {
         SDL_Rect menu_button = ingame_menu_btn(y0);
         SDL_SetRenderDrawColor(r, g->in_game_menu_open ? 105 : 70,
@@ -2886,7 +3357,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     SDL_Color hover = {200,200,240,255};
     char line[96];
     int mx, my;
-    SDL_GetMouseState(&mx, &my);
+    mouse_logical(&mx, &my);
 
     if (g->settings_open) {
         draw_settings(r, font, g);
@@ -3087,7 +3558,7 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
         int has_sprite = CLASS_CHARACTER_ROW[i] >= 0;
         SDL_Rect b = pick_class_rect(i);
         int mx, my;
-        SDL_GetMouseState(&mx, &my);
+        mouse_logical(&mx, &my);
         int hover = has_sprite && pt_in(b, mx, my);
         if (has_sprite)
             SDL_SetRenderDrawColor(r, hover ? 100 : 70, hover ? 100 : 70,
@@ -3394,7 +3865,7 @@ int main(int argc, char **argv)
 
     win = SDL_CreateWindow("Dofus Arena P2P - Fanmade",
                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                           WIN_W, WIN_H, 0);
+                           WIN_W, WIN_H, SDL_WINDOW_RESIZABLE);
     if (!win) {
         fprintf(stderr, "Fenetre SDL indisponible: %s\n", SDL_GetError());
         return 1;
@@ -3410,6 +3881,11 @@ int main(int argc, char **argv)
         SDL_DestroyWindow(win);
         return 1;
     }
+    /* rendu responsive : echelle automatique, interface 672x640 logique */
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    SDL_RenderSetLogicalSize(ren, WIN_W, WIN_H);
+    SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+    g_ren = ren;
     SDL_ShowWindow(win);
     SDL_RaiseWindow(win);
     font = TTF_OpenFont("assets/font.ttf", 16);
@@ -3579,6 +4055,13 @@ int main(int argc, char **argv)
                                && k >= SDLK_1 && k <= SDLK_8) {
                         show_emote(&game, game.turn, emotes[k - SDLK_1]);
                         play_sound(&game, SFX_MENU_SELECT);
+                    } else if (!game.emote_menu_open
+                               && k >= SDLK_1 && k <= SDLK_4) {
+                        /* sorts 1-4 : zone bleue puis clic sur la cible */
+                        game.sel_skill = game.sel_skill == k - SDLK_1
+                                       ? -1 : k - SDLK_1;
+                        play_sound(&game, game.sel_skill >= 0
+                                   ? SFX_MENU_SELECT : SFX_MENU_CANCEL);
                     }
                 }
             } else if (ev.type == SDL_TEXTINPUT
@@ -3594,7 +4077,8 @@ int main(int argc, char **argv)
                 }
             } else if (ev.type == SDL_MOUSEBUTTONDOWN
                        && ev.button.button == SDL_BUTTON_LEFT) {
-                int mx = ev.button.x, my = ev.button.y;
+                int mx, my;
+                point_logical(ev.button.x, ev.button.y, &mx, &my);
                 if (game.state == ST_MENU) {
                     if (game.settings_open) {
                         int row;
@@ -3862,7 +4346,6 @@ int main(int argc, char **argv)
                     }
                 } else if (game.state == ST_BATTLE) {
                     int y0 = GRID_H * TILE;
-                    int ox = map_origin_x(&game), oy = map_origin_y(&game);
                     int handled = 0;
                     if (game.in_game_menu_open) {
                         if (game.surrender_confirm) {
@@ -3908,14 +4391,19 @@ int main(int argc, char **argv)
                         SDL_StopTextInput();
                         handled = 1;
                     }
-                    if (!handled && mx >= ox && mx < ox + game.map_width * TILE
-                        && my >= oy && my < oy + game.map_height * TILE) {
-                        int tx = (mx - ox) / TILE, ty = (my - oy) / TILE;
-                        if (game.cell[ty][tx] == CELL_GROUND) {
-                            if (game.sel_skill >= 0) try_cast(&game, tx, ty);
-                            else                    try_move(&game, tx, ty);
+                    if (!handled) {
+                        int tx = -1, ty = -1;
+                        iso_pick(&game, mx, my, &tx, &ty);
+                        if (tx >= 0) {
+                            if (game.cell[ty][tx] == CELL_GROUND) {
+                                if (game.sel_skill >= 0)
+                                    try_cast(&game, tx, ty);
+                                else
+                                    try_move(&game, tx, ty);
+                            }
                         }
-                    } else if (!handled && my >= GRID_H * TILE) {
+                    }
+                    if (!handled && my >= GRID_H * TILE) {
                         /* barre de sorts : clic pour selectionner      */
                         int k;
                         for (k = 0; k < N_EQUIPPED; k++) {
@@ -3999,13 +4487,14 @@ int main(int argc, char **argv)
             int scene = game.state == ST_BATTLE ? 1
                       : game.state == ST_GAMEOVER ? 2 : 0;
             if (scene != audio_scene) {
-                play_music_for_state(game.state);
+                play_music_for_state(&game, game.state);
                 if (scene == 2)
                     play_sound(&game, game.winner == game.my_index
                                ? SFX_VICTORY : SFX_GAME_OVER);
                 audio_scene = scene;
             }
         }
+        anti_humil_restore(&game);
         anim_update(&game);
 
         SDL_SetRenderDrawColor(ren, 15, 15, 15, 255);
@@ -4023,12 +4512,39 @@ int main(int argc, char **argv)
         case ST_STUFF:    draw_stuff(ren, font, &game); break;
         case ST_ELEMENTS: draw_elements(ren, font, &game); break;
         case ST_BATTLE: {
-            int a, b, fighter;
-            for (b = 0; b < game.map_height; b++)
-                for (a = 0; a < game.map_width; a++)
-                    draw_tile(ren, &game, a, b, game.cell[b][a]);
-            for (fighter = 0; fighter < 2 * game.team_size; fighter++)
-                draw_fighter(ren, &game, fighter, font);
+            int a, b, fighter, mx, my;
+            int hover_i = -1, hover_j = -1;
+            int order[MAX_FIGHTERS], count = 2 * game.team_size;
+            /* survol (coordonnees logiques) avant le rendu             */
+            mouse_logical(&mx, &my);
+            iso_pick(&game, mx, my, &hover_i, &hover_j);
+            /* tuiles en ordre de diagonales (algorithme du peintre)   */
+            for (b = 0; b < game.map_width + game.map_height - 1; b++)
+                for (a = 0; a < game.map_width; a++) {
+                    int j = b - a;
+                    if (j < 0 || j >= game.map_height) continue;
+                    draw_tile(ren, &game, a, j, game.cell[j][a]);
+                }
+            /* zones de deplacement (vert) et de sort (bleu)           */
+            draw_move_zone(ren, &game, hover_i, hover_j);
+            draw_spell_zone(ren, &game, hover_i, hover_j);
+            /* combattants tries par profondeur (i + j croissant)      */
+            for (fighter = 0; fighter < count; fighter++)
+                order[fighter] = fighter;
+            for (a = 1; a < count; a++) {
+                int cur = order[a];
+                b = a;
+                while (b > 0 && game.f[order[b - 1]].x
+                                     + game.f[order[b - 1]].y
+                              > game.f[cur].x + game.f[cur].y) {
+                    order[b] = order[b - 1];
+                    b--;
+                }
+                order[b] = cur;
+            }
+            for (a = 0; a < count; a++)
+                draw_fighter(ren, &game, order[a], font);
+            draw_hover_mark(ren, &game, hover_i, hover_j);
             draw_vfx(&game, ren);
             draw_skillbar(ren, &game, font);
             if (game.in_game_menu_open)

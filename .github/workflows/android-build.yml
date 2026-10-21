@@ -58,7 +58,7 @@ jobs:
           mkdir -p android/app/src/main/java/org/libsdl/app
           cp -R android/app/jni/SDL/android-project/app/src/main/java/org/libsdl/app/. \
             android/app/src/main/java/org/libsdl/app/
-          cp game.c android/app/jni/src/game.c
+          cp main.c android/app/jni/src/main.c
           mkdir -p android/app/jni/src/tools
           cp tools/bot_model.h android/app/jni/src/tools/bot_model.h
           mkdir -p android/app/src/main/assets/assets

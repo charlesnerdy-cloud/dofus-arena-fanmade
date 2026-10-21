@@ -57,7 +57,11 @@ générer un autre défi.
 - Chaque combat génère une arène de taille et de forme variables, dans les
   limites de la zone de jeu ; les deux pairs reproduisent la même carte à partir
   de la graine envoyée par l'hôte. Les textures proviennent de la planche
-  `assets/tiles/tilesheet.png`.
+  `assets/tiles/tilesheet.png`; si la planche est absente, l'arene se dessine
+  en aplats de couleur.
+- Les zones de deplacement (cases atteignables avec les PM restants) sont
+  surlignees   en vert, la portee du sort selectionne en bleu. Le rendu requiert
+  **SDL 2.0.18 ou superieur** (`SDL_RenderGeometry`), verifie a la compilation.
 - Les caracteristiques elementaires sont reparties par pas de 5 (budget de
   100 points par personnage). Dans cette version, Air gouverne l'initiative ;
   les degats elementaires et passifs propres aux classes ne sont pas encore
@@ -82,13 +86,19 @@ générer un autre défi.
   confirmation) ou quitter le jeu. **Abandonner** annonce immédiatement la
   victoire à l'équipe adverse ; les règles de tour et le combat continuent
   normalement tant qu'aucune de ces actions n'est choisie.
+- Touche `1` à `4` (ou clic sur la barre de sorts) : sélectionne/désélectionne
+  un sort. En mode sort, la portée du sort s'affiche en bleu sur l'arène ;
+  un ennemi survolé est marqué en rouge, un allié en vert (variante jaune/
+  bleu du mode daltonien).
 
 ## Ressources audio et interface
 - L'interface charge l'atlas transparent `assets/UI/UI.png` pour les cadres
   du menu, des ecrans de preparation et du HUD de combat, ainsi que pour les
   barres de vie. Le menu **OPTIONS** regroupe le volume de la musique et des
   effets, le mode daltonien, la reduction des flashs et les sous-titres des
-  effets muets. La fenetre reste en taille fixe (672 x 640).
+  effets muets. La fenetre est redimensionnable : l'arene est rendue en
+  2.5D isometrique et se met a l'echelle (rendu logique 672 x 640 ; la
+  conversion clics/souris reste exacte quelle que soit la taille).
 - Le mixage audio utilise
   SDL_mixer et ses décodeurs MP3; si un fichier audio n'est pas pris en charge,
   le jeu affiche le chemin et l'erreur dans la sortie standard d'erreur.

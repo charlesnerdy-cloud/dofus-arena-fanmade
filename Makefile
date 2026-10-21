@@ -7,7 +7,7 @@ PREFIX   ?= /usr/local
 BINDIR   ?= $(PREFIX)/bin
 
 TARGET   = dofus-arena
-SRC      = game.c
+SRC      = main.c
 
 ifeq ($(OS),Windows_NT)
 TARGET   = dofus-arena.exe
