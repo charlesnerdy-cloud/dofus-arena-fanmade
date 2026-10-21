@@ -57,6 +57,11 @@ different prefix, use `sudo make install PREFIX=/path/to/prefix`.
 - Sort : touche 1-4 puis clic sur la cible
 - Fin de tour : Espace
 - Emotes : `E`, puis `1` à `8` ou clic sur une emote
+- Menu en combat : `Échap` ou le bouton **MENU** du bandeau. Il permet de
+  reprendre, revenir au menu principal en se déconnectant, abandonner (avec
+  confirmation) ou quitter le jeu. **Abandonner** annonce immédiatement la
+  victoire à l'équipe adverse ; les règles de tour et le combat continuent
+  normalement tant qu'aucune de ces actions n'est choisie.
 
 ## Ressources audio et interface
 - L'interface utilise l'atlas `assets/UI/OIG4.webp` (fond blanc périphérique

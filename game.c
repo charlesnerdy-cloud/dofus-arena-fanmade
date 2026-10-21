@@ -585,6 +585,8 @@ typedef struct {
     char      chat_log[6][128];        /* derniers messages             */
     int       chat_log_n;
     int       emote_menu_open;
+    int       in_game_menu_open;
+    int       surrender_confirm;
     int       emote_fighter;
     int       emote_index;
     Uint32    emote_until;
@@ -761,6 +763,9 @@ static void reset_match(Game *g)
     g->sel_skill = -1;
     g->winner = -1;
     g->setup_unit = 0;
+    g->emote_menu_open = 0;
+    g->in_game_menu_open = 0;
+    g->surrender_confirm = 0;
     for (i = 0; i < MAX_FIGHTERS; i++) {
         g->class_chosen[i] = -1;
         g->draft_ready[i] = -1;
@@ -790,6 +795,36 @@ static void net_disconnect(Game *g, const char *status)
     g->ip_editing = 0;
     SDL_StopTextInput();
     snprintf(g->menu_status, sizeof g->menu_status, "%s", status);
+}
+
+static void return_to_main_menu(Game *g)
+{
+    if (g->net.sock != SOCK_INVALID) {
+        net_send(g, "BYE");
+        net_disconnect(g, "Deconnecte de la partie. Vous pouvez vous reconnecter.");
+    } else {
+        reset_match(g);
+        g->state = ST_MENU;
+    }
+    g->in_game_menu_open = 0;
+    g->surrender_confirm = 0;
+    g->emote_menu_open = 0;
+    g->chat_active = 0;
+    SDL_StopTextInput();
+}
+
+static void surrender_match(Game *g)
+{
+    char msg[32];
+    if (g->state != ST_BATTLE) return;
+    snprintf(msg, sizeof msg, "SURRENDER %d", g->my_index);
+    net_send(g, msg);
+    g->winner = 1 - g->my_index;
+    g->state = ST_GAMEOVER;
+    g->in_game_menu_open = 0;
+    g->surrender_confirm = 0;
+    g->emote_menu_open = 0;
+    g->sel_skill = -1;
 }
 
 static void advance_setup(Game *g)
@@ -981,6 +1016,15 @@ static void net_poll(Game *g)
                 g->emote_fighter = who;
                 g->emote_index = a;
                 g->emote_until = SDL_GetTicks() + 2500;
+            }
+        } else if (!strcmp(cmd, "SURRENDER")
+                   && sscanf(buf, "%*s %d", &who) == 1) {
+            if (g->state == ST_BATTLE && who == 1 - g->my_index) {
+                g->winner = g->my_index;
+                g->state = ST_GAMEOVER;
+                g->in_game_menu_open = 0;
+                g->surrender_confirm = 0;
+                g->sel_skill = -1;
             }
         } else if (!strncmp(buf, "CHAT ", 5)) {
             /* CHAT <who> <texte> : affiche dans le journal local        */
@@ -1845,6 +1889,65 @@ static void draw_emote_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
               bg.y + 4, white);
 }
 
+static void draw_ingame_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
+{
+    static const char *options[] = {
+        "Resume",
+        "Main Menu (Disconnect)",
+        "Surrender",
+        "Quit"
+    };
+    SDL_Color white = {255,255,255,255};
+    SDL_Rect panel;
+    int mx, my, i;
+    if (!g->in_game_menu_open) return;
+    SDL_GetMouseState(&mx, &my);
+    if (g->surrender_confirm) {
+        panel = surrender_dialog();
+        SDL_SetRenderDrawColor(renderer, 28, 22, 22, 255);
+        SDL_RenderFillRect(renderer, &panel);
+        SDL_SetRenderDrawColor(renderer, 215, 80, 70, 255);
+        SDL_RenderDrawRect(renderer, &panel);
+        draw_text(renderer, font, "Surrender this match?", panel.x + 78,
+                  panel.y + 28, white);
+        for (i = 0; i < 2; i++) {
+            SDL_Rect button = surrender_dialog_button(i);
+            int hover = pt_in(button, mx, my);
+            SDL_SetRenderDrawColor(renderer,
+                                   i == 0 ? (hover ? 180 : 145) : (hover ? 75 : 55),
+                                   i == 0 ? (hover ? 55 : 42) : (hover ? 95 : 75),
+                                   i == 0 ? (hover ? 45 : 36) : (hover ? 105 : 85),
+                                   255);
+            SDL_RenderFillRect(renderer, &button);
+            SDL_SetRenderDrawColor(renderer, 225, 205, 170, 255);
+            SDL_RenderDrawRect(renderer, &button);
+            draw_text(renderer, font, i == 0 ? "Surrender" : "Cancel",
+                      button.x + 42, button.y + 10, white);
+        }
+        return;
+    }
+    panel = ingame_menu_panel();
+    SDL_SetRenderDrawColor(renderer, 24, 23, 28, 255);
+    SDL_RenderFillRect(renderer, &panel);
+    SDL_SetRenderDrawColor(renderer, 200, 170, 115, 255);
+    SDL_RenderDrawRect(renderer, &panel);
+    draw_text(renderer, font, "GAME MENU", panel.x + 104, panel.y + 16, white);
+    for (i = 0; i < 4; i++) {
+        SDL_Rect button = ingame_menu_option(i);
+        int hover = pt_in(button, mx, my);
+        if (i == 2)
+            SDL_SetRenderDrawColor(renderer, hover ? 160 : 125, 45, 40, 255);
+        else
+            SDL_SetRenderDrawColor(renderer, hover ? 93 : 65,
+                                   hover ? 81 : 58, hover ? 65 : 48, 255);
+        SDL_RenderFillRect(renderer, &button);
+        SDL_SetRenderDrawColor(renderer, 215, 190, 145, 255);
+        SDL_RenderDrawRect(renderer, &button);
+        draw_text(renderer, font, options[i], button.x + 18,
+                  button.y + 9, white);
+    }
+}
+
 static void draw_vfx(Game *g, SDL_Renderer *renderer)
 {
     Uint32 age;
@@ -1992,6 +2095,13 @@ static SDL_Rect endturn_btn(int y0)  { SDL_Rect r = {10, y0 + 92, 150, 50}; retu
 static SDL_Rect chat_btn(int y0)     { SDL_Rect r = {170, y0 + 92, 90, 30}; return r; }
 static SDL_Rect chat_field(int y0)   { SDL_Rect r = {270, y0 + 92, 300, 30}; return r; }
 static SDL_Rect chat_send(int y0)    { SDL_Rect r = {580, y0 + 92, 80, 30}; return r; }
+static SDL_Rect ingame_menu_btn(int y0) { SDL_Rect r = {550, y0 + 3, 112, 22}; return r; }
+static SDL_Rect ingame_menu_panel(void) { SDL_Rect r = {186, 196, 300, 248}; return r; }
+static SDL_Rect ingame_menu_option(int option)
+{ SDL_Rect r = {201, 245 + option * 44, 270, 36}; return r; }
+static SDL_Rect surrender_dialog(void) { SDL_Rect r = {156, 244, 360, 152}; return r; }
+static SDL_Rect surrender_dialog_button(int confirm)
+{ SDL_Rect r = {172 + confirm * 172, 340, 160, 36}; return r; }
 static int pt_in(SDL_Rect r, int x, int y)
 { return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; }
 
@@ -2048,7 +2158,17 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
               be.x + 12, be.y + 6, white);
     draw_text(r, font, "clic case = se deplacer / cibler",
               be.x + 12, be.y + 26, white);
-    draw_text(r, font, "E : EMOTES", 560, y0 + 6, white);
+    {
+        SDL_Rect menu_button = ingame_menu_btn(y0);
+        SDL_SetRenderDrawColor(r, g->in_game_menu_open ? 105 : 70,
+                               g->in_game_menu_open ? 85 : 62,
+                               g->in_game_menu_open ? 55 : 48, 255);
+        SDL_RenderFillRect(r, &menu_button);
+        SDL_SetRenderDrawColor(r, 220, 195, 145, 255);
+        SDL_RenderDrawRect(r, &menu_button);
+        draw_text(r, font, "MENU [ESC]", menu_button.x + 12,
+                  menu_button.y + 4, white);
+    }
 
     /* chat : bouton, champ, envoi                                    */
     SDL_Rect bt = chat_btn(y0);
@@ -2595,7 +2715,9 @@ int main(int argc, char **argv)
         while (SDL_PollEvent(&ev)) {
             if (ev.type == SDL_QUIT) {
                 running = 0;
-                if (game.net.sock != SOCK_INVALID) net_send(&game, "BYE");
+                if (game.net.sock != SOCK_INVALID
+                    && game.state != ST_GAMEOVER)
+                    net_send(&game, "BYE");
             } else if (ev.type == SDL_KEYDOWN) {
                 /* CLAVIER : uniquement pour taper un message de chat   */
                 SDL_Keycode k = ev.key.keysym.sym;
@@ -2642,6 +2764,35 @@ int main(int argc, char **argv)
                         game.ip_text[len - 1] = 0;
                     }
                 } else if (game.state == ST_BATTLE
+                           && (k == SDLK_ESCAPE || game.in_game_menu_open)) {
+                    if (k == SDLK_ESCAPE) {
+                        if (game.surrender_confirm)
+                            game.surrender_confirm = 0;
+                        else if (game.in_game_menu_open)
+                            game.in_game_menu_open = 0;
+                        else {
+                            game.in_game_menu_open = 1;
+                            game.emote_menu_open = 0;
+                            game.chat_active = 0;
+                            SDL_StopTextInput();
+                        }
+                    } else if (game.surrender_confirm) {
+                        if (k == SDLK_RETURN || k == SDLK_y)
+                            surrender_match(&game);
+                        else if (k == SDLK_n)
+                            game.surrender_confirm = 0;
+                    } else if (k == SDLK_1) {
+                        game.in_game_menu_open = 0;
+                    } else if (k == SDLK_2) {
+                        return_to_main_menu(&game);
+                    } else if (k == SDLK_3) {
+                        game.surrender_confirm = 1;
+                    } else if (k == SDLK_4) {
+                        if (game.net.sock != SOCK_INVALID)
+                            net_send(&game, "BYE");
+                        running = 0;
+                    }
+                } else if (game.state == ST_BATTLE
                            && game.f[game.turn].team == game.my_index) {
                     static const int emotes[8] = {0,1,2,3,16,17,18,19};
                     if (k == SDLK_e) {
@@ -2652,9 +2803,6 @@ int main(int argc, char **argv)
                                && k >= SDLK_1 && k <= SDLK_8) {
                         show_emote(&game, game.turn, emotes[k - SDLK_1]);
                         play_sound(SFX_MENU_SELECT);
-                    } else if (game.emote_menu_open && k == SDLK_ESCAPE) {
-                        game.emote_menu_open = 0;
-                        play_sound(SFX_MENU_CANCEL);
                     }
                 }
             } else if (ev.type == SDL_TEXTINPUT
@@ -2890,7 +3038,28 @@ int main(int argc, char **argv)
                     int y0 = GRID_H * TILE;
                     int ox = map_origin_x(&game), oy = map_origin_y(&game);
                     int handled = 0;
-                    if (game.emote_menu_open) {
+                    if (game.in_game_menu_open) {
+                        if (game.surrender_confirm) {
+                            if (pt_in(surrender_dialog_button(0), mx, my))
+                                surrender_match(&game);
+                            else if (pt_in(surrender_dialog_button(1), mx, my))
+                                game.surrender_confirm = 0;
+                        } else if (pt_in(ingame_menu_option(0), mx, my)) {
+                            game.in_game_menu_open = 0;
+                        } else if (pt_in(ingame_menu_option(1), mx, my)) {
+                            return_to_main_menu(&game);
+                        } else if (pt_in(ingame_menu_option(2), mx, my)) {
+                            game.surrender_confirm = 1;
+                        } else if (pt_in(ingame_menu_option(3), mx, my)) {
+                            if (game.net.sock != SOCK_INVALID)
+                                net_send(&game, "BYE");
+                            running = 0;
+                        } else if (!pt_in(ingame_menu_panel(), mx, my)) {
+                            game.in_game_menu_open = 0;
+                        }
+                        handled = 1;
+                    }
+                    if (!handled && game.emote_menu_open) {
                         static const int emotes[8] = {0,1,2,3,16,17,18,19};
                         int option;
                         for (option = 0; option < 8; option++) {
@@ -2905,6 +3074,13 @@ int main(int argc, char **argv)
                             game.emote_menu_open = 0;
                             play_sound(SFX_MENU_CANCEL);
                         }
+                    }
+                    if (!handled && pt_in(ingame_menu_btn(y0), mx, my)) {
+                        game.in_game_menu_open = 1;
+                        game.emote_menu_open = 0;
+                        game.chat_active = 0;
+                        SDL_StopTextInput();
+                        handled = 1;
                     }
                     if (!handled && mx >= ox && mx < ox + game.map_width * TILE
                         && my >= oy && my < oy + game.map_height * TILE) {
@@ -2959,7 +3135,6 @@ int main(int argc, char **argv)
                 } else if (game.state == ST_GAMEOVER) {
                     /* clic pour quitter                                  */
                     running = 0;
-                    if (game.net.sock != SOCK_INVALID) net_send(&game, "BYE");
                 }
             }
         }
@@ -3022,7 +3197,10 @@ int main(int argc, char **argv)
                 draw_fighter(ren, &game, fighter, font);
             draw_vfx(&game, ren);
             draw_skillbar(ren, &game, font);
-            draw_emote_menu(&game, ren, font);
+            if (game.in_game_menu_open)
+                draw_ingame_menu(&game, ren, font);
+            else
+                draw_emote_menu(&game, ren, font);
             break;
         }
         case ST_GAMEOVER: {

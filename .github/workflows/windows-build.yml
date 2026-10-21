@@ -29,7 +29,7 @@ jobs:
             mingw-w64-x86_64-SDL2_ttf
             mingw-w64-x86_64-SDL2_mixer
       - name: Build Windows executable
-        run: make OS=Windows_NT
+        run: mingw32-make OS=Windows_NT
       - uses: actions/upload-artifact@v4
         with:
           name: dofus-arena-windows-x64
