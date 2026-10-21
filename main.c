@@ -102,7 +102,8 @@ typedef int Sock;
 #define N_PLAYABLE 13                   /* toutes les classes jouables  */
 #define N_CLASS_SPELLS 16
 #define N_EQUIPPED  4
-#define N_PANOPLIES 8
+#define N_PANOPLIES 12
+#define N_DOFUS 6
 #define MAX_TEAM_SIZE 5
 #define MAX_FIGHTERS (MAX_TEAM_SIZE * 2)
 #define MAX_FAVORITES 5
@@ -200,6 +201,7 @@ typedef enum {
 static Mix_Music *g_menu_music;
 static Mix_Music *g_battle_music[4];
 static Mix_Chunk *g_sounds[SFX_COUNT];
+static int g_achievements[69];
 static int g_audio_ready;
 static int g_current_music_track = -1; /* piste de combat en cours       */
 
@@ -597,6 +599,56 @@ static Panoplie PANOPLIES[N_PANOPLIES] = {
      .hp_bonus = 20, .dmg_pct = 0, .heal_pct = 40, .puissance = 0,
      .range_bonus = 1, .pa_bonus = 0, .pm_bonus = 0,
      .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie du Bouftou Rieur",
+     "critique (jeu de mot)",
+     .hp_bonus = 15, .dmg_pct = 12, .heal_pct = 0, .puissance = 3,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie de la Dragodinde Dinde",
+     "mobilité et panique",
+     .hp_bonus = 5, .dmg_pct = 5, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 3,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie du Chacha Chatouilleux",
+     "esquive et taquineries",
+     .hp_bonus = 8, .dmg_pct = 0, .heal_pct = 10, .puissance = 0,
+     .range_bonus = 1, .pa_bonus = 0, .pm_bonus = 1,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie du Tofu Fou",
+     "vitesse et cacophonie",
+     .hp_bonus = 0, .dmg_pct = 8, .heal_pct = 0, .puissance = 2,
+     .range_bonus = 0, .pa_bonus = 1, .pm_bonus = 2,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+};
+
+/* ------------------------------------------------------------------ */
+/* Dofus : bonus d'equipe choisi par l'equipe entiere                   */
+/* ------------------------------------------------------------------ */
+static Panoplie DOFUS[N_DOFUS] = {
+    {"Dofus Turquoise", "agilite et vitesse",
+     .hp_bonus = 0, .dmg_pct = 0, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 1, .pa_bonus = 0, .pm_bonus = 2,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Dofus Emeraude", "vitalite et soins",
+     .hp_bonus = 40, .dmg_pct = 0, .heal_pct = 20, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Dofus Pourpre", "force brute",
+     .hp_bonus = 10, .dmg_pct = 20, .heal_pct = 0, .puissance = 6,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Dofus Ocre", "intelligence et portee",
+     .hp_bonus = 0, .dmg_pct = 15, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 2, .pa_bonus = 1, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Dofus Vulbis", "retraits et controle",
+     .hp_bonus = 5, .dmg_pct = 0, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 2, .ret_pm = 2, .reflect = 0},
+    {"Dofus Abyssal", "renvoi et defense",
+     .hp_bonus = 25, .dmg_pct = 0, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 20},
 };
 
 /* ------------------------------------------------------------------ */
@@ -606,6 +658,7 @@ typedef enum { ANIM_IDLE, ANIM_MOVE, ANIM_ATTACK } AnimState;
 
 typedef struct {
     int  cls;
+    char nickname[32];
     int  x, y;
     int  hp;
     int  pa;            /* points d'action du tour                  */
@@ -651,7 +704,7 @@ typedef struct {
 /* état global du jeu                                                  */
 /* ------------------------------------------------------------------ */
 typedef enum { ST_MENU, ST_PICK, ST_DRAFT, ST_STUFF, ST_ELEMENTS,
-               ST_BATTLE, ST_GAMEOVER } GameState;
+               ST_DOFUS, ST_ACHIEVEMENTS, ST_BATTLE, ST_GAMEOVER } GameState;
 
 typedef struct {
     GameState state;
@@ -681,6 +734,9 @@ typedef struct {
     int       draft_ready[MAX_FIGHTERS];
     int       stuff_chosen[MAX_FIGHTERS];
     int       stuff_ready[MAX_FIGHTERS];
+    int       team_dofus[2];
+    int       dofus_ready[2];
+    int       achievement_scroll;
     int       favorite_class[MAX_FAVORITES];
     int       favorite_pano[MAX_FAVORITES];
     int       selected_favorite;
@@ -734,6 +790,7 @@ static void check_draft_start(Game *g);
 static void start_battle(Game *g, unsigned seed);
 static void sync_stuff(Game *g, int who);
 static void check_stuff_start(Game *g);
+static void check_dofus_start(Game *g);
 static void set_anim(Game *g, int idx, AnimState st);
 static int unit_for_slot(const Game *g, int team, int slot);
 static int side_has_all(const int values[MAX_FIGHTERS], const Game *g, int team);
@@ -930,6 +987,9 @@ static void reset_match(Game *g)
         g->f[i].elements[ELEM_EARTH] = 25;
         g->f[i].elements[ELEM_WATER] = 25;
     }
+    g->team_dofus[0] = g->team_dofus[1] = -1;
+    g->dofus_ready[0] = g->dofus_ready[1] = 0;
+    g->achievement_scroll = 0;
 }
 
 static void net_disconnect(Game *g, const char *status)
@@ -1013,7 +1073,14 @@ static void advance_setup(Game *g)
                 g->setup_unit = slot;
                 return;
             }
-        check_stuff_start(g);
+        g->state = ST_DOFUS;
+    }
+    if (g->state == ST_DOFUS) {
+        if (!g->dofus_ready[g->my_index]) {
+            g->setup_unit = 0;
+            return;
+        }
+        check_dofus_start(g);
     }
 }
 
@@ -1094,7 +1161,8 @@ static void net_poll(Game *g)
             /* Any packet refreshes the peer timeout below. */
         } else if (!strcmp(cmd, "MAP") && sscanf(buf, "%*s %u", &sd) == 1) {
             /* le host arbitre la carte : meme arene des deux cotes    */
-            if (g->state == ST_ELEMENTS || g->state == ST_STUFF)
+            if (g->state == ST_ELEMENTS || g->state == ST_STUFF
+                || g->state == ST_DOFUS)
                 start_battle(g, sd);
         } else if (!strcmp(cmd, "CLASS") && sscanf(buf, "%*s %d %d", &who, &a) == 2) {
             if (who >= 0 && who < 2 * g->team_size
@@ -1138,6 +1206,13 @@ static void net_poll(Game *g)
                 g->f[who].elements[ELEM_WATER] = d;
                 g->draft_ready[who] = 2;
                 advance_setup(g);
+            }
+        } else if (!strcmp(cmd, "DOFUS") && sscanf(buf, "%*s %d %d", &a, &b) == 2) {
+            if (a >= 0 && a < 2 && b >= 0 && b < N_DOFUS
+                && a != g->my_index) {
+                g->team_dofus[a] = b;
+                g->dofus_ready[a] = 1;
+                check_dofus_start(g);
             }
         } else if (!strcmp(cmd, "MOVE") && sscanf(buf, "%*s %d %d %d", &who, &a, &b) == 3) {
             if (who >= 0 && who < 2 * g->team_size
@@ -1251,10 +1326,13 @@ static void build_fighter(Game *g, int idx)
     int k, s, n = 0;
     f->cls = g->class_chosen[idx];
     f->team = idx / g->team_size;
+    snprintf(f->nickname, sizeof f->nickname, "Joueur %d", idx + 1);
     f->pano = g->stuff_chosen[idx];
     f->hp_max = MAX_HP;
     if (f->pano >= 0 && f->pano < N_PANOPLIES)
         f->hp_max += PANOPLIES[f->pano].hp_bonus;
+    if (g->team_dofus[f->team] >= 0)
+        f->hp_max += DOFUS[g->team_dofus[f->team]].hp_bonus;
     f->hp = f->hp_max; f->alive = 1; f->atk_mod = 0;
     f->initiative = f->elements[ELEM_AIR];
     f->anim = ANIM_IDLE; f->anim_frame = 0; f->anim_until = 0;
@@ -1486,6 +1564,16 @@ static void check_stuff_start(Game *g)
     }
 }
 
+static void check_dofus_start(Game *g)
+{
+    if (g->solo_mode) {
+        if (!g->dofus_ready[g->my_index]) return;
+    } else {
+        if (!g->dofus_ready[0] || !g->dofus_ready[1]) return;
+    }
+    check_stuff_start(g);
+}
+
 static int ai_draft_score(const Skill *skill)
 {
     int score = skill->power * 4 + skill->range * 3 - skill->pa * 3;
@@ -1624,11 +1712,20 @@ static void set_turn_resources(Game *g, int idx)
         f->pa += p->pa_bonus;
         f->pm += p->pm_bonus;
     }
+    if (g->team_dofus[f->team] >= 0) {
+        Panoplie *d = &DOFUS[g->team_dofus[f->team]];
+        f->pa += d->pa_bonus;
+        f->pm += d->pm_bonus;
+    }
     for (enemy = 0; enemy < g->team_size; enemy++) {
         opponent = &g->f[(1 - f->team) * g->team_size + enemy];
         if (opponent->alive && opponent->pano >= 0) {
             ret_pa += PANOPLIES[opponent->pano].ret_pa;
             ret_pm += PANOPLIES[opponent->pano].ret_pm;
+        }
+        if (opponent->alive && g->team_dofus[opponent->team] >= 0) {
+            ret_pa += DOFUS[g->team_dofus[opponent->team]].ret_pa;
+            ret_pm += DOFUS[g->team_dofus[opponent->team]].ret_pm;
         }
     }
     f->pa -= ret_pa;
@@ -1690,9 +1787,13 @@ static void check_winner(Game *g)
     if (!team_has_living(g, 0)) {
         g->winner = 1;
         g->state = ST_GAMEOVER;
+        if (g->my_index == 1) g_achievements[0] = 1;
+        else g_achievements[1] = 1;
     } else if (!team_has_living(g, 1)) {
         g->winner = 0;
         g->state = ST_GAMEOVER;
+        if (g->my_index == 0) g_achievements[0] = 1;
+        else g_achievements[1] = 1;
     }
 }
 
@@ -1750,7 +1851,10 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
     Panoplie *pf = (f->pano >= 0 && f->pano < N_PANOPLIES) ? &PANOPLIES[f->pano] : NULL;
     Panoplie *po = o && o->pano >= 0 && o->pano < N_PANOPLIES
                  ? &PANOPLIES[o->pano] : NULL;
-    int range = s->range + (pf ? pf->range_bonus : 0);
+    Panoplie *df = (g->team_dofus[f->team] >= 0) ? &DOFUS[g->team_dofus[f->team]] : NULL;
+    Panoplie *do_ = (o && g->team_dofus[o->team] >= 0) ? &DOFUS[g->team_dofus[o->team]] : NULL;
+    int range = s->range + (pf ? pf->range_bonus : 0)
+              + (df ? df->range_bonus : 0);
     f->pa -= s->pa;
     f->cd_left[idx] = s->cooldown;
     play_sound(g, SFX_CAST);
@@ -1764,19 +1868,24 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
                 && los_clear(g, f->x, f->y, tx, ty)) {
                 start_vfx(g, tx, ty);
                 play_sound(g, SFX_HIT);
-                /* degats deterministes + panoplie (dmg% + puissance)     */
+                /* degats deterministes + panoplie + dofus (dmg% + puissance) */
+                int dmg_pct = (pf ? pf->dmg_pct : 0) + (df ? df->dmg_pct : 0);
+                int puissance = (pf ? pf->puissance : 0) + (df ? df->puissance : 0);
                 int dmg = ((s->power * (100 + f->atk_mod)) / 100)
-                          * (100 + (pf ? pf->dmg_pct : 0)) / 100
-                          + (pf ? pf->puissance : 0);
+                          * (100 + dmg_pct) / 100
+                          + puissance;
                 o->hp -= dmg;
-                /* renvoi de dommages (Prespic) : l'attaquant subit     */
-                if (po && po->reflect > 0) {
-                    f->hp -= po->reflect;
-                    play_sound(g, SFX_HIT);
-                    if (f->hp <= 0) {
-                        f->hp = 0; f->alive = 0;
-                        play_sound(g, SFX_DEATH);
-                        check_winner(g);
+                /* renvoi de dommages (Prespic / Dofus) : l'attaquant subit */
+                {
+                    int reflect = (po ? po->reflect : 0) + (do_ ? do_->reflect : 0);
+                    if (reflect > 0) {
+                        f->hp -= reflect;
+                        play_sound(g, SFX_HIT);
+                        if (f->hp <= 0) {
+                            f->hp = 0; f->alive = 0;
+                            play_sound(g, SFX_DEATH);
+                            check_winner(g);
+                        }
                     }
                 }
                 if (o->hp <= 0) {
@@ -1791,7 +1900,8 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
             if (o && o->team == f->team
                 && (range == 0 || manhattan(f->x, f->y, tx, ty) <= range)) {
                 start_vfx(g, tx, ty);
-                int heal = (s->power * (100 + (pf ? pf->heal_pct : 0))) / 100;
+                int heal_pct = (pf ? pf->heal_pct : 0) + (df ? df->heal_pct : 0);
+                int heal = (s->power * (100 + heal_pct)) / 100;
                 int previous_hp = o->hp;
                 o->hp += heal;
                 if (o->hp > o->hp_max) o->hp = o->hp_max;
@@ -1809,11 +1919,15 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
                 && los_clear(g, f->x, f->y, tx, ty)) {
                 start_vfx(g, tx, ty);
                 play_sound(g, SFX_HIT);
-                int dmg = s->power + (pf ? pf->puissance : 0);
+                int dmg = s->power + (pf ? pf->puissance : 0)
+                        + (df ? df->puissance : 0);
                 o->hp -= dmg;
-                if (po && po->reflect > 0) {
-                    f->hp -= po->reflect;
-                    play_sound(g, SFX_HIT);
+                {
+                    int reflect = (po ? po->reflect : 0) + (do_ ? do_->reflect : 0);
+                    if (reflect > 0) {
+                        f->hp -= reflect;
+                        play_sound(g, SFX_HIT);
+                    }
                 }
                 if (o->hp > 0)
                     apply_air_penalty(g, target_idx, 10, 1);
@@ -1851,7 +1965,10 @@ static void try_cast(Game *g, int tx, int ty)
     Skill *s = &me->spells[g->sel_skill];
     Panoplie *pf = (me->pano >= 0 && me->pano < N_PANOPLIES)
                    ? &PANOPLIES[me->pano] : NULL;
-    int range = s->range + (pf ? pf->range_bonus : 0);
+    Panoplie *df = (g->team_dofus[me->team] >= 0)
+                   ? &DOFUS[g->team_dofus[me->team]] : NULL;
+    int range = s->range + (pf ? pf->range_bonus : 0)
+              + (df ? df->range_bonus : 0);
     if (s->pa > me->pa) return;
     if (me->cd_left[g->sel_skill] > 0) return;
     if (range > 0 && manhattan(me->x, me->y, tx, ty) > range) return;
@@ -2973,7 +3090,12 @@ static void draw_spell_zone(SDL_Renderer *r, Game *g, int hover_i, int hover_j)
     s = &me->spells[g->sel_skill];
     pf = (me->pano >= 0 && me->pano < N_PANOPLIES) ? &PANOPLIES[me->pano]
                                                    : NULL;
-    range = s->range + (pf ? pf->range_bonus : 0);
+    {
+        Panoplie *df = (me->team >= 0 && g->team_dofus[me->team] >= 0)
+                     ? &DOFUS[g->team_dofus[me->team]] : NULL;
+        range = s->range + (pf ? pf->range_bonus : 0)
+              + (df ? df->range_bonus : 0);
+    }
     for (j = 0; j < g->map_height; j++)
         for (i = 0; i < g->map_width; i++) {
             int d;
@@ -3014,6 +3136,146 @@ static void draw_hover_mark(SDL_Renderer *r, Game *g, int hover_i, int hover_j)
     }
 }
 
+/* aide contextuelle au survol : infos sur l'entite cliquable           */
+static void draw_battle_tooltip(SDL_Renderer *r, TTF_Font *font, Game *g,
+                                int hover_i, int hover_j, int mx, int my)
+{
+    char lines[6][128];
+    int n = 0, i, w = 12, h;
+    SDL_Color white = {255, 255, 255, 255};
+    SDL_Color muted = {200, 200, 180, 255};
+    if (g->state != ST_BATTLE || hover_i < 0) return;
+    {
+        int idx = fighter_at(g, hover_i, hover_j);
+        if (idx >= 0) {
+            Fighter *f = &g->f[idx];
+            snprintf(lines[n++], sizeof lines[0], "%s - %s (%s)",
+                     f->nickname, CLASSES[f->cls].name,
+                     f->team == g->my_index ? "Allie" : "Ennemi");
+            snprintf(lines[n++], sizeof lines[0],
+                     "PV %d/%d  PA %d  PM %d",
+                     f->hp, f->hp_max, f->pa, f->pm);
+            if (g->sel_skill >= 0 && g->f[g->turn].team == g->my_index
+                && g->f[g->turn].alive) {
+                Fighter *me = &g->f[g->turn];
+                Skill *s = &me->spells[g->sel_skill];
+                Panoplie *pf = (me->pano >= 0 && me->pano < N_PANOPLIES)
+                             ? &PANOPLIES[me->pano] : NULL;
+                Panoplie *po = (f->pano >= 0 && f->pano < N_PANOPLIES)
+                             ? &PANOPLIES[f->pano] : NULL;
+                Panoplie *df = (g->team_dofus[me->team] >= 0)
+                             ? &DOFUS[g->team_dofus[me->team]] : NULL;
+                Panoplie *do_ = (g->team_dofus[f->team] >= 0)
+                              ? &DOFUS[g->team_dofus[f->team]] : NULL;
+                int range = s->range + (pf ? pf->range_bonus : 0)
+                          + (df ? df->range_bonus : 0);
+                int valid = 1;
+                if (s->pa > me->pa) valid = 0;
+                if (me->cd_left[g->sel_skill] > 0) valid = 0;
+                if (range > 0 && manhattan(me->x, me->y, hover_i, hover_j)
+                    > range) valid = 0;
+                if (s->kind == SK_ATK) {
+                    if (f->team == me->team) valid = 0;
+                    if (!los_clear(g, me->x, me->y, hover_i, hover_j))
+                        valid = 0;
+                } else if (s->kind == SK_HEAL) {
+                    if (f->team != me->team) valid = 0;
+                } else if (s->kind == SK_SPECIAL && s->power > 0
+                           && f->team != me->team) {
+                    if (!los_clear(g, me->x, me->y, hover_i, hover_j))
+                        valid = 0;
+                }
+                if (valid) {
+                    if (s->kind == SK_ATK) {
+                        int dmg_pct = (pf ? pf->dmg_pct : 0) + (df ? df->dmg_pct : 0);
+                        int puissance = (pf ? pf->puissance : 0) + (df ? df->puissance : 0);
+                        int dmg = ((s->power * (100 + me->atk_mod)) / 100)
+                                  * (100 + dmg_pct) / 100
+                                  + puissance;
+                        int reflect = (po ? po->reflect : 0) + (do_ ? do_->reflect : 0);
+                        if (reflect > 0)
+                            snprintf(lines[n++], sizeof lines[0],
+                                     "Degats estimes: -%d  (renvoi -%d)",
+                                     dmg, reflect);
+                        else
+                            snprintf(lines[n++], sizeof lines[0],
+                                     "Degats estimes: -%d", dmg);
+                    } else if (s->kind == SK_HEAL) {
+                        int heal_pct = (pf ? pf->heal_pct : 0) + (df ? df->heal_pct : 0);
+                        int heal = (s->power * (100 + heal_pct)) / 100;
+                        snprintf(lines[n++], sizeof lines[0],
+                                 "Soin estime: +%d", heal);
+                    } else if (s->kind == SK_SPECIAL) {
+                        if (s->power > 0 && f->team != me->team) {
+                            int dmg = s->power + (pf ? pf->puissance : 0)
+                                    + (df ? df->puissance : 0);
+                            int reflect = (po ? po->reflect : 0) + (do_ ? do_->reflect : 0);
+                            if (reflect > 0)
+                                snprintf(lines[n++], sizeof lines[0],
+                                         "Degats estimes: -%d (renvoi -%d)",
+                                         dmg, reflect);
+                            else
+                                snprintf(lines[n++], sizeof lines[0],
+                                         "Degats estimes: -%d", dmg);
+                        } else if (s->power > 0) {
+                            snprintf(lines[n++], sizeof lines[0],
+                                     "Soin estime: +%d", s->power);
+                        } else {
+                            snprintf(lines[n++], sizeof lines[0],
+                                     "Effet special");
+                        }
+                    } else {
+                        snprintf(lines[n++], sizeof lines[0],
+                                 "Buff +%d %%", s->power);
+                    }
+                    if (idx == g->turn) {
+                        char tmp[128];
+                        snprintf(tmp, sizeof tmp, "%s (soi)", lines[n-1]);
+                        snprintf(lines[n-1], sizeof lines[0], "%s", tmp);
+                    }
+                } else {
+                    snprintf(lines[n++], sizeof lines[0],
+                             "Cible invalide / hors de portee");
+                }
+            }
+        } else {
+            Fighter *me = (g->f[g->turn].team == g->my_index)
+                        ? &g->f[g->turn] : NULL;
+            snprintf(lines[n++], sizeof lines[0], "Case (%d,%d)",
+                     hover_i, hover_j);
+            if (me && g->sel_skill < 0) {
+                int dist[GRID_H][GRID_W];
+                move_distances(g, me->x, me->y, dist);
+                if (dist[hover_j][hover_i] > 0)
+                    snprintf(lines[n++], sizeof lines[0],
+                             "Cout: %d PM",
+                             dist[hover_j][hover_i]);
+            }
+        }
+    }
+    if (n == 0) return;
+    for (i = 0; i < n; i++) {
+        int len = (int)strlen(lines[i]);
+        if (len * 7 + 16 > w) w = len * 7 + 16;
+    }
+    h = n * 16 + 8;
+    {
+        int x = mx + 14;
+        int y = my + 14;
+        if (x + w > WIN_W) x = mx - w - 10;
+        if (y + h > WIN_H - 160) y = my - h - 10;
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        SDL_Rect bg = {x, y, w, h};
+        SDL_SetRenderDrawColor(r, 18, 22, 34, 220);
+        SDL_RenderFillRect(r, &bg);
+        SDL_SetRenderDrawColor(r, 180, 180, 200, 255);
+        SDL_RenderDrawRect(r, &bg);
+        for (i = 0; i < n; i++)
+            draw_text(r, font, lines[i], x + 6, y + 4 + i * 16, white);
+    }
+}
+
 /* dessine le combattant : frame courante du spritesheet ou repli
  * (position isometrique : les pieds sur le centre du losange)          */
 static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
@@ -3029,6 +3291,8 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
     d.h = TILE - 6;
 
     if (g_characters_sheet) {
+        /* ombre portee sous le combattant (papier 2.5D)                  */
+        iso_fill_diamond(r, g, f->x, f->y, (SDL_Color){0, 0, 0, 75});
         draw_character_sprite(r, CLASS_CHARACTER_ROW[f->cls],
                               character_sequence_for_anim(f->anim),
                               f->anim_frame, d,
@@ -3129,8 +3393,8 @@ static SDL_Rect menu_kbd(int i)     { SDL_Rect r = {20 + (i%6)*55, 180 + (i/6)*4
 static SDL_Rect pick_class_rect(int i){SDL_Rect r = {15 + (i%3)*220, 55 + (i/3)*30, 212, 28}; return r; }
 static SDL_Rect pick_favorite_rect(int i){SDL_Rect r = {20 + (i%3)*220, 340 + (i/3)*34, 210, 30}; return r; }
 static SDL_Rect draft_btn(void)     { SDL_Rect r = {20, 470, 260, 34};  return r; }
-static SDL_Rect stuff_card(int i)    { SDL_Rect r = {20 + (i%2)*330, 60 + (i/2)*105, 320, 100}; return r; }
-static SDL_Rect stuff_favorite_btn(int i){SDL_Rect r = {20 + i*98, 500, 90, 34}; return r;}
+static SDL_Rect stuff_card(int i)    { SDL_Rect r = {20 + (i%2)*330, 60 + (i/2)*90, 320, 80}; return r; }
+static SDL_Rect stuff_favorite_btn(int i){SDL_Rect r = {20 + i*98, 600, 90, 34}; return r;}
 static SDL_Rect element_btn(int element, int add) { SDL_Rect r = {460 + add*70, 160 + element*60, 60, 36}; return r; }
 static SDL_Rect endturn_btn(int y0)  { SDL_Rect r = {10, y0 + 92, 150, 50}; return r; }
 static SDL_Rect chat_btn(int y0)     { SDL_Rect r = {170, y0 + 92, 90, 30}; return r; }
@@ -3350,6 +3614,46 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
 
 
 
+static void draw_achievements(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    SDL_Color white = {255,255,255,255};
+    SDL_Color grey = {130,130,130,255};
+    SDL_Color green = {80,255,120,255};
+    char line[96];
+    int i, start = g->achievement_scroll;
+    if (start < 0) start = 0;
+    if (start > 69 - 18) start = 69 - 18;
+    g->achievement_scroll = start;
+    SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
+    SDL_RenderClear(r);
+    draw_ui_panel(r, (SDL_Rect){8, 6, WIN_W - 16, WIN_H - 12});
+    draw_text(r, font, "ACHIEVEMENTS (69)", 20, 14, white);
+    for (i = 0; i < 18 && start + i < 69; i++) {
+        int idx = start + i;
+        snprintf(line, sizeof line, "%s Succes %d",
+                 g_achievements[idx] ? "[X]" : "[ ]", idx + 1);
+        draw_text(r, font, line, 20, 44 + i * 22,
+                  g_achievements[idx] ? green : grey);
+    }
+    {
+        SDL_Rect up = {600, 60, 40, 30};
+        SDL_Rect down = {600, 440, 40, 30};
+        SDL_Rect back = {260, 560, 150, 34};
+        SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
+        SDL_RenderFillRect(r, &up);
+        SDL_RenderFillRect(r, &down);
+        SDL_SetRenderDrawColor(r, 55, 140, 65, 255);
+        SDL_RenderFillRect(r, &back);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderDrawRect(r, &up);
+        SDL_RenderDrawRect(r, &down);
+        SDL_RenderDrawRect(r, &back);
+        draw_text(r, font, "UP", up.x + 10, up.y + 8, white);
+        draw_text(r, font, "DOWN", down.x + 2, down.y + 8, white);
+        draw_text(r, font, "RETOUR", back.x + 34, back.y + 10, white);
+    }
+}
+
 static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
 {
     SDL_Color white = {255,255,255,255};
@@ -3389,6 +3693,17 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderDrawRect(r, &settings);
         draw_text(r, font, "OPTIONS", settings.x + 24,
                   settings.y + 12, white);
+    }
+    {
+        SDL_Rect ab = {440, 70, 100, 40};
+        int hovered = pt_in(ab, mx, my);
+        SDL_SetRenderDrawColor(r, hovered ? 94 : 64,
+                               hovered ? 82 : 55,
+                               hovered ? 59 : 43, 255);
+        SDL_RenderFillRect(r, &ab);
+        SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
+        SDL_RenderDrawRect(r, &ab);
+        draw_text(r, font, "ACHIEVE", ab.x + 12, ab.y + 12, white);
     }
     draw_text(r, font, "Format :", 350, 48, grey);
     {
@@ -3480,8 +3795,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
                   model.x + 8, model.y + 9, white);
     }
 
-    if (g->menu_status[0])
-        draw_text(r, font, g->menu_status, 20, 280, white);
+    draw_text(r, font, "Credits: Thanks All. (OwO) ... Alucard.", 20, 500, grey);
 
     draw_text(r, font, "LAN : saisissez l'IP locale de l'hote.", 20, 320, grey);
     draw_text(r, font, "Internet : IP publique + redirection UDP 7777 sur la box",
@@ -3726,13 +4040,61 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
             draw_text(r, font, line, b.x + 5, b.y + 10, white);
         }
         {
-            SDL_Rect b = {520, 500, 130, 34};
+            SDL_Rect b = {520, 600, 130, 34};
             SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
             SDL_RenderFillRect(r, &b);
             SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
             SDL_RenderDrawRect(r, &b);
             draw_text(r, font, "CONTINUER", b.x + 8, b.y + 8, white);
         }
+    }
+}
+
+static void draw_dofus(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    SDL_Color white = {255,255,255,255};
+    SDL_Color green = {80,255,120,255};
+    char line[160];
+    int i;
+    int team = g->my_index;
+    draw_text(r, font, "CHOISISSEZ LE DOFUS DE VOTRE EQUIPE", 20, 20, white);
+    for (i = 0; i < N_DOFUS; i++) {
+        Panoplie *p = &DOFUS[i];
+        SDL_Rect b = {20 + (i%2)*330, 60 + (i/2)*105, 320, 100};
+        if (g->team_dofus[team] == i)
+            SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
+        else
+            SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
+        SDL_RenderFillRect(r, &b);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderDrawRect(r, &b);
+        snprintf(line, sizeof line, "%d %s", i+1, p->name);
+        draw_text(r, font, line, b.x + 6, b.y + 4, white);
+        snprintf(line, sizeof line, "PV+%d DMG+%d%% SOIN+%d%% PUI+%d PORTE+%d",
+                 p->hp_bonus, p->dmg_pct, p->heal_pct, p->puissance, p->range_bonus);
+        draw_text(r, font, line, b.x + 6, b.y + 24, white);
+        snprintf(line, sizeof line, "PA+%d PM+%d RETPA-%d RETPM-%d RENVOI-%d",
+                 p->pa_bonus, p->pm_bonus, p->ret_pa, p->ret_pm, p->reflect);
+        draw_text(r, font, line, b.x + 6, b.y + 44, white);
+        snprintf(line, sizeof line, "(%s)", p->desc);
+        draw_text(r, font, line, b.x + 6, b.y + 64, white);
+    }
+    if (g->team_dofus[team] >= 0) {
+        snprintf(line, sizeof line, "Dofus choisi : %s",
+                 DOFUS[g->team_dofus[team]].name);
+        draw_text(r, font, line, 20, 480, green);
+    }
+    if (g->menu_status[0])
+        draw_text(r, font, g->menu_status, 300, 480, green);
+    {
+        SDL_Rect ok = {520, 500, 130, 34};
+        SDL_SetRenderDrawColor(r, g->team_dofus[team] >= 0 ? 55 : 45,
+                               g->team_dofus[team] >= 0 ? 140 : 55,
+                               g->team_dofus[team] >= 0 ? 65 : 55, 255);
+        SDL_RenderFillRect(r, &ok);
+        SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
+        SDL_RenderDrawRect(r, &ok);
+        draw_text(r, font, "VALIDER", ok.x + 34, ok.y + 10, white);
     }
 }
 
@@ -4145,6 +4507,13 @@ int main(int argc, char **argv)
                             game.settings_open = 1;
                             handled = 1;
                         }
+                        {
+                            SDL_Rect ab = {440, 70, 100, 40};
+                            if (!handled && pt_in(ab, mx, my)) {
+                                game.state = ST_ACHIEVEMENTS;
+                                handled = 1;
+                            }
+                        }
                         for (q = 0; q < 3; q++) {
                             if (!handled && pt_in(menu_size_btn(q), mx, my)) {
                                 game.team_size_choice = sizes[q];
@@ -4304,7 +4673,7 @@ int main(int argc, char **argv)
                         }
                     }
                     {
-                        SDL_Rect done = {520, 500, 130, 34};
+                        SDL_Rect done = {520, 600, 130, 34};
                         if (pt_in(done, mx, my)
                             && game.stuff_chosen[unit] >= 0)
                             sync_stuff(&game, unit);
@@ -4343,6 +4712,33 @@ int main(int argc, char **argv)
                                 advance_setup(&game);
                             }
                         }
+                    }
+                } else if (game.state == ST_DOFUS) {
+                    int team = game.my_index;
+                    int i;
+                    for (i = 0; i < N_DOFUS; i++) {
+                        SDL_Rect b = {20 + (i%2)*330, 60 + (i/2)*105, 320, 100};
+                        if (pt_in(b, mx, my)) game.team_dofus[team] = i;
+                    }
+                    {
+                        SDL_Rect ok = {520, 500, 130, 34};
+                        if (pt_in(ok, mx, my) && game.team_dofus[team] >= 0) {
+                            char msg[32];
+                            game.dofus_ready[team] = 1;
+                            snprintf(msg, sizeof msg, "DOFUS %d %d",
+                                     team, game.team_dofus[team]);
+                            net_send(&game, msg);
+                            advance_setup(&game);
+                        }
+                    }
+                } else if (game.state == ST_ACHIEVEMENTS) {
+                    {
+                        SDL_Rect up = {600, 60, 40, 30};
+                        SDL_Rect down = {600, 440, 40, 30};
+                        SDL_Rect back = {260, 560, 150, 34};
+                        if (pt_in(up, mx, my)) game.achievement_scroll--;
+                        else if (pt_in(down, mx, my)) game.achievement_scroll++;
+                        else if (pt_in(back, mx, my)) game.state = ST_MENU;
                     }
                 } else if (game.state == ST_BATTLE) {
                     int y0 = GRID_H * TILE;
@@ -4449,8 +4845,8 @@ int main(int argc, char **argv)
                         }
                     }
                 } else if (game.state == ST_GAMEOVER) {
-                    /* clic pour quitter                                  */
-                    running = 0;
+                    /* retour au menu apres la partie                         */
+                    return_to_main_menu(&game);
                 }
             }
         }
@@ -4511,6 +4907,8 @@ int main(int argc, char **argv)
         case ST_DRAFT:    draw_draft(ren, font, &game); break;
         case ST_STUFF:    draw_stuff(ren, font, &game); break;
         case ST_ELEMENTS: draw_elements(ren, font, &game); break;
+        case ST_DOFUS:    draw_dofus(ren, font, &game); break;
+        case ST_ACHIEVEMENTS: draw_achievements(ren, font, &game); break;
         case ST_BATTLE: {
             int a, b, fighter, mx, my;
             int hover_i = -1, hover_j = -1;
@@ -4528,6 +4926,9 @@ int main(int argc, char **argv)
             /* zones de deplacement (vert) et de sort (bleu)           */
             draw_move_zone(ren, &game, hover_i, hover_j);
             draw_spell_zone(ren, &game, hover_i, hover_j);
+            /* brume legere d'ambiance                                 */
+            SDL_SetRenderDrawColor(ren, 150, 165, 190, 28);
+            SDL_RenderFillRect(ren, &(SDL_Rect){0, 0, WIN_W, GRID_H * TILE});
             /* combattants tries par profondeur (i + j croissant)      */
             for (fighter = 0; fighter < count; fighter++)
                 order[fighter] = fighter;
@@ -4545,6 +4946,7 @@ int main(int argc, char **argv)
             for (a = 0; a < count; a++)
                 draw_fighter(ren, &game, order[a], font);
             draw_hover_mark(ren, &game, hover_i, hover_j);
+            draw_battle_tooltip(ren, font, &game, hover_i, hover_j, mx, my);
             draw_vfx(&game, ren);
             draw_skillbar(ren, &game, font);
             if (game.in_game_menu_open)
