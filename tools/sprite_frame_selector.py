@@ -457,9 +457,10 @@ class SpriteFrameSelector:
         self.lock_proportion = tk.BooleanVar(value=False)
         self.manual_proportion = None
 
-        self.root.title("Sprite Frame Selector")
-        self.root.geometry("1180x800")
-        self.root.minsize(900, 620)
+        if isinstance(self.root, (tk.Tk, tk.Toplevel)):
+            self.root.title("Sprite Frame Selector")
+            self.root.geometry("1180x800")
+            self.root.minsize(900, 620)
         self.root.bind("<Control-s>", lambda _event: self.save_manifest())
         self.root.bind("<Control-z>", lambda _event: self.undo())
         self.root.bind("<Control-l>",
@@ -828,11 +829,22 @@ class SpriteFrameSelector:
         path = filedialog.askopenfilename(
             parent=self.root,
             title="Open sprite sheet",
-            filetypes=[("Images", "*.png *.webp *.bmp *.gif *.tif *.tiff"),
+            filetypes=[("PNG files", "*.png"),
+                       ("WebP files", "*.webp"),
+                       ("Bitmap files", "*.bmp"),
+                       ("GIF files", "*.gif"),
+                       ("TIFF files", "*.tif *.tiff"),
                        ("All files", "*.*")],
         )
         if path:
-            self.open_image(path)
+            notebook = self.root.master if isinstance(self.root.master, ttk.Notebook) else None
+            if notebook is not None and self.image is not None:
+                tab = ttk.Frame(notebook)
+                notebook.add(tab, text=Path(path).name)
+                notebook.select(tab)
+                SpriteFrameSelector(tab, path)
+            else:
+                self.open_image(path)
 
     def choose_manifest(self):
         path = filedialog.askopenfilename(
@@ -1962,7 +1974,12 @@ def main():
         image_path = (Path(__file__).resolve().parents[1]
                       / "assets" / "character" / "Characters.png")
     root = tk.Tk()
-    selector = SpriteFrameSelector(root, image_path)
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill="both", expand=True)
+    tab = ttk.Frame(notebook)
+    notebook.add(tab, text=Path(image_path).name if image_path else "Sprite")
+    notebook.select(tab)
+    selector = SpriteFrameSelector(tab, image_path)
     if args.manifest:
         root.after_idle(open_manifest_at_startup, selector, args.manifest)
     root.mainloop()

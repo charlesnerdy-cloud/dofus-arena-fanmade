@@ -305,238 +305,238 @@ typedef struct {
 /* Les 13 classes de Dofus, 16 sorts chacun (grimoire fanmade).        */
 static ClassDef CLASSES[N_CLASSES] = {
     {"Iop Cogneur", {
-        {"Poing Fracas",       SK_ATK,     3, 1, 12, 0},
-        {"Taillade Fun",       SK_ATK,     3, 1, 15, 1},
-        {"Epée Géante",        SK_ATK,     4, 4, 18, 0},
-        {"Epée Olympe",        SK_ATK,     5, 3, 24, 3},
-        {"Courroux Turbo",     SK_ATK,     5, 2, 30, 3},
-        {"Tronçonneuse",       SK_ATK,     5, 4, 26, 3},
-        {"Look Sadique",       SK_ATK,     4, 3, 16, 2},
-        {"Petit Rognon",       SK_ATK,     4, 1, 19, 1},
-        {"Petit Saut",         SK_SPECIAL, 2, 3, 0,  2},
-        {"Vitamine C",         SK_SPECIAL, 3, 2, 6,  2},
-        {"Pansement",          SK_HEAL,   3, 0, 10, 3},
-        {"Grand Repas",        SK_HEAL,   4, 0, 14, 3},
-        {"Café Serré",         SK_BUFF,   2, 0, 20, 4},
-        {"Trop de Café",       SK_BUFF,   2, 0, 15, 3},
-        {"Giga Tonnerre",      SK_SPECIAL, 4, 5, 14, 3},
-        {"Courant d'Air",      SK_SPECIAL, 3, 4, 9,  2},
+        {"Pression",           SK_ATK,     3, 4, 14, 0},
+        {"Ferveur",            SK_BUFF,    2, 0, 18, 4},
+        {"Intimidation",       SK_SPECIAL, 3, 3, 0,  3},
+        {"Saut",               SK_SPECIAL, 2, 4, 0,  2},
+        {"Vitalité",           SK_BUFF,    2, 0, 20, 4},
+        {"Puissance",          SK_BUFF,    3, 0, 22, 5},
+        {"Endurance",          SK_BUFF,    2, 0, 15, 3},
+        {"Vertu",              SK_BUFF,    3, 0, 18, 4},
+        {"Epée de Iop",        SK_ATK,     4, 1, 20, 1},
+        {"Friction",           SK_ATK,     4, 3, 16, 2},
+        {"Epée céleste",       SK_ATK,     5, 4, 26, 3},
+        {"Précipitation",      SK_ATK,     4, 2, 20, 2},
+        {"Epée du destin",     SK_ATK,     5, 3, 24, 3},
+        {"Poigne",             SK_SPECIAL, 3, 4, 0,  3},
+        {"Colère",             SK_ATK,     5, 2, 30, 4},
+        {"Courroux",           SK_ATK,     4, 5, 22, 3},
     }},
     {"Cra Fléchard", {
-        {"Flèche Géniale",     SK_ATK,     3, 8, 14, 0},
+        {"Flèche enflammée",   SK_ATK,     3, 7, 16, 0},
+        {"Flèche magique",     SK_ATK,     3, 6, 14, 0},
+        {"Oeil de taupe",      SK_SPECIAL, 2, 6, 0,  3},
+        {"Tir puissant",       SK_BUFF,    2, 0, 18, 4},
+        {"Tir éloigné",        SK_BUFF,    2, 0, 14, 3},
+        {"Flèche cinglante",   SK_SPECIAL, 3, 5, 0,  3},
+        {"Flèche de recul",    SK_SPECIAL, 3, 4, 0,  2},
+        {"Flèche explosive",   SK_ATK,     4, 6, 24, 3},
+        {"Maîtrise de l'arc",  SK_BUFF,    1, 0, 20, 5},
+        {"Flèche dispersion",  SK_SPECIAL, 3, 4, 0,  3},
+        {"Flamiche",           SK_ATK,     2, 1, 8,  0},
+        {"Flèche vampire",     SK_ATK,     4, 6, 16, 1},
+        {"Flèche glaçon",      SK_ATK,     3, 7, 11, 0},
         {"Flèche BBQ",         SK_ATK,     4, 7, 18, 1},
-        {"Flèche Glaçon",      SK_ATK,     3, 7, 11, 0},
-        {"Flèche Vampire",     SK_ATK,     4, 6, 16, 1},
-        {"Tir Énorme",         SK_ATK,     5, 7, 26, 3},
-        {"Flèche Réveil",      SK_ATK,     4, 8, 20, 2},
-        {"Gros Bourdon",       SK_ATK,     4, 6, 20, 2},
-        {"Flèche TNT",         SK_ATK,     5, 7, 24, 3},
-        {"Flèche Butoir",      SK_SPECIAL, 3, 4, 8,  2},
-        {"Regard Laser",       SK_SPECIAL, 3, 6, 0,  4},
-        {"Flèche Croque",      SK_SPECIAL, 3, 6, 9,  2},
-        {"Colle Forte",        SK_SPECIAL, 4, 7, 0,  4},
-        {"Mode Boss",          SK_BUFF,   2, 0, 18, 4},
-        {"Cours d'Archer",     SK_BUFF,   3, 0, 22, 5},
-        {"Télécommande",       SK_BUFF,   2, 0, 14, 3},
-        {"Recette Fuite",      SK_SPECIAL, 2, 3, 0,  2},
+        {"Tir énorme",         SK_ATK,     5, 7, 26, 3},
+        {"Recette fuite",      SK_SPECIAL, 2, 3, 0,  2},
     }},
     {"Ecaflip Casino", {
-        {"Lance Pièce",        SK_ATK,     3, 3, 16, 0},
-        {"Pari Gagnant",       SK_ATK,     4, 5, 22, 2},
-        {"Rekop Serré",        SK_ATK,     5, 1, 32, 4},
-        {"Griffe Chatte",      SK_ATK,     3, 1, 14, 0},
-        {"Fausse Barbe",       SK_ATK,     3, 4, 17, 1},
-        {"Roue Bazar",         SK_ATK,     4, 3, 21, 2},
-        {"Neuf Vies",          SK_ATK,     4, 2, 18, 1},
-        {"Griffe Ouragan",     SK_ATK,     5, 3, 26, 3},
-        {"Bond Chaton",        SK_SPECIAL, 2, 4, 0,  2},
-        {"Jackpot",            SK_SPECIAL, 2, 0, 25, 5},
-        {"Pied Ninja",         SK_SPECIAL, 3, 4, 8,  2},
-        {"Cagnotte",           SK_SPECIAL, 4, 5, 12, 3},
-        {"Chat Chanceux",      SK_BUFF,   2, 0, 18, 4},
-        {"Triple Trèfle",      SK_BUFF,   3, 0, 22, 5},
-        {"Nez de Chien",       SK_BUFF,   2, 0, 14, 3},
-        {"6ème Sens",          SK_BUFF,   3, 0, 25, 5},
+        {"Griffe",             SK_ATK,     3, 1, 15, 0},
+        {"Pile ou Face",       SK_SPECIAL, 2, 4, 20, 2},
+        {"Roulette",           SK_SPECIAL, 3, 0, 0,  4},
+        {"Griffe aiguisée",    SK_ATK,     4, 1, 20, 1},
+        {"Bond",               SK_SPECIAL, 2, 4, 0,  2},
+        {"Roue de la fortune", SK_SPECIAL, 3, 3, 0,  4},
+        {"Griffe sauvage",     SK_ATK,     5, 2, 28, 2},
+        {"Topkaj",             SK_ATK,     4, 3, 22, 2},
+        {"Odorat",             SK_BUFF,    2, 0, 18, 4},
+        {"Contrecoup",         SK_SPECIAL, 3, 4, 8,  2},
+        {"Griffe de Ceangal",  SK_ATK,     4, 2, 18, 1},
+        {"Bluff",              SK_SPECIAL, 2, 3, 0,  3},
+        {"Chatiment",          SK_ATK,     5, 3, 26, 3},
+        {"Reflexes",           SK_BUFF,    2, 0, 15, 3},
+        {"Griffe joueuse",     SK_ATK,     3, 1, 14, 0},
+        {"Destin d'Ecaflip",   SK_SPECIAL, 4, 5, 12, 3},
     }},
     {"Eniripsa Blouse", {
-        {"Mot Pansement",      SK_HEAL,   3, 5, 20, 0},
-        {"Mot Câlin",          SK_HEAL,   4, 6, 28, 2},
-        {"Mot Soupe",          SK_HEAL,   4, 0, 12, 3},
-        {"Mot BFF",            SK_HEAL,   3, 7, 16, 2},
-        {"Mot Héros",          SK_HEAL,   5, 0, 34, 4},
-        {"Mot Gilet Jaune",    SK_SPECIAL, 3, 0, 15, 3},
-        {"Mot Vulgaire",       SK_ATK,    4, 4, 15, 0},
-        {"Mot Sucette",        SK_ATK,    4, 5, 13, 1},
-        {"Mot Grizzli",        SK_ATK,    5, 3, 25, 3},
-        {"Mot Boo",            SK_SPECIAL, 2, 4, 8,  2},
-        {"Mot Frein",          SK_SPECIAL, 4, 5, 0,  4},
-        {"Mot Chut",           SK_SPECIAL, 3, 6, 0,  3},
-        {"Mot Courage",        SK_BUFF,   2, 0, 15, 3},
-        {"Mot Éclair",         SK_BUFF,   3, 0, 20, 4},
-        {"Mot Kiwi",           SK_SPECIAL, 3, 0, 12, 3},
-        {"Mot Bisou",          SK_HEAL,   4, 3, 22, 3},
+        {"Mot de soin",        SK_HEAL,   3, 5, 20, 0},
+        {"Mot de régén",       SK_HEAL,   4, 6, 28, 2},
+        {"Mot de préven",      SK_HEAL,   4, 0, 12, 3},
+        {"Mot de sacrifice",   SK_HEAL,   3, 7, 16, 2},
+        {"Mot de frappe",      SK_ATK,    4, 4, 15, 0},
+        {"Mot d'immob",        SK_SPECIAL, 3, 0, 15, 3},
+        {"Mot de silence",     SK_SPECIAL, 4, 5, 0,  4},
+        {"Mot de stimulation", SK_BUFF,   2, 0, 15, 3},
+        {"Mot de défense",     SK_BUFF,   3, 0, 20, 4},
+        {"Mot de soin zone",   SK_HEAL,   5, 0, 34, 4},
+        {"Mot de soin ciblé",  SK_HEAL,   4, 3, 22, 3},
+        {"Mot de buff",        SK_BUFF,   2, 0, 14, 3},
+        {"Mot de retrait",     SK_SPECIAL, 3, 6, 0,  3},
+        {"Mot de boost",       SK_BUFF,   2, 0, 18, 4},
+        {"Mot de soin léger",  SK_HEAL,   3, 5, 12, 2},
+        {"Mot de soin lourd",  SK_HEAL,   5, 0, 30, 5},
     }},
     {"Enutrof Magot", {
-        {"Lancer Chrome",      SK_ATK,     3, 6, 13, 0},
-        {"Pelle Polterge",     SK_ATK,     4, 3, 17, 0},
-        {"Pelleteuse XL",      SK_ATK,     5, 2, 28, 3},
-        {"Pelle Arbitre",      SK_ATK,     4, 4, 20, 2},
-        {"Doigt Trapu",        SK_SPECIAL, 3, 5, 9,  2},
-        {"Sac TrucMuch",       SK_SPECIAL, 3, 2, 10, 3},
-        {"Age de Bronze",      SK_SPECIAL, 4, 4, 12, 3},
-        {"Sous Verre",         SK_SPECIAL, 2, 5, 0,  5},
-        {"Pelle Roulo",        SK_ATK,     5, 1, 24, 2},
-        {"Turbo Bateau",       SK_SPECIAL, 3, 3, 0,  3},
-        {"Jet Karcher",        SK_ATK,     4, 5, 19, 2},
-        {"Pelle Cachée",       SK_ATK,     3, 4, 15, 0},
-        {"Bon Karma",          SK_BUFF,   2, 0, 18, 4},
-        {"Or en Barre",        SK_BUFF,   3, 0, 20, 4},
-        {"Main Rouillée",      SK_SPECIAL, 3, 3, 0,  3},
-        {"Coup de Pot",        SK_SPECIAL, 4, 0, 14, 4},
+        {"Lancer de pièce",    SK_ATK,     2, 8, 10, 0},
+        {"Pelle",              SK_ATK,     3, 3, 17, 0},
+        {"Retrait PM",         SK_SPECIAL, 3, 5, 0,  3},
+        {"Accélération",       SK_BUFF,    2, 0, 18, 4},
+        {"Sac animé",          SK_SPECIAL, 3, 2, 0,  3},
+        {"Pelle de jugement",  SK_ATK,     4, 4, 20, 2},
+        {"Pelle massacrante",  SK_ATK,     5, 1, 24, 2},
+        {"Corruption",         SK_SPECIAL, 4, 4, 0,  4},
+        {"Chance",             SK_BUFF,    2, 0, 14, 3},
+        {"Coffre animé",       SK_SPECIAL, 4, 0, 0,  5},
+        {"Maladresse",         SK_SPECIAL, 1, 4, 0,  2},
+        {"Clef réductrice",    SK_SPECIAL, 3, 5, 0,  3},
+        {"Pelle de massacrante", SK_ATK,   5, 2, 28, 3},
+        {"Jet",                SK_ATK,     4, 5, 19, 2},
+        {"Pelle cachée",       SK_ATK,     3, 4, 15, 0},
+        {"Coup de pot",        SK_SPECIAL, 4, 0, 14, 4},
     }},
     {"Sram Fourbe", {
-        {"Coup Fantôme",       SK_ATK,     4, 1, 22, 0},
-        {"Sale Astuce",        SK_ATK,     3, 1, 14, 0},
-        {"Piège Géant",        SK_ATK,     4, 4, 19, 2},
-        {"Piège Sardine",      SK_ATK,     5, 5, 24, 3},
-        {"Faux Coup",          SK_ATK,     3, 2, 16, 1},
-        {"Frappe Ratou",       SK_ATK,     4, 3, 20, 2},
-        {"Lame Traître",       SK_ATK,     5, 2, 27, 3},
-        {"Poignard Star",      SK_ATK,     4, 1, 21, 2},
-        {"Bouh Spécial",       SK_SPECIAL, 2, 3, 8,  2},
-        {"Caméléon",           SK_SPECIAL, 3, 0, 0,  5},
-        {"Carton Double",      SK_SPECIAL, 4, 0, 0,  6},
-        {"Piège Vespa",        SK_SPECIAL, 3, 4, 11, 3},
-        {"Mode Vilain",        SK_BUFF,   2, 0, 20, 4},
-        {"Refus Sauvage",      SK_BUFF,   3, 0, 18, 4},
-        {"Piège Zip",          SK_SPECIAL, 4, 6, 0,  4},
-        {"Zoom Digital",       SK_BUFF,   2, 0, 16, 3},
+        {"Coup fantôme",       SK_ATK,     4, 1, 22, 0},
+        {"Piège empoisonné",   SK_SPECIAL, 3, 4, 0,  3},
+        {"Invisibilité",       SK_SPECIAL, 3, 0, 0,  5},
+        {"Piège de masse",     SK_SPECIAL, 4, 4, 0,  4},
+        {"Attaque sournoise",  SK_ATK,     3, 2, 16, 1},
+        {"Frappe",             SK_ATK,     4, 3, 20, 2},
+        {"Lame traître",       SK_ATK,     5, 2, 27, 3},
+        {"Piège",              SK_SPECIAL, 3, 4, 11, 3},
+        {"Piège zip",          SK_SPECIAL, 4, 6, 0,  4},
+        {"Piège mortel",       SK_SPECIAL, 5, 4, 0,  5},
+        {"Piège de recul",     SK_SPECIAL, 3, 3, 0,  3},
+        {"Piège de silence",   SK_SPECIAL, 4, 4, 0,  4},
+        {"Piège de poison",    SK_SPECIAL, 3, 4, 0,  3},
+        {"Piège de feu",       SK_SPECIAL, 3, 4, 0,  3},
+        {"Piège de glace",     SK_SPECIAL, 3, 4, 0,  3},
+        {"Piège de terre",     SK_SPECIAL, 3, 4, 0,  3},
     }},
     {"Sacrieur Maso", {
-        {"Coup de Genoux",     SK_ATK,     3, 1, 15, 0},
-        {"Roulade Rageuse",    SK_ATK,     4, 1, 20, 1},
-        {"Taloches XL",        SK_ATK,     5, 1, 28, 2},
-        {"Frappe Turbiñe",     SK_ATK,     4, 2, 21, 2},
-        {"Morsure Oufti",      SK_ATK,     3, 1, 16, 1},
-        {"Tonnerre Colère",    SK_ATK,     5, 3, 26, 3},
-        {"Fou Furieux",        SK_ATK,     5, 1, 30, 4},
-        {"Coup Piquant",       SK_ATK,     4, 3, 19, 2},
+        {"Coup de genou",      SK_ATK,     3, 1, 15, 0},
+        {"Roulade",            SK_ATK,     4, 1, 20, 1},
+        {"Frappe",             SK_ATK,     5, 1, 28, 2},
+        {"Transposition",      SK_SPECIAL, 3, 5, 0,  3},
+        {"Punition",           SK_ATK,     4, 2, 21, 2},
+        {"Sacrifice",          SK_SPECIAL, 3, 2, 0,  3},
+        {"Furie",              SK_ATK,     5, 1, 30, 4},
+        {"Douleur partagée",   SK_SPECIAL, 4, 3, 0,  3},
         {"Adrénaline",         SK_BUFF,   2, 0, 25, 5},
-        {"Contre Plaque",      SK_BUFF,   2, 0, 22, 5},
-        {"Aimant Kédoz",       SK_SPECIAL, 2, 6, 0,  2},
-        {"Coucou Swap",        SK_SPECIAL, 3, 5, 0,  3},
-        {"Râle de Soin",       SK_HEAL,   4, 0, 15, 4},
-        {"Recharge Vie",       SK_HEAL,   5, 0, 30, 5},
-        {"Non Contact",        SK_SPECIAL, 2, 3, 0,  2},
-        {"Roquettes Air",      SK_BUFF,   3, 0, 28, 5},
+        {"Contre",             SK_BUFF,    2, 0, 22, 5},
+        {"Attirance",          SK_SPECIAL, 2, 6, 0,  2},
+        {"Echange",            SK_SPECIAL, 3, 5, 0,  3},
+        {"Soin",               SK_HEAL,    4, 0, 15, 4},
+        {"Recharge",           SK_HEAL,    5, 0, 30, 5},
+        {"Non contact",        SK_SPECIAL, 2, 3, 0,  2},
+        {"Roquette",           SK_BUFF,    3, 0, 28, 5},
     }},
     {"Sadida Ronceux", {
-        {"Ronce CureDent",     SK_ATK,     3, 5, 16, 0},
-        {"Ronce Brutale",      SK_ATK,     4, 5, 21, 2},
-        {"Ronce Vanneuse",     SK_ATK,     5, 4, 27, 3},
-        {"Ronce Gentle",       SK_ATK,     4, 4, 18, 1},
-        {"BBQ Brousse",        SK_ATK,     4, 3, 19, 2},
-        {"Bouquet Guérit",     SK_HEAL,   4, 3, 18, 3},
-        {"Herbe Rigolote",     SK_SPECIAL, 2, 4, 8,  2},
-        {"Envahisseur",        SK_BUFF,   3, 0, 15, 4},
-        {"Arbre Ami",          SK_SPECIAL, 3, 0, 12, 4},
-        {"Vent Pollen",        SK_SPECIAL, 3, 3, 6,  2},
-        {"Feu de Greg",        SK_ATK,     5, 5, 25, 3},
-        {"Ronce Bulldozer",    SK_ATK,     5, 3, 29, 4},
-        {"Trempe Plot",        SK_SPECIAL, 4, 5, 13, 3},
-        {"Pousse-Vous",        SK_SPECIAL, 3, 3, 8,  2},
-        {"Ronce Glourbo",      SK_ATK,     3, 3, 17, 1},
-        {"Sève Revive",        SK_HEAL,   3, 0, 12, 2},
+        {"Ronce",              SK_ATK,     3, 5, 16, 0},
+        {"Poupée bloqueuse",   SK_SPECIAL, 3, 2, 0,  3},
+        {"Poupée sacrifiée",   SK_SPECIAL, 3, 4, 0,  3},
+        {"Ronce multiple",     SK_ATK,     4, 5, 21, 2},
+        {"Arbre",              SK_SPECIAL, 3, 0, 0,  3},
+        {"Ronce agressive",    SK_ATK,     5, 4, 27, 3},
+        {"Poupée gonflable",   SK_HEAL,   4, 3, 18, 3},
+        {"Vent",               SK_SPECIAL, 3, 3, 6,  2},
+        {"Ronce puissante",    SK_ATK,     4, 4, 18, 1},
+        {"Soin",               SK_HEAL,   3, 0, 12, 2},
+        {"Ronce lourde",       SK_ATK,     5, 5, 25, 3},
+        {"Ronce bulldozer",    SK_ATK,     5, 3, 29, 4},
+        {"Trempe",             SK_SPECIAL, 4, 5, 13, 3},
+        {"Pousse",             SK_SPECIAL, 3, 3, 8,  2},
+        {"Ronce glourbo",      SK_ATK,     3, 3, 17, 1},
+        {"Sève",               SK_HEAL,    3, 0, 12, 2},
     }},
     {"Osamodas Zoo", {
-        {"Patou Patte",        SK_ATK,     3, 4, 15, 0},
-        {"Bwork Boxing",       SK_ATK,     5, 3, 27, 3},
-        {"Kebab Volant",       SK_ATK,     2, 5,  8, 0},
-        {"Fouet Crème",        SK_ATK,     4, 2, 18, 1},
-        {"Patte Fantôme",      SK_ATK,     4, 4, 20, 2},
-        {"Beee!",              SK_ATK,     3, 3, 15, 0},
-        {"Corbeau Rock",       SK_ATK,     5, 6, 26, 3},
-        {"Crocs Crocro",       SK_ATK,     4, 1, 22, 2},
-        {"Bien-être Zoo",      SK_BUFF,   3, 0, 20, 4},
-        {"Piqûre Café",        SK_BUFF,   2, 0, 15, 3},
-        {"Grrr Précieux",      SK_SPECIAL, 2, 0, 10, 3},
-        {"Mouette Ruse",       SK_SPECIAL, 3, 4, 9,  2},
-        {"Lâche Tofu !",       SK_SPECIAL, 3, 2, 0,  3},
-        {"Coque Dure",         SK_SPECIAL, 4, 0, 16, 4},
-        {"Imperméable",        SK_BUFF,   3, 0, 22, 5},
-        {"Sanglier Fête",      SK_ATK,     5, 4, 24, 3},
+        {"Griffe spectrale",   SK_ATK,     3, 4, 15, 0},
+        {"Cri de l'ours",      SK_BUFF,    2, 0, 18, 4},
+        {"Invocation Tofu",    SK_SPECIAL, 3, 2, 0,  3},
+        {"Corbeau",            SK_ATK,     3, 6, 12, 0},
+        {"Fouet",              SK_ATK,     4, 2, 18, 1},
+        {"Invocation Gobball", SK_SPECIAL, 3, 2, 0,  3},
+        {"Crapaud",            SK_SPECIAL, 3, 3, 0,  3},
+        {"Invocation Prespic", SK_SPECIAL, 3, 2, 0,  3},
+        {"Fouet du mulou",     SK_ATK,     4, 1, 22, 2},
+        {"Soin animal",        SK_HEAL,    3, 4, 16, 2},
+        {"Invocation sanglier", SK_SPECIAL, 3, 2, 0,  3},
+        {"Défense naturelle",  SK_BUFF,    2, 0, 15, 3},
+        {"Crocs",              SK_ATK,     4, 1, 19, 1},
+        {"Invocation Bwork",   SK_SPECIAL, 4, 0, 0,  5},
+        {"Invocation Crackler", SK_SPECIAL, 4, 0, 0,  5},
+        {"Invocation Wyrmling",SK_SPECIAL, 4, 0, 0,  5},
     }},
     {"Xelor Retard", {
-        {"Aiguille Heure",     SK_ATK,     3, 4, 14, 0},
-        {"Frigo Portatif",     SK_ATK,     4, 4, 17, 1},
-        {"Toc Tic Boum",       SK_ATK,     5, 3, 25, 3},
-        {"Sablier Cassé",      SK_SPECIAL, 3, 3, 0,  4},
-        {"Escargot Net",       SK_SPECIAL,  2, 6, 0,  3},
-        {"Réveil Musclé",      SK_BUFF,   3, 0, 22, 5},
-        {"Parapluvie",         SK_BUFF,    2, 0, 15, 3},
-        {"Souris Fuit",        SK_SPECIAL,  2, 3, 0,  2},
-        {"Poussière Pouf",     SK_ATK,     4, 5, 19, 2},
-        {"Laser Obscur",       SK_ATK,     4, 4, 18, 1},
-        {"Aiguille Radar",     SK_ATK,     5, 6, 24, 3},
-        {"Frappe Chrono",      SK_ATK,     4, 2, 20, 2},
-        {"Porte Secrète",      SK_SPECIAL, 3, 7, 0,  4},
-        {"Pas le Moral",       SK_SPECIAL, 3, 5, 0,  3},
-        {"Replay Diva",        SK_SPECIAL, 4, 0, 18, 4},
-        {"Mini Montre",        SK_SPECIAL, 4, 4, 12, 3},
+        {"Rayon Obscur",       SK_ATK,     3, 4, 14, 0},
+        {"Aiguille",           SK_ATK,     3, 4, 12, 0},
+        {"Horloge",            SK_SPECIAL, 2, 3, 0,  3},
+        {"Ralentissement",     SK_SPECIAL, 3, 5, 0,  4},
+        {"Frappe du Xelor",    SK_ATK,     4, 2, 20, 2},
+        {"Téléportation",      SK_SPECIAL, 3, 6, 0,  3},
+        {"Vol de PA",          SK_SPECIAL, 4, 4, 0,  4},
+        {"Cadran",             SK_SPECIAL, 3, 3, 0,  3},
+        {"Poussière",          SK_ATK,     4, 5, 19, 2},
+        {"Laser",              SK_ATK,     4, 4, 18, 1},
+        {"Sablier",            SK_SPECIAL, 3, 3, 0,  4},
+        {"Frappe Temporelle",  SK_ATK,     5, 6, 24, 3},
+        {"Portail",            SK_SPECIAL, 3, 7, 0,  4},
+        {"Paradoxe",           SK_SPECIAL, 3, 5, 0,  3},
+        {"Rembobinage",        SK_SPECIAL, 4, 0, 18, 4},
+        {"Cadran Tactique",    SK_SPECIAL, 4, 4, 12, 3},
     }},
     {"Feca Boucliné", {
-        {"Baffe Naturelle",    SK_ATK,     3, 4, 13, 0},
-        {"Glyphe Colère",      SK_ATK,     5, 3, 25, 3},
-        {"Glyphe Friteuse",    SK_ATK,     4, 2, 18, 2},
-        {"Petit Plastron",     SK_SPECIAL, 2, 0, 10, 2},
-        {"Doudoune Terre",     SK_SPECIAL, 3, 0, 15, 3},
-        {"Anti Tout",          SK_SPECIAL, 4, 0, 20, 5},
-        {"Poignet Serre",      SK_SPECIAL, 3, 3, 8,  3},
-        {"Pause Clope",        SK_SPECIAL, 3, 0, 12, 4},
-        {"Nuage Punaises",     SK_ATK,     3, 5, 14, 0},
-        {"Pluie Haches",       SK_ATK,     4, 4, 17, 1},
-        {"Glyphe Muet",        SK_SPECIAL, 4, 4, 0,  4},
-        {"Sac de Sable",       SK_BUFF,   3, 0, 20, 4},
-        {"Pare Silex",         SK_SPECIAL, 3, 0, 14, 3},
-        {"Bâton Boomerang",    SK_ATK,     4, 1, 19, 2},
-        {"Séisme XXL",         SK_ATK,     5, 4, 26, 3},
-        {"Bulbig Bulbe",       SK_SPECIAL, 4, 0, 18, 4},
+        {"Attaque naturelle",  SK_ATK,     3, 4, 13, 0},
+        {"Armure terrestre",   SK_BUFF,    2, 0, 15, 3},
+        {"Glyphe agressif",    SK_SPECIAL, 3, 3, 8,  2},
+        {"Renvoi de sort",     SK_SPECIAL, 3, 0, 0,  4},
+        {"Aveuglement",        SK_SPECIAL, 3, 4, 0,  3},
+        {"Armure incandescente", SK_BUFF,  3, 0, 18, 4},
+        {"Attaque nuageuse",   SK_ATK,     4, 4, 17, 1},
+        {"Armure aqueuse",     SK_BUFF,    3, 0, 15, 3},
+        {"Immunité",           SK_SPECIAL, 4, 0, 0,  5},
+        {"Armure venteuse",    SK_BUFF,    3, 0, 18, 4},
+        {"Glyphe d'aveuglement", SK_SPECIAL, 4, 4, 0,  4},
+        {"Glyphe enflammé",    SK_SPECIAL, 4, 4, 0,  4},
+        {"Bouclier Féca",      SK_BUFF,    4, 0, 20, 4},
+        {"Glyphe d'immobilisation", SK_SPECIAL, 4, 4, 0,  4},
+        {"Glyphe de silence",  SK_SPECIAL, 4, 4, 0,  4},
+        {"Invocation dopeul",  SK_SPECIAL, 4, 0, 0,  5},
     }},
     {"Pandawa Bourre", {
-        {"Lame Imbibée",       SK_ATK,     4, 2, 18, 0},
-        {"Haleine Turbo",      SK_ATK,     4, 4, 20, 2},
-        {"Rage de Crâne",      SK_ATK,     5, 1, 26, 3},
-        {"Café au Lait",       SK_HEAL,    3, 3, 18, 2},
-        {"Point Faible",       SK_SPECIAL, 2, 4, 0,  3},
-        {"Frisbee Pote",       SK_SPECIAL, 3, 1, 0,  3},
-        {"Canon de Poulpe",    SK_BUFF,    2, 0, 18, 4},
-        {"Cocktail Folie",     SK_BUFF,    2, 0, 18, 4},
-        {"Bond Bambou",        SK_SPECIAL, 2, 3, 0,  2},
-        {"Macadam Fracas",     SK_ATK,     4, 3, 21, 2},
-        {"Punch Coco",         SK_ATK,     3, 1, 16, 0},
-        {"Boum Haleine",       SK_ATK,     5, 3, 25, 3},
-        {"Tai Chi Pote",       SK_SPECIAL, 4, 2, 0,  4},
-        {"Bambou Boudeur",     SK_ATK,     4, 4, 19, 2},
-        {"Grande Gorgée",      SK_SPECIAL, 3, 0, 12, 3},
-        {"Pôle Nord XXL",      SK_SPECIAL, 4, 5, 14, 3},
+        {"Lame imbibée",       SK_ATK,     4, 2, 18, 0},
+        {"Haleine",            SK_ATK,     4, 4, 20, 2},
+        {"Rage",               SK_ATK,     5, 1, 26, 3},
+        {"Soin",               SK_HEAL,    3, 3, 18, 2},
+        {"Vulnérabilité",      SK_SPECIAL, 2, 4, 0,  3},
+        {"Portage",            SK_SPECIAL, 3, 1, 0,  3},
+        {"Boost",              SK_BUFF,    2, 0, 18, 4},
+        {"Cocktail",           SK_BUFF,    2, 0, 18, 4},
+        {"Bond",               SK_SPECIAL, 2, 3, 0,  2},
+        {"Fracas",             SK_ATK,     4, 3, 21, 2},
+        {"Punch",              SK_ATK,     3, 1, 16, 0},
+        {"Boum",               SK_ATK,     5, 3, 25, 3},
+        {"Tai Chi",            SK_SPECIAL, 4, 2, 0,  4},
+        {"Bambou",             SK_ATK,     4, 4, 19, 2},
+        {"Gorgée",             SK_SPECIAL, 3, 0, 12, 3},
+        {"Pôle Nord",          SK_SPECIAL, 4, 5, 14, 3},
     }},
     {"Roublard Boom", {
-        {"Plomb Chocolat",     SK_ATK,     3, 5, 15, 0},
-        {"Trépan Surprise",    SK_ATK,     4, 6, 19, 1},
-        {"Pièce Montée",       SK_ATK,     4, 6, 24, 2},
+        {"Plomb",              SK_ATK,     3, 5, 15, 0},
+        {"Trépan",             SK_ATK,     4, 6, 19, 1},
+        {"Pièce montée",       SK_ATK,     4, 6, 24, 2},
         {"Superchute",         SK_ATK,     5, 2, 30, 4},
-        {"Lasso Internet",     SK_SPECIAL, 2, 3, 0,  2},
-        {"Croche Pater",       SK_SPECIAL, 3, 5, 0,  4},
-        {"Classe Mulot",       SK_BUFF,    2, 0, 20, 4},
-        {"Ponzi Partout",      SK_SPECIAL, 3, 4, 10, 3},
-        {"Fumigène Disco",     SK_SPECIAL, 3, 0, 0,  3},
-        {"Poudre Rasta",       SK_ATK,     5, 5, 27, 3},
-        {"Lunette Sniper",     SK_ATK,     4, 7, 21, 2},
-        {"Colis Suspect",      SK_ATK,     5, 4, 26, 3},
-        {"Boum Grillot",       SK_ATK,     4, 3, 22, 2},
-        {"Carabine Noël",      SK_ATK,     3, 6, 17, 1},
-        {"Sortie Crous",       SK_SPECIAL, 2, 4, 0,  2},
-        {"Fiole Mystère",      SK_SPECIAL, 4, 5, 13, 3},
+        {"Lasso",              SK_SPECIAL, 2, 3, 0,  2},
+        {"Croche-patte",       SK_SPECIAL, 3, 5, 0,  4},
+        {"Classe mulot",       SK_BUFF,    2, 0, 20, 4},
+        {"Ponzi",              SK_SPECIAL, 3, 4, 10, 3},
+        {"Fumigène",           SK_SPECIAL, 3, 0, 0,  3},
+        {"Poudre",             SK_ATK,     5, 5, 27, 3},
+        {"Lunette",            SK_ATK,     4, 7, 21, 2},
+        {"Colis suspect",      SK_ATK,     5, 4, 26, 3},
+        {"Boum",               SK_ATK,     4, 3, 22, 2},
+        {"Carabine",           SK_ATK,     3, 6, 17, 1},
+        {"Sortie",             SK_SPECIAL, 2, 4, 0,  2},
+        {"Fiole",              SK_SPECIAL, 4, 5, 13, 3},
     }},
 };
 
@@ -2860,14 +2860,26 @@ static void draw_vfx(Game *g, SDL_Renderer *renderer)
 static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
                       int x, int y, SDL_Color c)
 {
-    if (!f) return;
-    SDL_Surface *s = TTF_RenderUTF8_Blended(f, txt, c);
-    if (!s) return;
-    SDL_Texture *t = SDL_CreateTextureFromSurface(r, s);
-    SDL_Rect d = {x, y, s->w, s->h};
-    SDL_RenderCopy(r, t, NULL, &d);
-    SDL_FreeSurface(s);
-    SDL_DestroyTexture(t);
+    if (!f || !txt || !txt[0]) return;
+    /* ombre portee pour la lisibilite                            */
+    {
+        SDL_Color sh = {0, 0, 0, 170};
+        SDL_Surface *s = TTF_RenderUTF8_Blended(f, txt, sh);
+        if (s) {
+            SDL_Texture *t = SDL_CreateTextureFromSurface(r, s);
+            SDL_Rect d = {x + 1, y + 1, s->w, s->h};
+            if (t) { SDL_RenderCopy(r, t, NULL, &d); SDL_DestroyTexture(t); }
+            SDL_FreeSurface(s);
+        }
+    }
+    {
+        SDL_Surface *s = TTF_RenderUTF8_Blended(f, txt, c);
+        if (!s) return;
+        SDL_Texture *t = SDL_CreateTextureFromSurface(r, s);
+        SDL_Rect d = {x, y, s->w, s->h};
+        if (t) { SDL_RenderCopy(r, t, NULL, &d); SDL_DestroyTexture(t); }
+        SDL_FreeSurface(s);
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -3316,6 +3328,9 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
             mark = f->team == g->my_index
                  ? (SDL_Color){40, 255, 80, 255}
                  : (SDL_Color){255, 55, 55, 255};
+        /* halo doux sous le marqueur                                    */
+        iso_fill_diamond(r, g, f->x, f->y,
+                         (SDL_Color){mark.r, mark.g, mark.b, 55});
         iso_outline_diamond(r, g, f->x, f->y, mark);
         {
             int px, py;
@@ -3542,6 +3557,33 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
                  s->power, me->cd_left[k], s->cooldown);
         draw_text(r, font, t, b.x + 38, b.y + 42, white);
     }
+    /* bulle d'aide au survol d'un sort                               */
+    {
+        int mx, my;
+        mouse_logical(&mx, &my);
+        for (k = 0; k < N_EQUIPPED; k++) {
+            SDL_Rect b = {10 + k * 165, y0 + 30, 160, 56};
+            if (pt_in(b, mx, my)) {
+                Skill *sk = &me->spells[k];
+                char tip[128];
+                SDL_Rect bubble = {b.x, y0 - 62, 250, 58};
+                if (bubble.x + bubble.w > WIN_W) bubble.x = WIN_W - bubble.w - 4;
+                if (bubble.x < 0) bubble.x = 0;
+                SDL_SetRenderDrawColor(r, 18, 22, 34, 230);
+                SDL_RenderFillRect(r, &bubble);
+                SDL_SetRenderDrawColor(r, 180, 180, 200, 255);
+                SDL_RenderDrawRect(r, &bubble);
+                snprintf(tip, sizeof tip, "%s", sk->name);
+                draw_text(r, font, tip, bubble.x + 6, bubble.y + 4, white);
+                snprintf(tip, sizeof tip, "%dPA  portee %d  effet %d  CD %d/%d",
+                         sk->pa, sk->range, sk->power, me->cd_left[k], sk->cooldown);
+                draw_text(r, font, tip, bubble.x + 6, bubble.y + 22, white);
+                snprintf(tip, sizeof tip, "survoler une cible pour l'estimation");
+                draw_text(r, font, tip, bubble.x + 6, bubble.y + 40,
+                          (SDL_Color){180,180,180,255});
+            }
+        }
+    }
     /* bouton FIN DE TOUR (clic)                                      */
     SDL_Rect be = endturn_btn(y0);
     int my_turn = me->team == g->my_index;
@@ -3614,6 +3656,8 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
 
 
 
+static void draw_mouse_bubble(SDL_Renderer *r, TTF_Font *font, int mx, int my,
+                              const char *text);
 static void draw_achievements(SDL_Renderer *r, TTF_Font *font, Game *g)
 {
     SDL_Color white = {255,255,255,255};
@@ -3651,7 +3695,39 @@ static void draw_achievements(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_text(r, font, "UP", up.x + 10, up.y + 8, white);
         draw_text(r, font, "DOWN", down.x + 2, down.y + 8, white);
         draw_text(r, font, "RETOUR", back.x + 34, back.y + 10, white);
+        {
+            int mx, my;
+            mouse_logical(&mx, &my);
+            if (pt_in(up, mx, my))
+                draw_mouse_bubble(r, font, mx, my, "Page precedente");
+            else if (pt_in(down, mx, my))
+                draw_mouse_bubble(r, font, mx, my, "Page suivante");
+            else if (pt_in(back, mx, my))
+                draw_mouse_bubble(r, font, mx, my, "Retour menu");
+        }
     }
+}
+
+/* bulle suiveuse de la souris pour toutes les zones cliquables        */
+static void draw_mouse_bubble(SDL_Renderer *r, TTF_Font *font, int mx, int my,
+                              const char *text)
+{
+    SDL_Color white = {255,255,255,255};
+    SDL_Rect b;
+    int w = (int)strlen(text) * 7 + 12;
+    int h = 20;
+    int x = mx + 12;
+    int y = my + 12;
+    if (x + w > WIN_W) x = mx - w - 8;
+    if (y + h > WIN_H) y = my - h - 8;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    b = (SDL_Rect){x, y, w, h};
+    SDL_SetRenderDrawColor(r, 18, 22, 34, 230);
+    SDL_RenderFillRect(r, &b);
+    SDL_SetRenderDrawColor(r, 180, 180, 200, 255);
+    SDL_RenderDrawRect(r, &b);
+    draw_text(r, font, text, x + 6, y + 2, white);
 }
 
 static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
@@ -3674,7 +3750,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     {
         draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
                        (SDL_Rect){22, 15, 24, 25});
-        draw_text(r, font, "DOFUS ARENA FANMADE", 54, 13, white);
+        draw_text(r, font, "DOFUS ARENA - LEGEND (FTW°)", 54, 13, white);
         draw_text(r, font, "Solo contre l'IA ou duel en P2P", 54, 31, grey);
         draw_character_sprite(r, CLASS_CHARACTER_ROW[0], 0, 0,
                               (SDL_Rect){548, 152, 60, 60}, 0);
@@ -3796,6 +3872,18 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     }
 
     draw_text(r, font, "Credits: Thanks All. (OwO) ... Alucard.", 20, 500, grey);
+    {
+        int mx, my;
+        mouse_logical(&mx, &my);
+        if (pt_in(menu_settings_btn(), mx, my))
+            draw_mouse_bubble(r, font, mx, my, "Options");
+        else if (pt_in(menu_btn_solo(), mx, my))
+            draw_mouse_bubble(r, font, mx, my, "Jouer seul");
+        else if (pt_in(menu_btn_host(), mx, my))
+            draw_mouse_bubble(r, font, mx, my, "Heberger");
+        else if (pt_in(menu_btn_join(), mx, my))
+            draw_mouse_bubble(r, font, mx, my, "Rejoindre");
+    }
 
     draw_text(r, font, "LAN : saisissez l'IP locale de l'hote.", 20, 320, grey);
     draw_text(r, font, "Internet : IP publique + redirection UDP 7777 sur la box",
@@ -3942,9 +4030,9 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_text(r, font, line, 20, 20, white);
     for (i = 0; i < N_CLASS_SPELLS; i++) {
         Skill *s = &CLASSES[cls].spells[i];
-        int col = i % 4, row = i / 4;
-        SDL_Rect b = {10 + col * 175, 60 + row * 100, 170, 96};
-        SDL_Rect icon = {b.x + 5, b.y + 32, 42, 48};
+        int col = i % 2, row = i / 2;
+        SDL_Rect b = {10 + col * 330, 50 + row * 68, 320, 64};
+        SDL_Rect icon = {b.x + 5, b.y + 8, 32, 48};
         if (g->draft[unit][i])
             SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
         else
@@ -3958,16 +4046,27 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
             SDL_RenderCopy(r, g_spell_icons, &icon_src, &icon);
         }
         snprintf(line, sizeof line, "%X %s", i+1, s->name);
-        draw_text(r, font, line, b.x + 4, b.y + 4, white);
+        draw_text(r, font, line, b.x + 44, b.y + 4, white);
         const char *kind = s->kind == SK_ATK ? "attaque" :
                            s->kind == SK_HEAL ? "soin"   :
                            s->kind == SK_BUFF ? "buff"   : "special";
         snprintf(line, sizeof line, "%s %d, %dPA, P%d, CD%d",
                  kind, s->power, s->pa, s->range, s->cooldown);
-        draw_text(r, font, line, b.x + 52, b.y + 30, white);
+        draw_text(r, font, line, b.x + 44, b.y + 24, white);
         snprintf(line, sizeof line, "%s",
-                 g->draft[unit][i] ? "dans le deck" : "clic");
-        draw_text(r, font, line, b.x + 52, b.y + 60, white);
+                 g->draft[unit][i] ? "dans le deck" : "clic pour choisir");
+        draw_text(r, font, line, b.x + 44, b.y + 44, white);
+    }
+    {
+        int mx, my, i;
+        mouse_logical(&mx, &my);
+        for (i = 0; i < N_CLASS_SPELLS; i++) {
+            int col = i % 2, row = i / 2;
+            SDL_Rect b = {10 + col * 330, 50 + row * 68, 320, 64};
+            if (pt_in(b, mx, my))
+                draw_mouse_bubble(r, font, mx, my,
+                                 CLASSES[cls].spells[i].name);
+        }
     }
     if (g->draft_count[unit] >= N_EQUIPPED) {
         SDL_Rect vb = draft_btn();
@@ -4029,6 +4128,13 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
     if (g->menu_status[0])
         draw_text(r, font, g->menu_status, 300, 480, green);
     {
+        int mx, my, i;
+        mouse_logical(&mx, &my);
+        for (i = 0; i < N_PANOPLIES; i++)
+            if (pt_in(stuff_card(i), mx, my))
+                draw_mouse_bubble(r, font, mx, my, PANOPLIES[i].name);
+    }
+    {
         int i;
         for (i = 0; i < MAX_FAVORITES; i++) {
             SDL_Rect b = stuff_favorite_btn(i);
@@ -4087,6 +4193,15 @@ static void draw_dofus(SDL_Renderer *r, TTF_Font *font, Game *g)
     if (g->menu_status[0])
         draw_text(r, font, g->menu_status, 300, 480, green);
     {
+        int mx, my, i;
+        mouse_logical(&mx, &my);
+        for (i = 0; i < N_DOFUS; i++) {
+            SDL_Rect b = {20 + (i%2)*330, 60 + (i/2)*105, 320, 100};
+            if (pt_in(b, mx, my))
+                draw_mouse_bubble(r, font, mx, my, DOFUS[i].name);
+        }
+    }
+    {
         SDL_Rect ok = {520, 500, 130, 34};
         SDL_SetRenderDrawColor(r, g->team_dofus[team] >= 0 ? 55 : 45,
                                g->team_dofus[team] >= 0 ? 140 : 55,
@@ -4134,6 +4249,13 @@ static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
     snprintf(line, sizeof line, "Points repartis : %d/%d", total, ELEMENT_POINTS);
     draw_text(r, font, line, 100, 410, white);
     {
+        int mx, my;
+        mouse_logical(&mx, &my);
+        /* no specific buttons; bubble on element rows */
+        if (mx > 50 && mx < 600 && my > 140 && my < 400)
+            draw_mouse_bubble(r, font, mx, my, "Element");
+    }
+    {
         SDL_Rect done = {100, 460, 250, 42};
         SDL_SetRenderDrawColor(r, total == ELEMENT_POINTS ? 55 : 45,
                                total == ELEMENT_POINTS ? 140 : 55,
@@ -4152,8 +4274,8 @@ static void draft_click(Game *g, int mx, int my)
     int cls = g->class_chosen[unit];
     if (cls < 0) return;
     for (i = 0; i < N_CLASS_SPELLS; i++) {
-        int col = i % 4, row = i / 4;
-        SDL_Rect b = {10 + col * 175, 60 + row * 100, 170, 96};
+        int col = i % 2, row = i / 2;
+        SDL_Rect b = {10 + col * 330, 50 + row * 68, 320, 64};
         if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
             if (!g->draft[unit][i] && g->draft_count[unit] < N_EQUIPPED) {
                 g->draft[unit][i] = 1;
@@ -4225,14 +4347,14 @@ int main(int argc, char **argv)
     if (TTF_Init() != 0) { fprintf(stderr, "TTF\n"); return 1; }
     if (!net_init()) { fprintf(stderr, "WSA\n"); return 1; }
 
-    win = SDL_CreateWindow("Dofus Arena P2P - Fanmade",
+    win = SDL_CreateWindow("Dofus Arena - Legend (FTW°)",
                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                           WIN_W, WIN_H, SDL_WINDOW_RESIZABLE);
+                           800, 600, SDL_WINDOW_RESIZABLE);
     if (!win) {
         fprintf(stderr, "Fenetre SDL indisponible: %s\n", SDL_GetError());
         return 1;
     }
-    ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
+    ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!ren) {
         fprintf(stderr, "Rendu accelere indisponible, repli logiciel: %s\n",
                 SDL_GetError());
@@ -4244,7 +4366,7 @@ int main(int argc, char **argv)
         return 1;
     }
     /* rendu responsive : echelle automatique, interface 672x640 logique */
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
     SDL_RenderSetLogicalSize(ren, WIN_W, WIN_H);
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     g_ren = ren;
@@ -4948,6 +5070,14 @@ int main(int argc, char **argv)
             draw_hover_mark(ren, &game, hover_i, hover_j);
             draw_battle_tooltip(ren, font, &game, hover_i, hover_j, mx, my);
             draw_vfx(&game, ren);
+            /* vignette douce pour la profondeur                             */
+            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(ren, 0, 0, 0, 90);
+            SDL_RenderFillRect(ren, &(SDL_Rect){0, 0, 40, GRID_H * TILE});
+            SDL_RenderFillRect(ren, &(SDL_Rect){WIN_W - 40, 0, 40, GRID_H * TILE});
+            SDL_SetRenderDrawColor(ren, 0, 0, 0, 60);
+            SDL_RenderFillRect(ren, &(SDL_Rect){0, 0, WIN_W, 24});
+            SDL_RenderFillRect(ren, &(SDL_Rect){0, GRID_H * TILE - 24, WIN_W, 24});
             draw_skillbar(ren, &game, font);
             if (game.in_game_menu_open)
                 draw_ingame_menu(&game, ren, font);
