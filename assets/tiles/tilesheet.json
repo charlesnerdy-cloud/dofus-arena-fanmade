@@ -1,0 +1,3789 @@
+{
+  "image": "tilesheet.png",
+  "width": 1024,
+  "height": 520,
+  "gutter": 2,
+  "count": 540,
+  "tiles": [
+    {
+      "file": "Dungeon_arcane/chest.png",
+      "x": 634,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/chest_open.png",
+      "x": 662,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/crate.png",
+      "x": 58,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_arcane/Decor/arc_crystal.png",
+      "x": 690,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/banner_blue.png",
+      "x": 718,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/banner_green.png",
+      "x": 746,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/banner_red.png",
+      "x": 774,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/barrel.png",
+      "x": 802,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/barrel2.png",
+      "x": 830,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/basin.png",
+      "x": 858,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/bookshelf.png",
+      "x": 886,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/campfire.png",
+      "x": 610,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_arcane/Decor/column.png",
+      "x": 638,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_arcane/Decor/crate.png",
+      "x": 914,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/dresser.png",
+      "x": 942,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/gem.png",
+      "x": 970,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/gem_big.png",
+      "x": 998,
+      "y": 78,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/rock.png",
+      "x": 2,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/rune_stone.png",
+      "x": 30,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/sign.png",
+      "x": 58,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/sign_carved.png",
+      "x": 86,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/stump.png",
+      "x": 114,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/torch.png",
+      "x": 142,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/Decor/tree.png",
+      "x": 2,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_arcane/exit_stairs.png",
+      "x": 58,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_arcane/floor_blight.png",
+      "x": 170,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_blight_a.png",
+      "x": 198,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_blight_b.png",
+      "x": 226,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_blight_c.png",
+      "x": 254,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_blight_d.png",
+      "x": 282,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_blight_pool.png",
+      "x": 310,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_earth.png",
+      "x": 338,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_grass.png",
+      "x": 366,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_marsh.png",
+      "x": 394,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_moss.png",
+      "x": 422,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_moss_a.png",
+      "x": 450,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_moss_b.png",
+      "x": 478,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_moss_c.png",
+      "x": 506,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_moss_d.png",
+      "x": 534,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_moss_thick.png",
+      "x": 562,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_moss_tuft.png",
+      "x": 590,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_mud.png",
+      "x": 618,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_mud_churned.png",
+      "x": 646,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_mud_dry.png",
+      "x": 674,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_mud_puddled.png",
+      "x": 702,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_stone.png",
+      "x": 730,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_stone_chipped.png",
+      "x": 758,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/floor_stone_cracked.png",
+      "x": 786,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/start_pad.png",
+      "x": 94,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_arcane/void.png",
+      "x": 814,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_bottom.png",
+      "x": 842,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_bottom_left.png",
+      "x": 870,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_bottom_right.png",
+      "x": 898,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_corner_bl.png",
+      "x": 926,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_corner_br.png",
+      "x": 954,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_corner_tl.png",
+      "x": 982,
+      "y": 130,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_corner_tr.png",
+      "x": 2,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_door.png",
+      "x": 78,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_arcane/wall_face.png",
+      "x": 30,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_face_bottom_left.png",
+      "x": 58,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_face_bottom_right.png",
+      "x": 86,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_face_left.png",
+      "x": 114,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_face_right.png",
+      "x": 142,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_top.png",
+      "x": 170,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_top_left.png",
+      "x": 198,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/wall_top_right.png",
+      "x": 226,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_arcane/water_anim.png",
+      "x": 254,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/chest.png",
+      "x": 282,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/chest_open.png",
+      "x": 310,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/crate.png",
+      "x": 130,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_gold/Decor/banner_blue.png",
+      "x": 338,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/banner_green.png",
+      "x": 366,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/banner_red.png",
+      "x": 394,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/barrel.png",
+      "x": 422,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/barrel2.png",
+      "x": 450,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/basin.png",
+      "x": 478,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/bookshelf.png",
+      "x": 506,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/campfire.png",
+      "x": 666,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_gold/Decor/column.png",
+      "x": 694,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_gold/Decor/crate.png",
+      "x": 534,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/dresser.png",
+      "x": 562,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/dry_bush.png",
+      "x": 590,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/dry_rock.png",
+      "x": 618,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/dry_stump.png",
+      "x": 646,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/gem.png",
+      "x": 674,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/gem_big.png",
+      "x": 702,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/rock.png",
+      "x": 730,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/sign.png",
+      "x": 758,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/sign_carved.png",
+      "x": 786,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/stump.png",
+      "x": 814,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/torch.png",
+      "x": 842,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/Decor/tree.png",
+      "x": 78,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_gold/exit_stairs.png",
+      "x": 98,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_gold/floor_blight.png",
+      "x": 870,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_blight_a.png",
+      "x": 898,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_blight_b.png",
+      "x": 926,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_blight_c.png",
+      "x": 954,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_blight_d.png",
+      "x": 982,
+      "y": 158,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_blight_pool.png",
+      "x": 2,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_earth.png",
+      "x": 30,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_grass.png",
+      "x": 58,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_marsh.png",
+      "x": 86,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_moss.png",
+      "x": 114,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_moss_a.png",
+      "x": 142,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_moss_b.png",
+      "x": 170,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_moss_c.png",
+      "x": 198,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_moss_d.png",
+      "x": 226,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_moss_thick.png",
+      "x": 254,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_moss_tuft.png",
+      "x": 282,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_mud.png",
+      "x": 310,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_mud_churned.png",
+      "x": 338,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_mud_dry.png",
+      "x": 366,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_mud_puddled.png",
+      "x": 394,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_stone.png",
+      "x": 422,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_stone_chipped.png",
+      "x": 450,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/floor_stone_cracked.png",
+      "x": 478,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/start_pad.png",
+      "x": 166,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_gold/void.png",
+      "x": 506,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_bottom.png",
+      "x": 534,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_bottom_left.png",
+      "x": 562,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_bottom_right.png",
+      "x": 590,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_corner_bl.png",
+      "x": 618,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_corner_br.png",
+      "x": 646,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_corner_tl.png",
+      "x": 674,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_corner_tr.png",
+      "x": 702,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_door.png",
+      "x": 118,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_gold/wall_face.png",
+      "x": 730,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_face_bottom_left.png",
+      "x": 758,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_face_bottom_right.png",
+      "x": 786,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_face_left.png",
+      "x": 814,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_face_right.png",
+      "x": 842,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_top.png",
+      "x": 870,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_top_left.png",
+      "x": 898,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/wall_top_right.png",
+      "x": 926,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_gold/water_anim.png",
+      "x": 954,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/chest.png",
+      "x": 982,
+      "y": 186,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/chest_open.png",
+      "x": 2,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/crate.png",
+      "x": 202,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_ice/Decor/banner_blue.png",
+      "x": 30,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/banner_green.png",
+      "x": 58,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/banner_red.png",
+      "x": 86,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/barrel.png",
+      "x": 114,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/barrel2.png",
+      "x": 142,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/basin.png",
+      "x": 170,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/bookshelf.png",
+      "x": 198,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/campfire.png",
+      "x": 722,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_ice/Decor/column.png",
+      "x": 750,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_ice/Decor/crate.png",
+      "x": 226,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/dresser.png",
+      "x": 254,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/frost_bush.png",
+      "x": 282,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/frost_gem.png",
+      "x": 310,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/gem.png",
+      "x": 338,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/gem_big.png",
+      "x": 366,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/ice_block.png",
+      "x": 394,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/rock.png",
+      "x": 422,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/sign.png",
+      "x": 450,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/sign_carved.png",
+      "x": 478,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/stump.png",
+      "x": 506,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/torch.png",
+      "x": 534,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/Decor/tree.png",
+      "x": 154,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_ice/exit_stairs.png",
+      "x": 138,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_ice/floor_blight.png",
+      "x": 562,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_blight_a.png",
+      "x": 590,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_blight_b.png",
+      "x": 618,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_blight_c.png",
+      "x": 646,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_blight_d.png",
+      "x": 674,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_blight_pool.png",
+      "x": 702,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_earth.png",
+      "x": 730,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_grass.png",
+      "x": 758,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_marsh.png",
+      "x": 786,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_moss.png",
+      "x": 814,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_moss_a.png",
+      "x": 842,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_moss_b.png",
+      "x": 870,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_moss_c.png",
+      "x": 898,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_moss_d.png",
+      "x": 926,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_moss_thick.png",
+      "x": 954,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_moss_tuft.png",
+      "x": 982,
+      "y": 214,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_mud.png",
+      "x": 2,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_mud_churned.png",
+      "x": 30,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_mud_dry.png",
+      "x": 58,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_mud_puddled.png",
+      "x": 86,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_stone.png",
+      "x": 114,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_stone_chipped.png",
+      "x": 142,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/floor_stone_cracked.png",
+      "x": 170,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/start_pad.png",
+      "x": 238,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_ice/void.png",
+      "x": 198,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_bottom.png",
+      "x": 226,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_bottom_left.png",
+      "x": 254,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_bottom_right.png",
+      "x": 282,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_corner_bl.png",
+      "x": 310,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_corner_br.png",
+      "x": 338,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_corner_tl.png",
+      "x": 366,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_corner_tr.png",
+      "x": 394,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_door.png",
+      "x": 158,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_ice/wall_face.png",
+      "x": 422,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_face_bottom_left.png",
+      "x": 450,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_face_bottom_right.png",
+      "x": 478,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_face_left.png",
+      "x": 506,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_face_right.png",
+      "x": 534,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_top.png",
+      "x": 562,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_top_left.png",
+      "x": 590,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/wall_top_right.png",
+      "x": 618,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_ice/water_anim.png",
+      "x": 646,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/chest.png",
+      "x": 674,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/chest_open.png",
+      "x": 702,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/crate.png",
+      "x": 274,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_lava/Decor/banner_blue.png",
+      "x": 730,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/banner_green.png",
+      "x": 758,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/banner_red.png",
+      "x": 786,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/barrel.png",
+      "x": 814,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/barrel2.png",
+      "x": 842,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/basin.png",
+      "x": 870,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/bookshelf.png",
+      "x": 898,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/campfire.png",
+      "x": 778,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_lava/Decor/column.png",
+      "x": 806,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_lava/Decor/crate.png",
+      "x": 926,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/dresser.png",
+      "x": 954,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/ember_gem.png",
+      "x": 982,
+      "y": 242,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/gem.png",
+      "x": 2,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/gem_big.png",
+      "x": 30,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/lava_rock.png",
+      "x": 58,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/rock.png",
+      "x": 86,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/sign.png",
+      "x": 114,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/sign_carved.png",
+      "x": 142,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/stump.png",
+      "x": 170,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/torch.png",
+      "x": 198,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/Decor/tree.png",
+      "x": 230,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_lava/exit_stairs.png",
+      "x": 178,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_lava/floor_blight.png",
+      "x": 226,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_blight_a.png",
+      "x": 254,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_blight_b.png",
+      "x": 282,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_blight_c.png",
+      "x": 310,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_blight_d.png",
+      "x": 338,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_blight_pool.png",
+      "x": 366,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_earth.png",
+      "x": 394,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_grass.png",
+      "x": 422,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_marsh.png",
+      "x": 450,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_moss.png",
+      "x": 478,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_moss_a.png",
+      "x": 506,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_moss_b.png",
+      "x": 534,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_moss_c.png",
+      "x": 562,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_moss_d.png",
+      "x": 590,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_moss_thick.png",
+      "x": 618,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_moss_tuft.png",
+      "x": 646,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_mud.png",
+      "x": 674,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_mud_churned.png",
+      "x": 702,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_mud_dry.png",
+      "x": 730,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_mud_puddled.png",
+      "x": 758,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_stone.png",
+      "x": 786,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_stone_chipped.png",
+      "x": 814,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/floor_stone_cracked.png",
+      "x": 842,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/start_pad.png",
+      "x": 310,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_lava/void.png",
+      "x": 870,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_bottom.png",
+      "x": 898,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_bottom_left.png",
+      "x": 926,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_bottom_right.png",
+      "x": 954,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_corner_bl.png",
+      "x": 982,
+      "y": 270,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_corner_br.png",
+      "x": 2,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_corner_tl.png",
+      "x": 30,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_corner_tr.png",
+      "x": 58,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_door.png",
+      "x": 198,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_lava/wall_face.png",
+      "x": 86,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_face_bottom_left.png",
+      "x": 114,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_face_bottom_right.png",
+      "x": 142,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_face_left.png",
+      "x": 170,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_face_right.png",
+      "x": 198,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_top.png",
+      "x": 226,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_top_left.png",
+      "x": 254,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/wall_top_right.png",
+      "x": 282,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_lava/water_anim.png",
+      "x": 310,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/chest.png",
+      "x": 338,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/chest_open.png",
+      "x": 366,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/crate.png",
+      "x": 346,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_moss/Decor/banner_blue.png",
+      "x": 394,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/banner_green.png",
+      "x": 422,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/banner_red.png",
+      "x": 450,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/barrel.png",
+      "x": 478,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/barrel2.png",
+      "x": 506,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/basin.png",
+      "x": 534,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/bookshelf.png",
+      "x": 562,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/bush.png",
+      "x": 590,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/campfire.png",
+      "x": 834,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_moss/Decor/column.png",
+      "x": 862,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_moss/Decor/crate.png",
+      "x": 618,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/dresser.png",
+      "x": 646,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/gem.png",
+      "x": 674,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/gem_big.png",
+      "x": 702,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/mossy_rock.png",
+      "x": 730,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/rock.png",
+      "x": 758,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/sign.png",
+      "x": 786,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/sign_carved.png",
+      "x": 814,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/stump.png",
+      "x": 842,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/torch.png",
+      "x": 870,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/Decor/tree.png",
+      "x": 306,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_moss/exit_stairs.png",
+      "x": 218,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_moss/floor_blight.png",
+      "x": 898,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_blight_a.png",
+      "x": 926,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_blight_b.png",
+      "x": 954,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_blight_c.png",
+      "x": 982,
+      "y": 298,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_blight_d.png",
+      "x": 2,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_blight_pool.png",
+      "x": 30,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_earth.png",
+      "x": 58,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_grass.png",
+      "x": 86,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_marsh.png",
+      "x": 114,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_moss.png",
+      "x": 142,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_moss_a.png",
+      "x": 170,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_moss_b.png",
+      "x": 198,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_moss_c.png",
+      "x": 226,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_moss_d.png",
+      "x": 254,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_moss_thick.png",
+      "x": 282,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_moss_tuft.png",
+      "x": 310,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_mud.png",
+      "x": 338,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_mud_churned.png",
+      "x": 366,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_mud_dry.png",
+      "x": 394,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_mud_puddled.png",
+      "x": 422,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_stone.png",
+      "x": 450,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_stone_chipped.png",
+      "x": 478,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/floor_stone_cracked.png",
+      "x": 506,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/start_pad.png",
+      "x": 382,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_moss/void.png",
+      "x": 534,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_bottom.png",
+      "x": 562,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_bottom_left.png",
+      "x": 590,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_bottom_right.png",
+      "x": 618,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_corner_bl.png",
+      "x": 646,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_corner_br.png",
+      "x": 674,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_corner_tl.png",
+      "x": 702,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_corner_tr.png",
+      "x": 730,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_door.png",
+      "x": 238,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_moss/wall_face.png",
+      "x": 758,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_face_bottom_left.png",
+      "x": 786,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_face_bottom_right.png",
+      "x": 814,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_face_left.png",
+      "x": 842,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_face_right.png",
+      "x": 870,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_top.png",
+      "x": 898,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_top_left.png",
+      "x": 926,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/wall_top_right.png",
+      "x": 954,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_moss/water_anim.png",
+      "x": 982,
+      "y": 326,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/chest.png",
+      "x": 2,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/chest_open.png",
+      "x": 30,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/crate.png",
+      "x": 418,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_sand/Decor/banner_blue.png",
+      "x": 58,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/banner_green.png",
+      "x": 86,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/banner_red.png",
+      "x": 114,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/barrel.png",
+      "x": 142,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/barrel2.png",
+      "x": 170,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/basin.png",
+      "x": 198,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/bookshelf.png",
+      "x": 226,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/campfire.png",
+      "x": 890,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_sand/Decor/column.png",
+      "x": 918,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_sand/Decor/crate.png",
+      "x": 254,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/dresser.png",
+      "x": 282,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/dry_bush.png",
+      "x": 310,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/dry_rock.png",
+      "x": 338,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/dry_stump.png",
+      "x": 366,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/gem.png",
+      "x": 394,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/gem_big.png",
+      "x": 422,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/rock.png",
+      "x": 450,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/sign.png",
+      "x": 478,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/sign_carved.png",
+      "x": 506,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/stump.png",
+      "x": 534,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/torch.png",
+      "x": 562,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/Decor/tree.png",
+      "x": 382,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_sand/exit_stairs.png",
+      "x": 258,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_sand/floor_blight.png",
+      "x": 590,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_blight_a.png",
+      "x": 618,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_blight_b.png",
+      "x": 646,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_blight_c.png",
+      "x": 674,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_blight_d.png",
+      "x": 702,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_blight_pool.png",
+      "x": 730,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_earth.png",
+      "x": 758,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_grass.png",
+      "x": 786,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_marsh.png",
+      "x": 814,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_moss.png",
+      "x": 842,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_moss_a.png",
+      "x": 870,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_moss_b.png",
+      "x": 898,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_moss_c.png",
+      "x": 926,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_moss_d.png",
+      "x": 954,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_moss_thick.png",
+      "x": 982,
+      "y": 354,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_moss_tuft.png",
+      "x": 2,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_mud.png",
+      "x": 30,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_mud_churned.png",
+      "x": 58,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_mud_dry.png",
+      "x": 86,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_mud_puddled.png",
+      "x": 114,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_stone.png",
+      "x": 142,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_stone_chipped.png",
+      "x": 170,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/floor_stone_cracked.png",
+      "x": 198,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/start_pad.png",
+      "x": 454,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_sand/void.png",
+      "x": 226,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_bottom.png",
+      "x": 254,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_bottom_left.png",
+      "x": 282,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_bottom_right.png",
+      "x": 310,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_corner_bl.png",
+      "x": 338,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_corner_br.png",
+      "x": 366,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_corner_tl.png",
+      "x": 394,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_corner_tr.png",
+      "x": 422,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_door.png",
+      "x": 278,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_sand/wall_face.png",
+      "x": 450,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_face_bottom_left.png",
+      "x": 478,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_face_bottom_right.png",
+      "x": 506,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_face_left.png",
+      "x": 534,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_face_right.png",
+      "x": 562,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_top.png",
+      "x": 590,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_top_left.png",
+      "x": 618,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/wall_top_right.png",
+      "x": 646,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_sand/water_anim.png",
+      "x": 674,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/chest.png",
+      "x": 702,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/chest_open.png",
+      "x": 730,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/crate.png",
+      "x": 490,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_toxic/Decor/banner_blue.png",
+      "x": 758,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/banner_green.png",
+      "x": 786,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/banner_red.png",
+      "x": 814,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/barrel.png",
+      "x": 842,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/barrel2.png",
+      "x": 870,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/basin.png",
+      "x": 898,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/bookshelf.png",
+      "x": 926,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/bush.png",
+      "x": 954,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/campfire.png",
+      "x": 946,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_toxic/Decor/column.png",
+      "x": 974,
+      "y": 2,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_toxic/Decor/crate.png",
+      "x": 982,
+      "y": 382,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/dresser.png",
+      "x": 2,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/gem.png",
+      "x": 30,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/gem_big.png",
+      "x": 58,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/mossy_rock.png",
+      "x": 86,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/rock.png",
+      "x": 114,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/sign.png",
+      "x": 142,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/sign_carved.png",
+      "x": 170,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/stump.png",
+      "x": 198,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/torch.png",
+      "x": 226,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/Decor/tree.png",
+      "x": 458,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_toxic/exit_stairs.png",
+      "x": 298,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_toxic/floor_blight.png",
+      "x": 254,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_blight_a.png",
+      "x": 282,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_blight_b.png",
+      "x": 310,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_blight_c.png",
+      "x": 338,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_blight_d.png",
+      "x": 366,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_blight_pool.png",
+      "x": 394,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_earth.png",
+      "x": 422,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_grass.png",
+      "x": 450,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_marsh.png",
+      "x": 478,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_moss.png",
+      "x": 506,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_moss_a.png",
+      "x": 534,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_moss_b.png",
+      "x": 562,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_moss_c.png",
+      "x": 590,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_moss_d.png",
+      "x": 618,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_moss_thick.png",
+      "x": 646,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_moss_tuft.png",
+      "x": 674,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_mud.png",
+      "x": 702,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_mud_churned.png",
+      "x": 730,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_mud_dry.png",
+      "x": 758,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_mud_puddled.png",
+      "x": 786,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_stone.png",
+      "x": 814,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_stone_chipped.png",
+      "x": 842,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/floor_stone_cracked.png",
+      "x": 870,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/start_pad.png",
+      "x": 526,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_toxic/void.png",
+      "x": 898,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_bottom.png",
+      "x": 926,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_bottom_left.png",
+      "x": 954,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_bottom_right.png",
+      "x": 982,
+      "y": 410,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_corner_bl.png",
+      "x": 2,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_corner_br.png",
+      "x": 30,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_corner_tl.png",
+      "x": 58,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_corner_tr.png",
+      "x": 86,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_door.png",
+      "x": 318,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_toxic/wall_face.png",
+      "x": 114,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_face_bottom_left.png",
+      "x": 142,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_face_bottom_right.png",
+      "x": 170,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_face_left.png",
+      "x": 198,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_face_right.png",
+      "x": 226,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_top.png",
+      "x": 254,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_top_left.png",
+      "x": 282,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/wall_top_right.png",
+      "x": 310,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_toxic/water_anim.png",
+      "x": 338,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/chest.png",
+      "x": 366,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/chest_open.png",
+      "x": 394,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/crate.png",
+      "x": 562,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_water/Decor/banner_blue.png",
+      "x": 422,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/banner_green.png",
+      "x": 450,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/banner_red.png",
+      "x": 478,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/barrel.png",
+      "x": 506,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/barrel2.png",
+      "x": 534,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/basin.png",
+      "x": 562,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/bookshelf.png",
+      "x": 590,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/campfire.png",
+      "x": 2,
+      "y": 78,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_water/Decor/column.png",
+      "x": 30,
+      "y": 78,
+      "width": 24,
+      "height": 48
+    },
+    {
+      "file": "Dungeon_water/Decor/crate.png",
+      "x": 618,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/dresser.png",
+      "x": 646,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/frost_bush.png",
+      "x": 674,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/frost_gem.png",
+      "x": 702,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/gem.png",
+      "x": 730,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/gem_big.png",
+      "x": 758,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/ice_block.png",
+      "x": 786,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/rock.png",
+      "x": 814,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/sign.png",
+      "x": 842,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/sign_carved.png",
+      "x": 870,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/stump.png",
+      "x": 898,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/torch.png",
+      "x": 926,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/Decor/tree.png",
+      "x": 534,
+      "y": 2,
+      "width": 72,
+      "height": 72
+    },
+    {
+      "file": "Dungeon_water/exit_stairs.png",
+      "x": 338,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_water/floor_blight.png",
+      "x": 954,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_blight_a.png",
+      "x": 982,
+      "y": 438,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_blight_b.png",
+      "x": 2,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_blight_c.png",
+      "x": 30,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_blight_d.png",
+      "x": 58,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_blight_pool.png",
+      "x": 86,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_earth.png",
+      "x": 114,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_grass.png",
+      "x": 142,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_marsh.png",
+      "x": 170,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_moss.png",
+      "x": 198,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_moss_a.png",
+      "x": 226,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_moss_b.png",
+      "x": 254,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_moss_c.png",
+      "x": 282,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_moss_d.png",
+      "x": 310,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_moss_thick.png",
+      "x": 338,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_moss_tuft.png",
+      "x": 366,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_mud.png",
+      "x": 394,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_mud_churned.png",
+      "x": 422,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_mud_dry.png",
+      "x": 450,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_mud_puddled.png",
+      "x": 478,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_stone.png",
+      "x": 506,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_stone_chipped.png",
+      "x": 534,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/floor_stone_cracked.png",
+      "x": 562,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/start_pad.png",
+      "x": 598,
+      "y": 78,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "file": "Dungeon_water/void.png",
+      "x": 590,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_bottom.png",
+      "x": 618,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_bottom_left.png",
+      "x": 646,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_bottom_right.png",
+      "x": 674,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_corner_bl.png",
+      "x": 702,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_corner_br.png",
+      "x": 730,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_corner_tl.png",
+      "x": 758,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_corner_tr.png",
+      "x": 786,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_door.png",
+      "x": 358,
+      "y": 494,
+      "width": 16,
+      "height": 16
+    },
+    {
+      "file": "Dungeon_water/wall_face.png",
+      "x": 814,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_face_bottom_left.png",
+      "x": 842,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_face_bottom_right.png",
+      "x": 870,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_face_left.png",
+      "x": 898,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_face_right.png",
+      "x": 926,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_top.png",
+      "x": 954,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_top_left.png",
+      "x": 982,
+      "y": 466,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/wall_top_right.png",
+      "x": 2,
+      "y": 494,
+      "width": 24,
+      "height": 24
+    },
+    {
+      "file": "Dungeon_water/water_anim.png",
+      "x": 30,
+      "y": 494,
+      "width": 24,
+      "height": 24
+    }
+  ]
+}

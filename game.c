@@ -1,33 +1,31 @@
 /* ============================================================================
- * DOFUS ARENA FANMADE - P2P 1v1 en C / SDL2
+ * DOFUS ARENA FANMADE - P2P 1v1/2v2/5v5 en C / SDL2
  * ---------------------------------------------------------------------------
- * - 12 classes jouables (Roublard en attente de sprite), 16 sorts chacune.
+ * - 13 classes jouables, 16 sorts chacune.
  * - Phase de DRAFT : chaque joueur choisit 4 sorts parmi les 16 de sa classe
  *   avant chaque partie. La sélection est synchronisée en P2P.
  * - Combat tactique au tour par tour sur grille (style Dofus Arena).
- * - Animations par spritesheet : Idle / Move / Attack (cosmétique, locale).
  * - Réseau Peer-To-Peer en UDP : host + join, port 7777.
- * - Assets : spritesheet "classes" (10 lignes x 10 colonnes, frames ~32x32)
- *   + tuiles. Placez-les dans ./assets/. Si absents : rendu de secours.
+ * - Assets : atlas de personnages, sorts, UI, effets et tuiles dans ./assets/.
  *
  * Compilation :
- *   gcc -O2 -o dofus-arena main.c -lSDL2 -lSDL2_image -lSDL2_ttf -lm
+ *   make
  *
  * Lancement :
  *   ./dofus-arena host              (héberger, port 7777)
  *   ./dofus-arena join 192.168.x.x  (rejoindre)
  *
- * Déroulement : MENU -> PICK (classe) -> DRAFT (4 sorts) -> BATTLE
- * Contrôles : clic = sélectionner case/sort, Espace = fin de tour.
+ * Contrôles : interface a la souris ; saisie clavier pour IP et chat.
+ *   - clic gauche = sélectionner / valider / cibler
+ * Déroulement : MENU -> PICK (classe) -> DRAFT (4 sorts) -> STUFF
+ *               (panoplie) -> BATTLE
  *
- * IMPORTANT : ajustez SHEET_* / ANIM_* / CLASS_SHEET_ROW ci-dessous à la
- * structure réelle de votre spritesheet (ligne/colonne de chaque classe,
- * colonnes de début des anims idle/move/attack).
  * ==========================================================================*/
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,72 +52,135 @@ typedef int Sock;
 #define GRID_W 14
 #define GRID_H 10
 #define TILE   48
+#define MAP_THEME_COUNT 8
+#define CUT_SHEET_COLS 6
+#define CUT_SHEET_CELL 80
+#define SPELL_ICON_COLS 9
+#define SPELL_ICON_ROWS 8
+#define EMOTE_COLS 16
+#define EMOTE_ROWS 16
+#define EMOTE_CELL_W 12
+#define EMOTE_CELL_H 13
+#define VFX_FRAME_COUNT 30
+#define VFX_FRAME_MS 33
 #define WIN_W  (GRID_W * TILE)
 #define WIN_H  (GRID_H * TILE + 160)   /* bandeau UI en bas            */
 #define PORT   7777
-#define N_CLASSES 13                   /* Roublard (idx 12) en attente */
-#define N_PLAYABLE 12                   /* classes sélectionnables      */
+#define NET_KEEPALIVE_MS 1000
+#define NET_TIMEOUT_MS   8000
+#define NET_CONNECT_TIMEOUT_MS 10000
+#define N_CLASSES 13
+#define N_PLAYABLE 13                   /* toutes les classes jouables  */
 #define N_CLASS_SPELLS 16
 #define N_EQUIPPED  4
+#define N_PANOPLIES 8
+#define MAX_TEAM_SIZE 5
+#define MAX_FIGHTERS (MAX_TEAM_SIZE * 2)
+#define MAX_FAVORITES 5
+#define ELEMENT_COUNT 4
+#define ELEMENT_POINTS 100
 #define MAX_HP 100
 
-/* --- Spritesheet : structure (A ADAPTER a votre feuille) ------------ */
-#define SHEET_FRAME_W 32                /* largeur d'une frame          */
-#define SHEET_FRAME_H 32                /* hauteur d'une frame          */
-#define SHEET_COLS 10                   /* colonnes                    */
-#define SHEET_ROWS 10                   /* lignes                      */
+/* types de cases de l'arene                                           */
+#define CELL_GROUND 0   /* sol unique (praticable)                     */
+#define CELL_WALL   1   /* MUR    : bloque le deplacement ET la vue     */
+#define CELL_GAP    2   /* FAUSSE : bloque le deplacement, PAS la vue   */
+#define CELL_VOID   3   /* hors de la forme de l'arene                  */
 
-/* colonnes de début et nombre de frames par état d'animation          */
-#define ANIM_IDLE_START  0
-#define ANIM_IDLE_N     4
-#define ANIM_MOVE_START 4
-#define ANIM_MOVE_N     4
-#define ANIM_ATK_START  8
-#define ANIM_ATK_N      2
 #define ANIM_FRAME_MS 150              /* durée d'une frame             */
-#define ANIM_ATK_MS   450              /* durée totale de l'anim attaque */
-
-/* Ligne du spritesheet par classe (5 archétypes : 0 guerrier, 1 mage,
-   2 archer, 3 barbare, 4 nécromancien). A ADAPTER selon vos frames.  */
-static const int CLASS_SHEET_ROW[N_CLASSES] = {
-    0,  /* Iop       - guerrier  */
-    2,  /* Cra       - archer    */
-    3,  /* Ecaflip   - barbare   */
-    1,  /* Eniripsa  - mage      */
-    4,  /* Enutrof   - necro     */
-    3,  /* Sram      - barbare   */
-    3,  /* Sacrieur  - barbare   */
-    2,  /* Sadida    - archer    */
-    4,  /* Osamodas  - necro     */
-    1,  /* Xelor     - mage      */
-    0,  /* Feca      - guerrier  */
-    3,  /* Pandawa   - barbare   */
-    -1  /* Roublard  - PAS DE SPRITE (mise de cote)                    */
-};
+#define ANIM_ATK_MS   600              /* durée totale de l'anim attaque */
 
 /* ------------------------------------------------------------------ */
 /* Assets                                                              */
 /* ------------------------------------------------------------------ */
-/* Kit "Free Top-Down Roguelike Game Kit Pixel Art" (itch.io, CC0)     */
-/* Les planches 15-17 contiennent : barres de vie, cases de sorts,     */
-/* portraits, boutons (15-16) et icones de sorts orange (17).          */
-static const char *ASSET_PATHS[] = {
-    "assets/tile_grass.png",    /* 0 : sol                          */
-    "assets/tile_blocked.png",  /* 1 : obstacle                     */
-    "assets/classes_sheet.png", /* 2 : spritesheet des classes       */
-    "assets/ui_panel.png",      /* 3 : panneau de fond du bandeau    */
-    "assets/ui_hpbar.png",      /* 4 : barre de vie                 */
-    "assets/ui_skillslot.png",  /* 5 : case de sort                  */
-    "assets/ui_skillslot_sel.png",/* 6 : case de sort sélectionnée    */
-    "assets/ui_endturn.png"     /* 7 : bouton fin de tour            */
+#define UI_HP_BAR_X 25
+#define UI_HP_BAR_Y 86
+#define UI_HP_BAR_W 266
+#define UI_HP_BAR_H 36
+#define UI_HEADER_X 15
+#define UI_HEADER_Y 16
+#define UI_HEADER_W 994
+#define UI_HEADER_H 50
+#define UI_OK_X 744
+#define UI_OK_Y 459
+#define UI_OK_W 120
+#define UI_OK_H 54
+
+static SDL_Texture *g_ui_atlas;
+static SDL_Texture *g_tilesheet;
+static SDL_Texture *g_character_cut_sheet;
+static SDL_Texture *g_spell_icons;
+static SDL_Texture *g_emote_sheet;
+static SDL_Texture *g_vfx_frames[VFX_FRAME_COUNT];
+
+typedef enum {
+    SFX_MENU_SELECT,
+    SFX_MENU_CANCEL,
+    SFX_CAST,
+    SFX_HIT,
+    SFX_DEATH,
+    SFX_MOVE,
+    SFX_VICTORY,
+    SFX_GAME_OVER,
+    SFX_COUNT
+} SoundEffect;
+
+static Mix_Music *g_menu_music;
+static Mix_Music *g_battle_music[4];
+static Mix_Chunk *g_sounds[SFX_COUNT];
+static int g_audio_ready;
+
+static const char *BATTLE_MUSIC_PATHS[4] = {
+    "assets/BGM/ES_Expiation - Christoffer Moe Ditlevsen.mp3",
+    "assets/BGM/ES_Galaxy Verse - Ruiqi Zhao.mp3",
+    "assets/BGM/ES_Terra Requiem II - Dian Shuai.mp3",
+    "assets/BGM/ES_Thunder Storm 03 - Fredrik Ekstrom.mp3"
 };
-#define N_ASSETS 8
-static SDL_Texture *g_assets[N_ASSETS];
+static const char *SOUND_PATHS[SFX_COUNT] = {
+    "assets/Sounds/Menu/Menu_Select.mp3",
+    "assets/Sounds/Menu/Menu_Cancel.mp3",
+    "assets/Sounds/CastMagic.mp3",
+    "assets/Sounds/DamageSurvivor.mp3",
+    "assets/Sounds/DeathUndead.mp3",
+    "assets/Sounds/Footstep.mp3",
+    "assets/Sounds/Victory.mp3",
+    "assets/Sounds/GameOver.mp3"
+};
+
+static const int CLASS_CUT_INDEX[N_CLASSES] = {
+    23,  /* Iop */
+    3,   /* Cra */
+    8,   /* Ecaflip */
+    24,  /* Eniripsa */
+    7,   /* Enutrof */
+    2,   /* Sram */
+    28,  /* Sacrieur */
+    14,  /* Sadida */
+    18,  /* Osamodas */
+    16,  /* Xelor */
+    1,   /* Feca */
+    9,   /* Pandawa */
+    27   /* Roublard */
+};
+
+static const SDL_Rect MAP_FLOOR_RECTS[MAP_THEME_COUNT] = {
+    {366,130,24,24}, {58,186,24,24}, {758,214,24,24}, {422,270,24,24},
+    {86,326,24,24}, {786,354,24,24}, {450,410,24,24}, {142,466,24,24}
+};
+static const SDL_Rect MAP_WALL_RECTS[MAP_THEME_COUNT] = {
+    {30,158,24,24}, {730,186,24,24}, {422,242,24,24}, {86,298,24,24},
+    {758,326,24,24}, {450,382,24,24}, {114,438,24,24}, {814,466,24,24}
+};
+static const SDL_Rect MAP_VOID_RECTS[MAP_THEME_COUNT] = {
+    {814,130,24,24}, {506,186,24,24}, {198,242,24,24}, {870,270,24,24},
+    {534,326,24,24}, {226,382,24,24}, {898,410,24,24}, {590,466,24,24}
+};
 
 /* ------------------------------------------------------------------ */
 /* Sorts                                                               */
 /* ------------------------------------------------------------------ */
 typedef enum { SK_ATK, SK_HEAL, SK_BUFF, SK_SPECIAL } SkillKind;
+typedef enum { ELEM_AIR, ELEM_FIRE, ELEM_EARTH, ELEM_WATER } Element;
 
 typedef struct {
     const char *name;
@@ -374,6 +435,67 @@ static ClassDef CLASSES[N_CLASSES] = {
 };
 
 /* ------------------------------------------------------------------ */
+/* Panoplies (stuff) : bonus appliques au combattant                   */
+/* ------------------------------------------------------------------ */
+typedef struct {
+    const char *name;
+    const char *desc;
+    int hp_bonus;    /* PV max supplementaires                          */
+    int dmg_pct;     /* +% degats toutes sortes (attaque)               */
+    int heal_pct;    /* +% soins                                        */
+    int puissance;   /* +degats bruts fixes sur chaque sort             */
+    int range_bonus; /* +portee sur tous les sorts                      */
+    int pa_bonus;    /* +PA par tour                                     */
+    int pm_bonus;    /* +PM par tour                                     */
+    int ret_pa;      /* retrait PA a l'adversaire a son tour            */
+    int ret_pm;      /* retrait PM a l'adversaire a son tour            */
+    int reflect;     /* renvoie X degats a l'attaquant quand on est touche */
+} Panoplie;
+
+static Panoplie PANOPLIES[N_PANOPLIES] = {
+    {"Panoplie du Bouftou Royal",
+     "tank PV",
+     .hp_bonus = 50, .dmg_pct = 0, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie du Prespic",
+     "renvoi de dommages",
+     .hp_bonus = 10, .dmg_pct = 0, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 15},
+    {"Panoplie du Craqueleur Legendaire",
+     "degats + puissance",
+     .hp_bonus = 15, .dmg_pct = 30, .heal_pct = 0, .puissance = 5,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie de l'Abraknyde",
+     "portee",
+     .hp_bonus = 10, .dmg_pct = 10, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 2, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie du Kwak de Terre",
+     "PA + PM",
+     .hp_bonus = 0, .dmg_pct = 0, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 1, .pm_bonus = 1,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie du Tofu",
+     "mobilité PM",
+     .hp_bonus = 5, .dmg_pct = 5, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 2,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+    {"Panoplie du Xelor du Temps",
+     "retraits PA/PM a l'adversaire",
+     .hp_bonus = 10, .dmg_pct = 0, .heal_pct = 0, .puissance = 0,
+     .range_bonus = 0, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 1, .ret_pm = 1, .reflect = 0},
+    {"Panoplie de la Soigneur",
+     "soins",
+     .hp_bonus = 20, .dmg_pct = 0, .heal_pct = 40, .puissance = 0,
+     .range_bonus = 1, .pa_bonus = 0, .pm_bonus = 0,
+     .ret_pa = 0, .ret_pm = 0, .reflect = 0},
+};
+
+/* ------------------------------------------------------------------ */
 /* état du combattant                                                  */
 /* ------------------------------------------------------------------ */
 typedef enum { ANIM_IDLE, ANIM_MOVE, ANIM_ATTACK } AnimState;
@@ -386,7 +508,15 @@ typedef struct {
     int  pm;            /* points de mouvement du tour              */
     int  atk_mod;       /* bonus/malus en % cumulés (buffs)         */
     int  alive;
+    int  team;
+    int  initiative;
+    int  elements[ELEMENT_COUNT];
+    int  air_penalty;
+    int  air_penalty_turns;
+    int  pano;               /* panoplie equipee (-1 = aucune)           */
+    int  hp_max;             /* PV max (base + panoplie)                 */
     Skill spells[N_EQUIPPED];  /* les 4 sorts choisis pour la partie  */
+    int   spell_icon[N_EQUIPPED];
     int  cd_left[N_EQUIPPED];
     /* animation (cosmétique, jamais synchronisée sur le réseau)      */
     AnimState anim;
@@ -395,8 +525,9 @@ typedef struct {
 } Fighter;
 
 /* ------------------------------------------------------------------ */
-/* réseau : protocole P2P minimal (inchangé)                            */
+/* réseau : protocole P2P minimal                                      */
 /*   HELLO / CLASS <who> <idx> / SPELLS <who> <a> <b> <c> <d>          */
+/*   MAP <seed>  (host -> join : graine de generation de l'arene)       */
 /*   MOVE <who> <x> <y> / SKILL <who> <idx> <tx> <ty> / END <who> / BYE*/
 /* ------------------------------------------------------------------ */
 typedef enum { NET_NONE, NET_HOST, NET_JOIN } NetRole;
@@ -405,29 +536,62 @@ typedef struct {
     Sock          sock;
     struct sockaddr_in peer;
     int           has_peer;
+    int           connected;
     NetRole       role;
     Uint32        last_recv_ms;
+    Uint32        last_keepalive_ms;
+    Uint32        connect_started_ms;
 } Net;
 
 /* ------------------------------------------------------------------ */
 /* état global du jeu                                                  */
 /* ------------------------------------------------------------------ */
-typedef enum { ST_MENU, ST_PICK, ST_DRAFT, ST_BATTLE, ST_GAMEOVER } GameState;
+typedef enum { ST_MENU, ST_PICK, ST_DRAFT, ST_STUFF, ST_ELEMENTS,
+               ST_BATTLE, ST_GAMEOVER } GameState;
 
 typedef struct {
     GameState state;
-    int       blocked[GRID_H][GRID_W];
-    Fighter   f[2];
+    int       cell[GRID_H][GRID_W];  /* sol, mur, fausse ou hors-arene  */
+    int       map_width;
+    int       map_height;
+    int       map_theme;
+    Fighter   f[MAX_FIGHTERS];
     int       my_index;
     int       turn;
     int       turn_count;
+    int       team_size;
+    int       setup_unit;
+    int       turn_order[MAX_FIGHTERS];
+    int       turn_pos;
+    int       team_size_choice;
     int       sel_skill;
     int       winner;
     Net       net;
-    int       class_chosen[2];
-    int       draft[2][N_CLASS_SPELLS];
-    int       draft_count[2];
-    int       draft_ready[2];
+    int       class_chosen[MAX_FIGHTERS];
+    int       draft[MAX_FIGHTERS][N_CLASS_SPELLS];
+    int       draft_count[MAX_FIGHTERS];
+    int       draft_ready[MAX_FIGHTERS];
+    int       stuff_chosen[MAX_FIGHTERS];
+    int       stuff_ready[MAX_FIGHTERS];
+    int       favorite_class[MAX_FAVORITES];
+    int       favorite_pano[MAX_FAVORITES];
+    int       selected_favorite;
+    /* --- interface reseau et chat ---                                 */
+    int       ip_editing;
+    char      ip_text[64];
+    char      menu_status[160];
+    int       chat_active;             /* saisie du chat active          */
+    char      chat_input[256];
+    char      chat_log[6][128];        /* derniers messages             */
+    int       chat_log_n;
+    int       emote_menu_open;
+    int       emote_fighter;
+    int       emote_index;
+    Uint32    emote_until;
+    int       vfx_active;
+    int       vfx_x;
+    int       vfx_y;
+    Uint32    vfx_started;
 } Game;
 
 /* prototypes des fonctions moteur utilisées par net_poll */
@@ -435,7 +599,62 @@ static void apply_skill_remote(Game *g, int who, int idx, int tx, int ty);
 static void end_turn(Game *g, int from_net);
 static void sync_draft(Game *g, int who);
 static void check_draft_start(Game *g);
+static void start_battle(Game *g, unsigned seed);
+static void sync_stuff(Game *g, int who);
+static void check_stuff_start(Game *g);
 static void set_anim(Game *g, int idx, AnimState st);
+static int unit_for_slot(const Game *g, int team, int slot);
+static int side_has_all(const int values[MAX_FIGHTERS], const Game *g, int team);
+static void advance_setup(Game *g);
+static int fighter_at(const Game *g, int x, int y);
+static int manhattan(int x1, int y1, int x2, int y2);
+static void show_emote(Game *g, int who, int emote);
+static void play_sound(SoundEffect sound);
+
+static void favorites_load(Game *g)
+{
+    char *dir = SDL_GetPrefPath("DofusArenaFanmade", "DofusArena");
+    char path[512];
+    FILE *file;
+    int i;
+    for (i = 0; i < MAX_FAVORITES; i++) {
+        g->favorite_class[i] = -1;
+        g->favorite_pano[i] = -1;
+    }
+    if (!dir) return;
+    snprintf(path, sizeof path, "%sfavorites.txt", dir);
+    SDL_free(dir);
+    file = fopen(path, "r");
+    if (!file) return;
+    for (i = 0; i < MAX_FAVORITES; i++) {
+        int cls, pano;
+        if (fscanf(file, "%d %d", &cls, &pano) != 2) break;
+        if (cls >= 0 && cls < N_CLASSES && pano >= 0 && pano < N_PANOPLIES) {
+            g->favorite_class[i] = cls;
+            g->favorite_pano[i] = pano;
+        }
+    }
+    fclose(file);
+}
+
+static int favorites_save(Game *g)
+{
+    char *dir = SDL_GetPrefPath("DofusArenaFanmade", "DofusArena");
+    char path[512];
+    FILE *file;
+    int i, ok = 1;
+    if (!dir) return 0;
+    snprintf(path, sizeof path, "%sfavorites.txt", dir);
+    SDL_free(dir);
+    file = fopen(path, "w");
+    if (!file) return 0;
+    for (i = 0; i < MAX_FAVORITES; i++)
+        if (fprintf(file, "%d %d\n", g->favorite_class[i],
+                    g->favorite_pano[i]) < 0)
+            ok = 0;
+    if (fclose(file) != 0) ok = 0;
+    return ok;
+}
 
 /* ------------------------------------------------------------------ */
 /* utilitaires réseau                                                  */
@@ -463,6 +682,11 @@ static int net_open(Game *g, NetRole role, const char *host_ip)
     g->net.sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (g->net.sock == SOCK_INVALID) return 0;
     g->net.role = role;
+    g->net.has_peer = 0;
+    g->net.connected = 0;
+    g->net.last_recv_ms = 0;
+    g->net.last_keepalive_ms = 0;
+    g->net.connect_started_ms = 0;
     if (role == NET_HOST) {
         struct sockaddr_in a;
         int yes = 1;
@@ -471,12 +695,20 @@ static int net_open(Game *g, NetRole role, const char *host_ip)
         a.sin_addr.s_addr = INADDR_ANY;
         a.sin_port = htons(PORT);
         setsockopt(g->net.sock, SOL_SOCKET, SO_REUSEADDR, (char*)&yes, sizeof yes);
-        if (bind(g->net.sock, (struct sockaddr*)&a, sizeof a) < 0) return 0;
+        if (bind(g->net.sock, (struct sockaddr*)&a, sizeof a) < 0) {
+            net_close(g->net.sock);
+            g->net.sock = SOCK_INVALID;
+            return 0;
+        }
     } else {
         memset(&g->net.peer, 0, sizeof g->net.peer);
         g->net.peer.sin_family = AF_INET;
         g->net.peer.sin_port = htons(PORT);
-        if (inet_pton(AF_INET, host_ip, &g->net.peer.sin_addr) != 1) return 0;
+        if (inet_pton(AF_INET, host_ip, &g->net.peer.sin_addr) != 1) {
+            net_close(g->net.sock);
+            g->net.sock = SOCK_INVALID;
+            return 0;
+        }
         g->net.has_peer = 1;
     }
     return 1;
@@ -491,6 +723,133 @@ static void net_send(Game *g, const char *msg)
            (struct sockaddr*)&g->net.peer, sizeof g->net.peer);
 }
 
+static void show_emote(Game *g, int who, int emote)
+{
+    char msg[32];
+    if (who < 0 || who >= 2 * g->team_size
+        || emote < 0 || emote >= EMOTE_COLS * EMOTE_ROWS)
+        return;
+    g->emote_fighter = who;
+    g->emote_index = emote;
+    g->emote_until = SDL_GetTicks() + 2500;
+    g->emote_menu_open = 0;
+    snprintf(msg, sizeof msg, "EMOTE %d %d", who, emote);
+    net_send(g, msg);
+}
+
+static int unit_for_slot(const Game *g, int team, int slot)
+{
+    return team * g->team_size + slot;
+}
+
+static int side_has_all(const int values[MAX_FIGHTERS], const Game *g, int team)
+{
+    int slot;
+    for (slot = 0; slot < g->team_size; slot++)
+        if (values[unit_for_slot(g, team, slot)] < 0)
+            return 0;
+    return 1;
+}
+
+static void reset_match(Game *g)
+{
+    int i;
+    g->state = ST_PICK;
+    g->turn = 0;
+    g->turn_count = 0;
+    g->turn_pos = 0;
+    g->sel_skill = -1;
+    g->winner = -1;
+    g->setup_unit = 0;
+    for (i = 0; i < MAX_FIGHTERS; i++) {
+        g->class_chosen[i] = -1;
+        g->draft_ready[i] = -1;
+        g->draft_count[i] = 0;
+        g->stuff_chosen[i] = -1;
+        g->stuff_ready[i] = -1;
+        memset(g->draft[i], 0, sizeof g->draft[i]);
+        memset(&g->f[i], 0, sizeof g->f[i]);
+        g->f[i].elements[ELEM_AIR] = 25;
+        g->f[i].elements[ELEM_FIRE] = 25;
+        g->f[i].elements[ELEM_EARTH] = 25;
+        g->f[i].elements[ELEM_WATER] = 25;
+    }
+}
+
+static void net_disconnect(Game *g, const char *status)
+{
+    if (g->net.sock != SOCK_INVALID)
+        net_close(g->net.sock);
+    g->net.sock = SOCK_INVALID;
+    g->net.has_peer = 0;
+    g->net.connected = 0;
+    g->net.last_recv_ms = 0;
+    reset_match(g);
+    g->state = ST_MENU;
+    g->chat_active = 0;
+    g->ip_editing = 0;
+    SDL_StopTextInput();
+    snprintf(g->menu_status, sizeof g->menu_status, "%s", status);
+}
+
+static void advance_setup(Game *g)
+{
+    int first = unit_for_slot(g, g->my_index, 0);
+    int slot;
+    g->setup_unit = 0;
+    if (g->state == ST_PICK) {
+        for (slot = 0; slot < g->team_size; slot++)
+            if (g->class_chosen[first + slot] < 0) {
+                g->setup_unit = slot;
+                return;
+            }
+        g->state = ST_DRAFT;
+    }
+    if (g->state == ST_DRAFT) {
+        for (slot = 0; slot < g->team_size; slot++)
+            if (g->draft_ready[first + slot] != 1) {
+                g->setup_unit = slot;
+                return;
+            }
+        g->state = ST_STUFF;
+    }
+    if (g->state == ST_STUFF) {
+        for (slot = 0; slot < g->team_size; slot++)
+            if (g->stuff_ready[first + slot] != 1) {
+                g->setup_unit = slot;
+                return;
+            }
+        g->state = ST_ELEMENTS;
+    }
+    if (g->state == ST_ELEMENTS) {
+        for (slot = 0; slot < g->team_size; slot++)
+            if (g->draft_ready[first + slot] != 2) {
+                g->setup_unit = slot;
+                return;
+            }
+        check_stuff_start(g);
+    }
+}
+
+static int net_begin_join(Game *g, const char *host_ip)
+{
+    Uint32 now;
+    NetRole previous_role = g->net.role;
+    if (!net_open(g, NET_JOIN, host_ip)) {
+        g->net.role = previous_role;
+        return 0;
+    }
+    g->my_index = 1;
+    g->state = ST_MENU;
+    now = SDL_GetTicks();
+    g->net.connect_started_ms = now;
+    g->net.last_keepalive_ms = now;
+    net_send(g, "HELLO client");
+    snprintf(g->menu_status, sizeof g->menu_status,
+             "Connexion a %s:%d (UDP)...", host_ip, PORT);
+    return 1;
+}
+
 /* réception non bloquante : dispatch vers le moteur de jeu            */
 static void net_poll(Game *g)
 {
@@ -503,38 +862,146 @@ static void net_poll(Game *g)
         if (n <= 0) break;
         buf[n] = 0;
         char *nl = strchr(buf, '\n'); if (nl) *nl = 0;
-        if (!g->net.has_peer) { g->net.peer = from; g->net.has_peer = 1; }
 
-        char cmd[16]; int who, a, b, c, d;
+        char cmd[16]; int who, a, b, c, d; unsigned sd;
         if (sscanf(buf, "%15s", cmd) != 1) continue;
+        if (g->net.role == NET_HOST && !strcmp(cmd, "HELLO")) {
+            g->net.peer = from;
+            g->net.has_peer = 1;
+        }
         if (!strcmp(cmd, "HELLO")) {
-            net_send(g, "HELLO ok");
-            g->state = ST_PICK;
+            if (g->net.role == NET_HOST) {
+                if (!g->net.connected) {
+                    reset_match(g);
+                    g->state = ST_PICK;
+                }
+                g->net.connected = 1;
+                g->net.last_keepalive_ms = SDL_GetTicks();
+                {
+                    char welcome[32];
+                    snprintf(welcome, sizeof welcome, "WELCOME %d", g->team_size);
+                    net_send(g, welcome);
+                }
+                g->menu_status[0] = 0;
+            }
+        } else if (!strcmp(cmd, "WELCOME")
+                   && g->net.role == NET_JOIN
+                   && !g->net.connected
+                   && sscanf(buf, "%*s %d", &a) == 1
+                   && a >= 1 && a <= MAX_TEAM_SIZE) {
+                g->team_size = a;
+                if (!g->net.connected)
+                    reset_match(g);
+                g->net.connected = 1;
+                g->net.last_keepalive_ms = SDL_GetTicks();
+                g->state = ST_PICK;
+                g->menu_status[0] = 0;
+                advance_setup(g);
+        } else if (!strcmp(cmd, "PING")) {
+            if (g->net.connected) net_send(g, "PONG");
+        } else if (!strcmp(cmd, "PONG")) {
+            /* Any packet refreshes the peer timeout below. */
+        } else if (!strcmp(cmd, "MAP") && sscanf(buf, "%*s %u", &sd) == 1) {
+            /* le host arbitre la carte : meme arene des deux cotes    */
+            if (g->state == ST_ELEMENTS || g->state == ST_STUFF)
+                start_battle(g, sd);
         } else if (!strcmp(cmd, "CLASS") && sscanf(buf, "%*s %d %d", &who, &a) == 2) {
-            if (who != g->my_index) {
+            if (who >= 0 && who < 2 * g->team_size
+                && who / g->team_size != g->my_index
+                && a >= 0 && a < N_CLASSES) {
                 g->class_chosen[who] = a;
-                if (g->state == ST_PICK) g->state = ST_DRAFT;
+                advance_setup(g);
             }
         } else if (!strcmp(cmd, "SPELLS") &&
                    sscanf(buf, "%*s %d %d %d %d %d", &who, &a, &b, &c, &d) == 5) {
-            if (who != g->my_index) {
+            if (who >= 0 && who < 2 * g->team_size
+                && who / g->team_size != g->my_index
+                && a >= 0 && a < N_CLASS_SPELLS
+                && b >= 0 && b < N_CLASS_SPELLS
+                && c >= 0 && c < N_CLASS_SPELLS
+                && d >= 0 && d < N_CLASS_SPELLS) {
                 memset(g->draft[who], 0, sizeof g->draft[who]);
                 g->draft[who][a] = g->draft[who][b] = 1;
                 g->draft[who][c] = g->draft[who][d] = 1;
                 g->draft_ready[who] = 1;
                 check_draft_start(g);
             }
+        } else if (!strcmp(cmd, "STUFF") && sscanf(buf, "%*s %d %d", &who, &a) == 2) {
+            if (who >= 0 && who < 2 * g->team_size
+                && who / g->team_size != g->my_index
+                && a >= 0 && a < N_PANOPLIES) {
+                g->stuff_chosen[who] = a;
+                g->stuff_ready[who] = 1;
+                advance_setup(g);
+            }
+        } else if (!strcmp(cmd, "ELEMENTS")
+                   && sscanf(buf, "%*s %d %d %d %d %d",
+                             &who, &a, &b, &c, &d) == 5) {
+            if (who >= 0 && who < 2 * g->team_size
+                && who / g->team_size != g->my_index
+                && a >= 0 && b >= 0 && c >= 0 && d >= 0
+                && a + b + c + d == ELEMENT_POINTS) {
+                g->f[who].elements[ELEM_AIR] = a;
+                g->f[who].elements[ELEM_FIRE] = b;
+                g->f[who].elements[ELEM_EARTH] = c;
+                g->f[who].elements[ELEM_WATER] = d;
+                g->draft_ready[who] = 2;
+                advance_setup(g);
+            }
         } else if (!strcmp(cmd, "MOVE") && sscanf(buf, "%*s %d %d %d", &who, &a, &b) == 3) {
-            if (who != g->my_index) {
-                g->f[who].x = a; g->f[who].y = b;
-                set_anim(g, who, ANIM_MOVE);  /* anim distante (cosmétique) */
+            if (who >= 0 && who < 2 * g->team_size
+                && who == g->turn
+                && who / g->team_size != g->my_index
+                && a >= 0 && a < g->map_width
+                && b >= 0 && b < g->map_height
+                && g->cell[b][a] == CELL_GROUND
+                && fighter_at(g, a, b) < 0 && g->state == ST_BATTLE) {
+                int distance = manhattan(g->f[who].x, g->f[who].y, a, b);
+                if (distance > 0 && distance <= g->f[who].pm) {
+                    g->f[who].x = a; g->f[who].y = b;
+                    g->f[who].pm -= distance;
+                    set_anim(g, who, ANIM_MOVE);
+                    play_sound(SFX_MOVE);
+                }
             }
         } else if (!strcmp(cmd, "SKILL") && sscanf(buf, "%*s %d %d %d %d", &who, &a, &b, &c) == 4) {
-            if (who != g->my_index) apply_skill_remote(g, who, a, b, c);
+            if (who >= 0 && who < 2 * g->team_size
+                && who == g->turn
+                && who / g->team_size != g->my_index)
+                apply_skill_remote(g, who, a, b, c);
         } else if (!strcmp(cmd, "END") && sscanf(buf, "%*s %d", &who) == 1) {
-            if (who != g->my_index) end_turn(g, 1);
+            if (who == g->turn && who >= 0 && who < 2 * g->team_size
+                && who / g->team_size != g->my_index)
+                end_turn(g, 1);
+        } else if (!strcmp(cmd, "EMOTE")
+                   && sscanf(buf, "%*s %d %d", &who, &a) == 2) {
+            if (who >= 0 && who < 2 * g->team_size
+                && who / g->team_size != g->my_index
+                && a >= 0 && a < EMOTE_COLS * EMOTE_ROWS) {
+                g->emote_fighter = who;
+                g->emote_index = a;
+                g->emote_until = SDL_GetTicks() + 2500;
+            }
+        } else if (!strncmp(buf, "CHAT ", 5)) {
+            /* CHAT <who> <texte> : affiche dans le journal local        */
+            int w, n = -1;
+            int rc = sscanf(buf, "%*s %d %n", &w, &n);
+            if (rc == 1 && n >= 2 && w >= 0 && w < 2) {
+                char line[128];
+                snprintf(line, sizeof line, "T%d> %s", w + 1, buf + n);
+                if (g->chat_log_n < 6) {
+                    snprintf(g->chat_log[g->chat_log_n], 128, "%s", line);
+                    g->chat_log_n++;
+                } else {
+                    int q;
+                    for (q = 0; q < 5; q++)
+                        strcpy(g->chat_log[q], g->chat_log[q+1]);
+                    snprintf(g->chat_log[5], 128, "%s", line);
+                }
+            }
         } else if (!strcmp(cmd, "BYE")) {
-            g->winner = g->my_index; g->state = ST_GAMEOVER;
+            net_disconnect(g, "Adversaire deconnecte. Cliquez RECONNECTER pour relancer.");
+            break;
         }
         g->net.last_recv_ms = SDL_GetTicks();
     }
@@ -561,15 +1028,14 @@ static void anim_update(Game *g)
     static Uint32 last_frame = 0;
     int advance = (now - last_frame) >= ANIM_FRAME_MS;
     if (advance) last_frame = now;
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < 2 * g->team_size; i++) {
         Fighter *f = &g->f[i];
         if (!f->alive) continue;
         if (f->anim != ANIM_IDLE && (Sint32)(now - f->anim_until) >= 0)
             f->anim = ANIM_IDLE;   /* retour au idle après move/attack */
         if (advance) {
-            int n = f->anim == ANIM_IDLE  ? ANIM_IDLE_N :
-                    f->anim == ANIM_MOVE  ? ANIM_MOVE_N : ANIM_ATK_N;
-            f->anim_frame = (f->anim_frame + 1) % (n > 0 ? n : 1);
+            /* 4 frames par classe, quelle que soit l'action            */
+            f->anim_frame = (f->anim_frame + 1) % ANIM_FRAMES_PER_CLASS;
         }
     }
 }
@@ -582,42 +1048,149 @@ static void build_fighter(Game *g, int idx)
     Fighter *f = &g->f[idx];
     int k, s, n = 0;
     f->cls = g->class_chosen[idx];
-    f->hp = MAX_HP; f->alive = 1; f->atk_mod = 0;
+    f->team = idx / g->team_size;
+    f->pano = g->stuff_chosen[idx];
+    f->hp_max = MAX_HP;
+    if (f->pano >= 0 && f->pano < N_PANOPLIES)
+        f->hp_max += PANOPLIES[f->pano].hp_bonus;
+    f->hp = f->hp_max; f->alive = 1; f->atk_mod = 0;
+    f->initiative = f->elements[ELEM_AIR];
     f->anim = ANIM_IDLE; f->anim_frame = 0; f->anim_until = 0;
     memset(f->cd_left, 0, sizeof f->cd_left);
     for (s = 0; s < N_CLASS_SPELLS && n < N_EQUIPPED; s++) {
-        if (g->draft[idx][s]) f->spells[n++] = CLASSES[f->cls].spells[s];
+        if (g->draft[idx][s]) {
+            f->spells[n] = CLASSES[f->cls].spells[s];
+            f->spell_icon[n] = (f->cls * N_CLASS_SPELLS + s)
+                             % (SPELL_ICON_COLS * SPELL_ICON_ROWS);
+            n++;
+        }
     }
-    for (k = n; k < N_EQUIPPED; k++)
+    for (k = n; k < N_EQUIPPED; k++) {
         f->spells[k] = CLASSES[f->cls].spells[0]; /* sécurité */
+        f->spell_icon[k] = (f->cls * N_CLASS_SPELLS)
+                         % (SPELL_ICON_COLS * SPELL_ICON_ROWS);
+    }
 }
 
-static void start_new_game(Game *g)
+static int map_origin_x(const Game *g)
 {
-    int i, j;
-    srand((unsigned)time(NULL));
+    return ((GRID_W - g->map_width) * TILE) / 2;
+}
+
+static int map_origin_y(const Game *g)
+{
+    return ((GRID_H - g->map_height) * TILE) / 2;
+}
+
+static unsigned map_random(unsigned *state)
+{
+    *state = *state * 1664525u + 1013904223u;
+    return *state;
+}
+
+static unsigned map_random_bounded(unsigned *state, unsigned bound)
+{
+    return (map_random(state) >> 16) % bound;
+}
+
+static int integer_sqrt(int value)
+{
+    int root = 0;
+    while ((root + 1) * (root + 1) <= value)
+        root++;
+    return root;
+}
+
+/* La graine réseau détermine les dimensions, le contour et le décor. */
+static void start_new_game(Game *g, unsigned seed)
+{
+    unsigned rng = seed ? seed : 1u;
+    int i, j, center_x, center_y, spawn_top, spawn_bottom;
+    g->map_width = 9 + map_random_bounded(&rng, GRID_W - 8);
+    g->map_height = 7 + map_random_bounded(&rng, GRID_H - 6);
+    g->map_theme = map_random_bounded(&rng, MAP_THEME_COUNT);
+    center_x = g->map_width / 2;
+    center_y = g->map_height / 2;
+    spawn_top = center_y - (g->team_size - 1) / 2;
+    spawn_bottom = spawn_top + g->team_size - 1;
     for (j = 0; j < GRID_H; j++)
         for (i = 0; i < GRID_W; i++)
-            g->blocked[j][i] = 0;
-    /* obstacles symétriques (équité) */
-    for (i = 0; i < 10; i++) {
-        int x = 2 + rand() % (GRID_W - 4);
-        int y = 1 + rand() % (GRID_H - 2);
-        g->blocked[y][x] = 1;
-        g->blocked[GRID_H-1-y][GRID_W-1-x] = 1;
+            g->cell[j][i] = CELL_VOID;
+
+    for (j = 0; j < g->map_height; j++) {
+        int dy = 2 * (j - center_y);
+        int height_sq = g->map_height * g->map_height;
+        int inside = height_sq - dy * dy;
+        int radius_sq = inside > 0
+                      ? (g->map_width * g->map_width * inside)
+                        / (4 * height_sq) : 0;
+        int radius = integer_sqrt(radius_sq);
+        int left = center_x - radius
+                 + (int)map_random_bounded(&rng, 3) - 1;
+        int right = center_x + radius
+                  + (int)map_random_bounded(&rng, 3) - 1;
+        if (j >= spawn_top && j <= spawn_bottom) {
+            if (left > 1) left = 1;
+            if (right < g->map_width - 2) right = g->map_width - 2;
+        }
+        if (left < 0) left = 0;
+        if (right >= g->map_width) right = g->map_width - 1;
+        if (left > right) left = right = center_x;
+        for (i = left; i <= right; i++)
+            g->cell[j][i] = CELL_GROUND;
     }
-    g->blocked[GRID_H/2][0] = g->blocked[GRID_H/2][GRID_W-1] = 0;
+
+    /* Obstacles placés hors de la zone de départ, par paires miroir. */
+    for (i = 0; i < g->map_width * g->map_height / 45; i++) {
+        int x = 2 + map_random_bounded(&rng, g->map_width - 4);
+        int y = map_random_bounded(&rng, g->map_height);
+        int mx = g->map_width - 1 - x;
+        int my = g->map_height - 1 - y;
+        int cell = (map_random(&rng) >> 31) ? CELL_WALL : CELL_GAP;
+        if ((y < spawn_top || y > spawn_bottom)
+            && (my < spawn_top || my > spawn_bottom)
+            && g->cell[y][x] == CELL_GROUND
+            && g->cell[my][mx] == CELL_GROUND) {
+            g->cell[y][x] = cell;
+            g->cell[my][mx] = cell;
+        }
+    }
 }
 
 static void place_fighters(Game *g)
 {
-    int i;
-    for (i = 0; i < 2; i++) build_fighter(g, i);
-    g->f[0].x = 1; g->f[0].y = GRID_H/2;
-    g->f[1].x = GRID_W-2; g->f[1].y = GRID_H/2;
-    g->turn = 0; g->turn_count = 0; g->winner = -1;
-    g->f[0].pa = 6; g->f[0].pm = 3;
-    g->f[1].pa = 0; g->f[1].pm = 0;
+    int i, j;
+    for (i = 0; i < 2 * g->team_size; i++) {
+        Fighter *f;
+        int slot;
+        build_fighter(g, i);
+        f = &g->f[i];
+        slot = i % g->team_size;
+        f->x = f->team == 0 ? 1 + slot / 3
+                            : g->map_width - 2 - slot / 3;
+        f->y = g->map_height / 2 - (g->team_size - 1) / 2 + slot;
+        f->pa = 0;
+        f->pm = 0;
+        g->turn_order[i] = i;
+    }
+    for (i = 0; i < 2 * g->team_size; i++)
+        for (j = i + 1; j < 2 * g->team_size; j++)
+            if (g->f[g->turn_order[j]].initiative
+                > g->f[g->turn_order[i]].initiative) {
+                int tmp = g->turn_order[i];
+                g->turn_order[i] = g->turn_order[j];
+                g->turn_order[j] = tmp;
+            }
+    g->turn_pos = 0;
+    g->turn = g->turn_order[0];
+    g->turn_count = 0;
+    g->winner = -1;
+    {
+        Fighter *cur = &g->f[g->turn];
+        Panoplie *p = cur->pano >= 0 ? &PANOPLIES[cur->pano] : NULL;
+        cur->pa = 6 + (p ? p->pa_bonus : 0);
+        cur->pm = 3 + (p ? p->pm_bonus : 0);
+    }
 }
 
 static void sync_draft(Game *g, int who)
@@ -631,16 +1204,52 @@ static void sync_draft(Game *g, int who)
              who, ids[0], ids[1], ids[2], ids[3]);
     net_send(g, msg);
     g->draft_ready[who] = 1;
+    advance_setup(g);
     check_draft_start(g);
 }
 
 static void check_draft_start(Game *g)
 {
-    if (g->draft_ready[0] && g->draft_ready[1]
-        && g->class_chosen[0] >= 0 && g->class_chosen[1] >= 0) {
-        start_new_game(g);
-        place_fighters(g);
-        g->state = ST_BATTLE;
+    int i, count = 2 * g->team_size;
+    if (!side_has_all(g->draft_ready, g, 0)
+        || !side_has_all(g->draft_ready, g, 1))
+        return;
+    for (i = 0; i < count; i++)
+        if (g->class_chosen[i] < 0) return;
+    g->state = ST_STUFF;
+    advance_setup(g);
+}
+
+static void start_battle(Game *g, unsigned seed)
+{
+    start_new_game(g, seed);
+    place_fighters(g);
+    g->state = ST_BATTLE;
+}
+
+static void sync_stuff(Game *g, int who)
+{
+    char msg[32];
+    g->stuff_ready[who] = 1;
+    snprintf(msg, sizeof msg, "STUFF %d %d", who, g->stuff_chosen[who]);
+    net_send(g, msg);
+    advance_setup(g);
+}
+
+static void check_stuff_start(Game *g)
+{
+    int i, count = 2 * g->team_size;
+    for (i = 0; i < count; i++)
+        if (g->class_chosen[i] < 0 || g->draft_ready[i] != 2
+            || g->stuff_chosen[i] < 0 || g->stuff_ready[i] != 1)
+            return;
+    if (g->net.role == NET_HOST) {
+        unsigned seed = (unsigned)time(NULL) ^ SDL_GetTicks()
+                      ^ (unsigned)clock();
+        char msg[32];
+        snprintf(msg, sizeof msg, "MAP %u", seed);
+        net_send(g, msg);
+        start_battle(g, seed);
     }
 }
 
@@ -652,50 +1261,204 @@ static int manhattan(int x1, int y1, int x2, int y2)
     return abs(x1-x2) + abs(y1-y2);
 }
 
+static int fighter_at(const Game *g, int x, int y)
+{
+    int i;
+    for (i = 0; i < 2 * g->team_size; i++)
+        if (g->f[i].alive && g->f[i].x == x && g->f[i].y == y)
+            return i;
+    return -1;
+}
+
+static int team_has_living(const Game *g, int team)
+{
+    int i;
+    for (i = team * g->team_size; i < (team + 1) * g->team_size; i++)
+        if (g->f[i].alive) return 1;
+    return 0;
+}
+
+static void set_turn_resources(Game *g, int idx)
+{
+    Fighter *f = &g->f[idx];
+    Fighter *opponent;
+    Panoplie *p;
+    int enemy, ret_pa = 0, ret_pm = 0;
+    f->pa = 6;
+    f->pm = 3;
+    p = f->pano >= 0 ? &PANOPLIES[f->pano] : NULL;
+    if (p) {
+        f->pa += p->pa_bonus;
+        f->pm += p->pm_bonus;
+    }
+    for (enemy = 0; enemy < g->team_size; enemy++) {
+        opponent = &g->f[(1 - f->team) * g->team_size + enemy];
+        if (opponent->alive && opponent->pano >= 0) {
+            ret_pa += PANOPLIES[opponent->pano].ret_pa;
+            ret_pm += PANOPLIES[opponent->pano].ret_pm;
+        }
+    }
+    f->pa -= ret_pa;
+    f->pm -= ret_pm;
+    if (f->pa < 0) f->pa = 0;
+    if (f->pm < 0) f->pm = 0;
+}
+
+static void sort_turn_order(Game *g)
+{
+    int i, j, count = 2 * g->team_size;
+    for (i = 1; i < count; i++) {
+        int current = g->turn_order[i];
+        j = i;
+        while (j > 0
+               && g->f[g->turn_order[j - 1]].initiative
+                  < g->f[current].initiative) {
+            g->turn_order[j] = g->turn_order[j - 1];
+            j--;
+        }
+        g->turn_order[j] = current;
+    }
+    for (i = 0; i < count; i++)
+        if (g->turn_order[i] == g->turn) {
+            g->turn_pos = i;
+            break;
+        }
+}
+
+static void apply_air_penalty(Game *g, int idx, int amount, int turns)
+{
+    Fighter *f = &g->f[idx];
+    f->air_penalty += amount;
+    f->air_penalty_turns = turns;
+    f->initiative = f->elements[ELEM_AIR] - f->air_penalty;
+    if (f->initiative < 0) f->initiative = 0;
+    sort_turn_order(g);
+}
+
+static void next_turn(Game *g)
+{
+    int n = 2 * g->team_size, checked;
+    for (checked = 0; checked < n; checked++) {
+        g->turn_pos++;
+        if (g->turn_pos >= n) {
+            g->turn_pos = 0;
+            g->turn_count++;
+        }
+        g->turn = g->turn_order[g->turn_pos];
+        if (g->f[g->turn].alive) {
+            set_turn_resources(g, g->turn);
+            return;
+        }
+    }
+}
+
+static void check_winner(Game *g)
+{
+    if (!team_has_living(g, 0)) {
+        g->winner = 1;
+        g->state = ST_GAMEOVER;
+    } else if (!team_has_living(g, 1)) {
+        g->winner = 0;
+        g->state = ST_GAMEOVER;
+    }
+}
+
+/* ligne de vue (Bresenham) : le MUR obstrue, le FAUSSE laisse passer  */
+static int los_clear(Game *g, int x0, int y0, int x1, int y1)
+{
+    int dx = abs(x1 - x0), dy = abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    int err = dx - dy, x = x0, y = y0;
+    while (x != x1 || y != y1) {
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x += sx; }
+        if (e2 <  dx) { err += dx; y += sy; }
+        if (x == x1 && y == y1) break;   /* la cible ne se bloque pas  */
+        if (g->cell[y][x] == CELL_WALL) return 0;
+    }
+    return 1;
+}
+
 static void try_move(Game *g, int tx, int ty)
 {
-    Fighter *me = &g->f[g->my_index];
-    if (g->turn != g->my_index || g->state != ST_BATTLE) return;
-    if (tx < 0 || ty < 0 || tx >= GRID_W || ty >= GRID_H) return;
-    if (g->blocked[ty][tx]) return;
-    Fighter *op = &g->f[1 - g->my_index];
-    if (op->x == tx && op->y == ty) return;
+    Fighter *me = &g->f[g->turn];
+    if (tx < 0 || ty < 0 || tx >= g->map_width || ty >= g->map_height)
+        return;
+    if (g->cell[ty][tx] != CELL_GROUND) return;   /* mur ou fausse     */
+    if (g->state != ST_BATTLE || me->team != g->my_index) return;
+    if (fighter_at(g, tx, ty) >= 0) return;
     int d = manhattan(me->x, me->y, tx, ty);
     if (d == 0 || d > me->pm) return;
     me->x = tx; me->y = ty; me->pm -= d;
-    set_anim(g, g->my_index, ANIM_MOVE);
+    set_anim(g, g->turn, ANIM_MOVE);
+    play_sound(SFX_MOVE);
     char msg[64];
-    snprintf(msg, sizeof msg, "MOVE %d %d %d", g->my_index, tx, ty);
+    snprintf(msg, sizeof msg, "MOVE %d %d %d", g->turn, tx, ty);
     net_send(g, msg);
+}
+
+static void start_vfx(Game *g, int x, int y)
+{
+    g->vfx_active = 1;
+    g->vfx_x = x;
+    g->vfx_y = y;
+    g->vfx_started = SDL_GetTicks();
 }
 
 static void cast_skill(Game *g, int who, int idx, int tx, int ty)
 {
     Fighter *f = &g->f[who];
-    Fighter *o = &g->f[1 - who];
+    int target_idx = fighter_at(g, tx, ty);
+    Fighter *o = target_idx >= 0 ? &g->f[target_idx] : NULL;
     if (idx < 0 || idx >= N_EQUIPPED) return;
     Skill *s = &f->spells[idx];
+    Panoplie *pf = (f->pano >= 0 && f->pano < N_PANOPLIES) ? &PANOPLIES[f->pano] : NULL;
+    Panoplie *po = o && o->pano >= 0 && o->pano < N_PANOPLIES
+                 ? &PANOPLIES[o->pano] : NULL;
+    int range = s->range + (pf ? pf->range_bonus : 0);
     f->pa -= s->pa;
     f->cd_left[idx] = s->cooldown;
+    play_sound(SFX_CAST);
+    start_vfx(g, f->x, f->y);
 
     switch (s->kind) {
         case SK_ATK:
             set_anim(g, who, ANIM_ATTACK);
-            if (manhattan(f->x, f->y, tx, ty) <= s->range && o->x == tx && o->y == ty) {
-                /* dégâts déterministes : pas de désync entre peers    */
-                int dmg = (s->power * (100 + f->atk_mod)) / 100;
+            if (manhattan(f->x, f->y, tx, ty) <= range
+                && o && o->team != f->team
+                && los_clear(g, f->x, f->y, tx, ty)) {
+                start_vfx(g, tx, ty);
+                play_sound(SFX_HIT);
+                /* degats deterministes + panoplie (dmg% + puissance)     */
+                int dmg = ((s->power * (100 + f->atk_mod)) / 100)
+                          * (100 + (pf ? pf->dmg_pct : 0)) / 100
+                          + (pf ? pf->puissance : 0);
                 o->hp -= dmg;
+                /* renvoi de dommages (Prespic) : l'attaquant subit     */
+                if (po && po->reflect > 0) {
+                    f->hp -= po->reflect;
+                    play_sound(SFX_HIT);
+                    if (f->hp <= 0) {
+                        f->hp = 0; f->alive = 0;
+                        play_sound(SFX_DEATH);
+                        check_winner(g);
+                    }
+                }
                 if (o->hp <= 0) {
                     o->hp = 0; o->alive = 0;
-                    g->winner = who; g->state = ST_GAMEOVER;
+                    play_sound(SFX_DEATH);
+                    check_winner(g);
                 }
             }
             break;
         case SK_HEAL:
             set_anim(g, who, ANIM_ATTACK);
-            if (s->range == 0 || manhattan(f->x, f->y, tx, ty) <= s->range) {
-                f->hp += s->power;
-                if (f->hp > MAX_HP) f->hp = MAX_HP;
+            if (o && o->team == f->team
+                && (range == 0 || manhattan(f->x, f->y, tx, ty) <= range)) {
+                start_vfx(g, tx, ty);
+                int heal = (s->power * (100 + (pf ? pf->heal_pct : 0))) / 100;
+                o->hp += heal;
+                if (o->hp > o->hp_max) o->hp = o->hp_max;
             }
             break;
         case SK_BUFF:
@@ -704,15 +1467,31 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
             break;
         case SK_SPECIAL:
             set_anim(g, who, ANIM_ATTACK);
-            if (s->power > 0 && o->x == tx && o->y == ty) {
-                o->hp -= s->power;
+            if (s->power > 0 && o && o->team != f->team
+                && los_clear(g, f->x, f->y, tx, ty)) {
+                start_vfx(g, tx, ty);
+                play_sound(SFX_HIT);
+                int dmg = s->power + (pf ? pf->puissance : 0);
+                o->hp -= dmg;
+                if (po && po->reflect > 0) {
+                    f->hp -= po->reflect;
+                    play_sound(SFX_HIT);
+                }
+                if (o->hp > 0)
+                    apply_air_penalty(g, target_idx, 10, 1);
                 if (o->hp <= 0) {
                     o->hp = 0; o->alive = 0;
-                    g->winner = who; g->state = ST_GAMEOVER;
+                    play_sound(SFX_DEATH);
+                    check_winner(g);
+                }
+                if (f->hp <= 0) {
+                    f->hp = 0; f->alive = 0;
+                    play_sound(SFX_DEATH);
+                    check_winner(g);
                 }
             } else if (s->power > 0) {
                 f->hp += s->power;
-                if (f->hp > MAX_HP) f->hp = MAX_HP;
+                if (f->hp > f->hp_max) f->hp = f->hp_max;
             }
             break;
     }
@@ -720,23 +1499,28 @@ static void cast_skill(Game *g, int who, int idx, int tx, int ty)
 
 static void apply_skill_remote(Game *g, int who, int idx, int tx, int ty)
 {
-    if (who == g->my_index) return;
+    if (who < 0 || who >= 2 * g->team_size
+        || g->f[who].team == g->my_index)
+        return;
     cast_skill(g, who, idx, tx, ty);
 }
 
 static void try_cast(Game *g, int tx, int ty)
 {
-    Fighter *me = &g->f[g->my_index];
-    if (g->turn != g->my_index || g->state != ST_BATTLE) return;
+    Fighter *me = &g->f[g->turn];
+    if (me->team != g->my_index || g->state != ST_BATTLE) return;
     if (g->sel_skill < 0) return;
     Skill *s = &me->spells[g->sel_skill];
+    Panoplie *pf = (me->pano >= 0 && me->pano < N_PANOPLIES)
+                   ? &PANOPLIES[me->pano] : NULL;
+    int range = s->range + (pf ? pf->range_bonus : 0);
     if (s->pa > me->pa) return;
     if (me->cd_left[g->sel_skill] > 0) return;
-    if (s->range > 0 && manhattan(me->x, me->y, tx, ty) > s->range) return;
-    cast_skill(g, g->my_index, g->sel_skill, tx, ty);
+    if (range > 0 && manhattan(me->x, me->y, tx, ty) > range) return;
+    cast_skill(g, g->turn, g->sel_skill, tx, ty);
     char msg[64];
     snprintf(msg, sizeof msg, "SKILL %d %d %d %d",
-             g->my_index, g->sel_skill, tx, ty);
+             g->turn, g->sel_skill, tx, ty);
     net_send(g, msg);
     g->sel_skill = -1;
 }
@@ -747,14 +1531,19 @@ static void end_turn(Game *g, int from_net)
     Fighter *cur = &g->f[g->turn];
     for (k = 0; k < N_EQUIPPED; k++)
         if (cur->cd_left[k] > 0) cur->cd_left[k]--;
-    g->turn = 1 - g->turn;
-    g->turn_count++;
-    g->f[g->turn].pa = 6;
-    g->f[g->turn].pm = 3;
+    if (cur->air_penalty_turns > 0) {
+        cur->air_penalty_turns--;
+        if (!cur->air_penalty_turns) {
+            cur->initiative = cur->elements[ELEM_AIR];
+            cur->air_penalty = 0;
+            sort_turn_order(g);
+        }
+    }
+    next_turn(g);
     g->sel_skill = -1;
     if (!from_net) {
         char msg[32];
-        snprintf(msg, sizeof msg, "END %d", g->my_index);
+        snprintf(msg, sizeof msg, "END %d", cur - g->f);
         net_send(g, msg);
     }
 }
@@ -765,10 +1554,315 @@ static void end_turn(Game *g, int from_net)
 static SDL_Texture *load_asset(SDL_Renderer *r, const char *path)
 {
     SDL_Surface *s = IMG_Load(path);
-    if (!s) return NULL;
+    if (!s) {
+        fprintf(stderr, "Asset image indisponible (%s): %s\n",
+                path, IMG_GetError());
+        return NULL;
+    }
     SDL_Texture *t = SDL_CreateTextureFromSurface(r, s);
     SDL_FreeSurface(s);
+    if (!t)
+        fprintf(stderr, "Texture indisponible (%s): %s\n",
+                path, SDL_GetError());
     return t;
+}
+
+static int ui_pixel_is_background(Uint32 pixel, const SDL_PixelFormat *format)
+{
+    Uint8 red, green, blue, alpha;
+    SDL_GetRGBA(pixel, format, &red, &green, &blue, &alpha);
+    return alpha != 0 && red >= 245 && green >= 245 && blue >= 245;
+}
+
+static int ui_make_background_transparent(SDL_Surface *surface)
+{
+    int *queue, head = 0, tail = 0, x, y;
+    int width = surface->w, height = surface->h;
+    int pitch_pixels = surface->pitch / 4;
+    Uint32 *pixels;
+    Uint32 transparent = SDL_MapRGBA(surface->format, 0, 0, 0, 0);
+    size_t pixel_count = (size_t)width * (size_t)height;
+
+    queue = (int *)malloc(pixel_count * sizeof *queue);
+    if (!queue) return 0;
+    if (SDL_LockSurface(surface) < 0) {
+        fprintf(stderr, "Verrouillage de l'atlas UI impossible: %s\n",
+                SDL_GetError());
+        free(queue);
+        return 0;
+    }
+    pixels = (Uint32 *)surface->pixels;
+    for (x = 0; x < width; x++) {
+        int top = x;
+        int bottom = (height - 1) * pitch_pixels + x;
+        if (ui_pixel_is_background(pixels[top], surface->format)) {
+            pixels[top] = transparent;
+            queue[tail++] = top;
+        }
+        if (ui_pixel_is_background(pixels[bottom], surface->format)) {
+            pixels[bottom] = transparent;
+            queue[tail++] = bottom;
+        }
+    }
+    for (y = 1; y < height - 1; y++) {
+        int left = y * pitch_pixels;
+        int right = left + width - 1;
+        if (ui_pixel_is_background(pixels[left], surface->format)) {
+            pixels[left] = transparent;
+            queue[tail++] = left;
+        }
+        if (ui_pixel_is_background(pixels[right], surface->format)) {
+            pixels[right] = transparent;
+            queue[tail++] = right;
+        }
+    }
+    while (head < tail) {
+        int index = queue[head++];
+        int px = index % pitch_pixels;
+        int py = index / pitch_pixels;
+        int neighbors[4];
+        int count = 0, n;
+        if (px > 0) neighbors[count++] = index - 1;
+        if (px + 1 < width) neighbors[count++] = index + 1;
+        if (py > 0) neighbors[count++] = index - pitch_pixels;
+        if (py + 1 < height) neighbors[count++] = index + pitch_pixels;
+        for (n = 0; n < count; n++) {
+            int next = neighbors[n];
+            if (!ui_pixel_is_background(pixels[next], surface->format))
+                continue;
+            pixels[next] = transparent;
+            queue[tail++] = next;
+        }
+    }
+    SDL_UnlockSurface(surface);
+    free(queue);
+    return 1;
+}
+
+static void load_ui_atlas(SDL_Renderer *renderer)
+{
+    SDL_Surface *loaded = IMG_Load("assets/UI/OIG4.webp");
+    SDL_Surface *surface;
+    if (!loaded) {
+        fprintf(stderr, "Planche UI indisponible (assets/UI/OIG4.webp): %s\n",
+                IMG_GetError());
+        return;
+    }
+    surface = SDL_ConvertSurfaceFormat(loaded, SDL_PIXELFORMAT_RGBA32, 0);
+    SDL_FreeSurface(loaded);
+    if (!surface) {
+        fprintf(stderr, "Conversion de l'atlas UI impossible: %s\n",
+                SDL_GetError());
+        return;
+    }
+    if (!ui_make_background_transparent(surface)) {
+        fprintf(stderr, "Transparence de l'atlas UI impossible: memoire insuffisante.\n");
+        SDL_FreeSurface(surface);
+        return;
+    }
+    g_ui_atlas = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    if (!g_ui_atlas) {
+        fprintf(stderr, "Texture UI indisponible: %s\n", SDL_GetError());
+        return;
+    }
+    if (SDL_SetTextureBlendMode(g_ui_atlas, SDL_BLENDMODE_BLEND) < 0)
+        fprintf(stderr, "Transparence UI indisponible: %s\n", SDL_GetError());
+}
+
+static void draw_ui_sprite(SDL_Renderer *renderer, SDL_Rect source,
+                           SDL_Rect destination)
+{
+    if (g_ui_atlas)
+        SDL_RenderCopy(renderer, g_ui_atlas, &source, &destination);
+}
+
+static void play_sound(SoundEffect sound)
+{
+    if (g_audio_ready && sound >= 0 && sound < SFX_COUNT && g_sounds[sound])
+        Mix_PlayChannel(-1, g_sounds[sound], 0);
+}
+
+static void load_audio(void)
+{
+    int i;
+    if ((Mix_Init(MIX_INIT_MP3) & MIX_INIT_MP3) == 0)
+        fprintf(stderr, "SDL_mixer: decodeur MP3 indisponible: %s\n",
+                Mix_GetError());
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0) {
+        fprintf(stderr, "SDL_mixer: sortie audio indisponible: %s\n",
+                Mix_GetError());
+        return;
+    }
+    g_audio_ready = 1;
+    Mix_VolumeMusic(MIX_MAX_VOLUME / 3);
+    g_menu_music = Mix_LoadMUS("assets/BGM/Menu/ES_Dragon's Honor - Yi Nantiro.mp3");
+    if (!g_menu_music)
+        fprintf(stderr, "SDL_mixer: musique menu indisponible: %s\n",
+                Mix_GetError());
+    for (i = 0; i < 4; i++) {
+        g_battle_music[i] = Mix_LoadMUS(BATTLE_MUSIC_PATHS[i]);
+        if (!g_battle_music[i])
+            fprintf(stderr, "SDL_mixer: musique indisponible (%s): %s\n",
+                    BATTLE_MUSIC_PATHS[i], Mix_GetError());
+    }
+    for (i = 0; i < SFX_COUNT; i++) {
+        g_sounds[i] = Mix_LoadWAV(SOUND_PATHS[i]);
+        if (!g_sounds[i])
+            fprintf(stderr, "SDL_mixer: effet sonore indisponible (%s): %s\n",
+                    SOUND_PATHS[i], Mix_GetError());
+    }
+}
+
+static void play_music_for_state(GameState state)
+{
+    if (!g_audio_ready) return;
+    if (state == ST_BATTLE) {
+        int track = (int)(SDL_GetTicks() % 4);
+        if (g_battle_music[track])
+            Mix_PlayMusic(g_battle_music[track], -1);
+    } else if (state == ST_MENU || state == ST_PICK || state == ST_DRAFT
+               || state == ST_STUFF || state == ST_ELEMENTS) {
+        if (g_menu_music) Mix_PlayMusic(g_menu_music, -1);
+    } else {
+        Mix_HaltMusic();
+    }
+}
+
+static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
+                      int x, int y, SDL_Color c);
+static int pt_in(SDL_Rect r, int x, int y);
+
+static void load_visual_effects(SDL_Renderer *renderer)
+{
+    int i;
+    char path[160];
+    g_character_cut_sheet =
+        load_asset(renderer, "assets/character/character_cut_sheet.png");
+    g_spell_icons = load_asset(renderer, "assets/character/spells_icon/spell4.webp");
+    g_emote_sheet = load_asset(renderer, "assets/bubble_emotes.png");
+    for (i = 0; i < VFX_FRAME_COUNT; i++) {
+        snprintf(path, sizeof path,
+                 "assets/VFX/Effect_BloodImpact/30fps/Frames/"
+                 "Effect_BloodImpact_1/Effect_BloodImpact_1_%03d.png", i);
+        g_vfx_frames[i] = load_asset(renderer, path);
+    }
+}
+
+static SDL_Rect spell_icon_rect(int icon)
+{
+    SDL_Rect r;
+    icon %= SPELL_ICON_COLS * SPELL_ICON_ROWS;
+    r.x = 112 + (icon % SPELL_ICON_COLS) * 100;
+    r.y = 8 + (icon / SPELL_ICON_COLS) * 128;
+    r.w = 92;
+    r.h = 104;
+    return r;
+}
+
+static SDL_Rect emote_icon_rect(int icon)
+{
+    SDL_Rect r;
+    r.x = (icon % EMOTE_COLS) * EMOTE_CELL_W;
+    r.y = (icon / EMOTE_COLS) * EMOTE_CELL_H;
+    r.w = EMOTE_CELL_W;
+    r.h = EMOTE_CELL_H;
+    return r;
+}
+
+static SDL_Rect emote_option_rect(int option)
+{
+    SDL_Rect r = {WIN_W / 2 - 140 + 12 + (option % 4) * 64,
+                  WIN_H / 2 - 72 + 24 + (option / 4) * 54, 54, 48};
+    return r;
+}
+
+static void draw_character_sprite(SDL_Renderer *renderer, int index,
+                                  SDL_Rect destination, int tint_opponent)
+{
+    SDL_Rect source;
+    if (!g_character_cut_sheet || index < 0 || index >= 30) return;
+    source.x = (index % CUT_SHEET_COLS) * CUT_SHEET_CELL;
+    source.y = (index / CUT_SHEET_COLS) * CUT_SHEET_CELL;
+    source.w = CUT_SHEET_CELL;
+    source.h = CUT_SHEET_CELL;
+    if (tint_opponent)
+        SDL_SetTextureColorMod(g_character_cut_sheet, 255, 190, 190);
+    else
+        SDL_SetTextureColorMod(g_character_cut_sheet, 255, 255, 255);
+    SDL_RenderCopy(renderer, g_character_cut_sheet, &source, &destination);
+    SDL_SetTextureColorMod(g_character_cut_sheet, 255, 255, 255);
+}
+
+static void draw_emote(Game *g, SDL_Renderer *renderer)
+{
+    Uint32 now = SDL_GetTicks();
+    Fighter *f;
+    SDL_Rect src, dst;
+    if (!g_emote_sheet || g->emote_fighter < 0
+        || g->emote_fighter >= 2 * g->team_size
+        || (Sint32)(g->emote_until - now) <= 0)
+        return;
+    f = &g->f[g->emote_fighter];
+    if (!f->alive) return;
+    src = emote_icon_rect(g->emote_index);
+    dst.x = map_origin_x(g) + f->x * TILE + TILE / 2 - 18;
+    dst.y = map_origin_y(g) + f->y * TILE - 42;
+    dst.w = 36;
+    dst.h = 39;
+    SDL_RenderCopy(renderer, g_emote_sheet, &src, &dst);
+}
+
+static void draw_emote_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
+{
+    static const int emotes[8] = {0,1,2,3,16,17,18,19};
+    SDL_Rect bg = {WIN_W / 2 - 140, WIN_H / 2 - 72, 280, 144};
+    SDL_Color white = {255,255,255,255};
+    int i, mx, my;
+    if (!g->emote_menu_open || !g_emote_sheet) return;
+    SDL_SetRenderDrawColor(renderer, 20, 20, 30, 235);
+    SDL_RenderFillRect(renderer, &bg);
+    SDL_SetRenderDrawColor(renderer, 225, 205, 150, 255);
+    SDL_RenderDrawRect(renderer, &bg);
+    SDL_GetMouseState(&mx, &my);
+    for (i = 0; i < 8; i++) {
+        SDL_Rect option = emote_option_rect(i);
+        SDL_Rect src = emote_icon_rect(emotes[i]);
+        SDL_Rect icon = {option.x + 9, option.y + 3, 36, 39};
+        SDL_SetRenderDrawColor(renderer,
+                               pt_in(option, mx, my) ? 90 : 55,
+                               pt_in(option, mx, my) ? 100 : 60,
+                               pt_in(option, mx, my) ? 125 : 75, 255);
+        SDL_RenderFillRect(renderer, &option);
+        SDL_RenderCopy(renderer, g_emote_sheet, &src, &icon);
+        {
+            char label[8];
+            snprintf(label, sizeof label, "%d", i + 1);
+            draw_text(renderer, font, label, option.x + 3, option.y + 2, white);
+        }
+    }
+    draw_text(renderer, font, "EMOTES - 1 a 8 ou clic", bg.x + 46,
+              bg.y + 4, white);
+}
+
+static void draw_vfx(Game *g, SDL_Renderer *renderer)
+{
+    Uint32 age;
+    int frame;
+    SDL_Rect dst;
+    if (!g->vfx_active) return;
+    age = SDL_GetTicks() - g->vfx_started;
+    frame = (int)(age / VFX_FRAME_MS);
+    if (frame >= VFX_FRAME_COUNT) {
+        g->vfx_active = 0;
+        return;
+    }
+    if (!g_vfx_frames[frame]) return;
+    dst.x = map_origin_x(g) + g->vfx_x * TILE + TILE / 2 - 35;
+    dst.y = map_origin_y(g) + g->vfx_y * TILE + TILE / 2 - 30;
+    dst.w = 70;
+    dst.h = 60;
+    SDL_RenderCopy(renderer, g_vfx_frames[frame], NULL, &dst);
 }
 
 static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
@@ -784,128 +1878,357 @@ static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
     SDL_DestroyTexture(t);
 }
 
-static void draw_tile(SDL_Renderer *r, int i, int j, int blocked)
+static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
 {
-    SDL_Rect d = {i * TILE, j * TILE, TILE, TILE};
-    if (g_assets[blocked ? 1 : 0]) {
-        SDL_RenderCopy(r, g_assets[blocked ? 1 : 0], NULL, &d);
+    SDL_Rect d = {map_origin_x(g) + i * TILE,
+                  map_origin_y(g) + j * TILE, TILE, TILE};
+    const SDL_Rect *src = NULL;
+    if (g_tilesheet) {
+        if (cell == CELL_VOID)
+            src = &MAP_VOID_RECTS[g->map_theme];
+        else if (cell == CELL_GROUND)
+            src = &MAP_FLOOR_RECTS[g->map_theme];
+        else if (cell == CELL_WALL)
+            src = &MAP_WALL_RECTS[g->map_theme];
+        else
+            src = &MAP_VOID_RECTS[g->map_theme];
+        SDL_RenderCopy(r, g_tilesheet, src, &d);
     } else {
-        if (blocked) SDL_SetRenderDrawColor(r, 90, 70, 40, 255);
-        else         SDL_SetRenderDrawColor(r, 60, 140, 60, 255);
+        switch (cell) {
+            case CELL_WALL:  SDL_SetRenderDrawColor(r, 120, 90, 60, 255); break;
+            case CELL_GAP:   SDL_SetRenderDrawColor(r, 40, 40, 70, 255);  break;
+            case CELL_VOID:  SDL_SetRenderDrawColor(r, 15, 15, 15, 255);  break;
+            default:         SDL_SetRenderDrawColor(r, 60, 140, 60, 255);  break;
+        }
         SDL_RenderFillRect(r, &d);
     }
-    SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
-    SDL_RenderDrawRect(r, &d);
+    if (cell != CELL_GROUND && cell != CELL_VOID) {
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &d);
+    } else if (!g_tilesheet && cell == CELL_GROUND) {
+        SDL_SetRenderDrawColor(r, 20, 20, 20, 255);
+        SDL_RenderDrawRect(r, &d);
+    }
 }
 
 /* dessine le combattant : frame courante du spritesheet ou repli       */
 static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
 {
     Fighter *f = &g->f[idx];
+    int sx, sy;
     if (!f->alive) return;
-    SDL_Rect d = {f->x * TILE, f->y * TILE, TILE, TILE};
+    sx = map_origin_x(g) + f->x * TILE;
+    sy = map_origin_y(g) + f->y * TILE;
+    SDL_Rect d = {sx, sy, TILE, TILE};
 
-    int row = CLASS_SHEET_ROW[f->cls];
-    if (g_assets[2] && row >= 0 && row < SHEET_ROWS) {
-        int start, n;
-        switch (f->anim) {
-            case ANIM_MOVE:   start = ANIM_MOVE_START; n = ANIM_MOVE_N; break;
-            case ANIM_ATTACK: start = ANIM_ATK_START;  n = ANIM_ATK_N;  break;
-            default:          start = ANIM_IDLE_START; n = ANIM_IDLE_N; break;
-        }
-        int col = start + (f->anim_frame % (n > 0 ? n : 1));
-        if (col >= SHEET_COLS) col %= SHEET_COLS;
-        SDL_Rect s = { col * SHEET_FRAME_W, row * SHEET_FRAME_H,
-                      SHEET_FRAME_W, SHEET_FRAME_H };
-        /* teinte l'adversaire pour le distinguer                     */
-        if (idx != g->my_index)
-            SDL_SetTextureColorMod(g_assets[2], 255, 170, 170);
-        else
-            SDL_SetTextureColorMod(g_assets[2], 255, 255, 255);
-        SDL_RenderCopy(r, g_assets[2], &s, &d);
+    if (g_character_cut_sheet) {
+        draw_character_sprite(r, CLASS_CUT_INDEX[f->cls], d,
+                              f->team != g->my_index);
     } else {
-        SDL_SetRenderDrawColor(r, idx == g->my_index ? 40 : 200,
-                               idx == g->my_index ? 120 : 40,
-                               idx == g->my_index ? 240 : 40, 255);
+        SDL_SetRenderDrawColor(r, f->team == g->my_index ? 40 : 200,
+                               f->team == g->my_index ? 120 : 40,
+                               f->team == g->my_index ? 240 : 40, 255);
         SDL_RenderFillRect(r, &d);
     }
     /* marqueur du joueur actif */
     if (g->state == ST_BATTLE && g->turn == idx) {
-        SDL_SetRenderDrawColor(r, 255, 255, 0, 255);
+        if (f->team == g->my_index)
+            SDL_SetRenderDrawColor(r, 40, 255, 80, 255);
+        else
+            SDL_SetRenderDrawColor(r, 255, 55, 55, 255);
         SDL_RenderDrawRect(r, &d);
+        SDL_Rect active = {d.x + 2, d.y + 2, d.w - 4, d.h - 4};
+        SDL_RenderDrawRect(r, &active);
     }
-    /* barre de vie du kit pixel art au-dessus du sprite, ou repli      */
+    /* barre de vie du nouvel atlas UI, ou repli colore                 */
     {
-        SDL_Rect hb = {f->x * TILE + 4, f->y * TILE - 8, TILE - 8, 6};
-        SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
-        SDL_RenderFillRect(r, &hb);
-        int fill = (hb.w * f->hp) / MAX_HP;
-        SDL_Rect in = {hb.x + 1, hb.y + 1, fill > 2 ? fill - 2 : 0, hb.h - 2};
-        if (f->hp > MAX_HP/2)      SDL_SetRenderDrawColor(r, 80, 220, 80, 255);
-        else if (f->hp > MAX_HP/5) SDL_SetRenderDrawColor(r, 240, 180, 40, 255);
-        else                       SDL_SetRenderDrawColor(r, 220, 60, 50, 255);
-        SDL_RenderFillRect(r, &in);
-        if (g_assets[4]) SDL_RenderCopy(r, g_assets[4], NULL, &hb);
+        SDL_Rect hb = {sx + 4, sy - 9, TILE - 8, 8};
+        SDL_Rect bar = {UI_HP_BAR_X, UI_HP_BAR_Y, UI_HP_BAR_W, UI_HP_BAR_H};
+        draw_ui_sprite(r, bar, hb);
+        if (!g_ui_atlas) {
+            int fill = (hb.w * f->hp) / (f->hp_max > 0 ? f->hp_max : MAX_HP);
+            SDL_SetRenderDrawColor(r, 0, 0, 0, 255);
+            SDL_RenderFillRect(r, &hb);
+            SDL_Rect in = {hb.x + 1, hb.y + 1, fill > 2 ? fill - 2 : 0, hb.h - 2};
+            if (f->hp > MAX_HP/2)      SDL_SetRenderDrawColor(r, 80, 220, 80, 255);
+            else if (f->hp > MAX_HP/5) SDL_SetRenderDrawColor(r, 240, 180, 40, 255);
+            else                       SDL_SetRenderDrawColor(r, 220, 60, 50, 255);
+            SDL_RenderFillRect(r, &in);
+        }
+        if (g_ui_atlas && f->hp < f->hp_max) {
+            int fill = (hb.w - 8) * f->hp
+                     / (f->hp_max > 0 ? f->hp_max : MAX_HP);
+            SDL_Rect depleted = {hb.x + 4 + fill, hb.y + 2,
+                                 hb.w - 8 - fill, hb.h - 4};
+            SDL_SetRenderDrawColor(r, 20, 20, 25, 255);
+            SDL_RenderFillRect(r, &depleted);
+        }
     }
     char hp[32];
     snprintf(hp, sizeof hp, "%d", f->hp);
     SDL_Color c = {255, 255, 255, 255};
-    draw_text(r, font, CLASSES[f->cls].name, f->x*TILE + 4, f->y*TILE - 18, c);
-    draw_text(r, font, hp, f->x*TILE + TILE/2 - 8, f->y*TILE + TILE/2 - 8, c);
+    draw_text(r, font, CLASSES[f->cls].name, sx + 4, sy - 18, c);
+    draw_text(r, font, hp, sx + TILE/2 - 8, sy + TILE/2 - 8, c);
+    if (g->emote_fighter == idx && g->emote_until > SDL_GetTicks())
+        draw_emote(g, r);
 }
+
+/* rectangles cliquables (partages rendu / clics)                      */
+static SDL_Rect menu_btn_host(void)  { SDL_Rect r = {20, 70, 320, 40};  return r; }
+static SDL_Rect menu_btn_join(void)  { SDL_Rect r = {20, 120, 320, 40}; return r; }
+static SDL_Rect menu_btn_ipfield(void){SDL_Rect r = {350, 120, 200, 40};return r; }
+static SDL_Rect menu_size_btn(int i) { SDL_Rect r = {350 + i*66, 70, 60, 40}; return r; }
+static SDL_Rect favorite_btn(int i)  { SDL_Rect r = {20 + i*126, 445, 118, 34}; return r; }
+/* clavier virtuel pour l'IP (12 touches : 123456 / 7890.⌫ / OK)        */
+static SDL_Rect menu_kbd(int i)     { SDL_Rect r = {20 + (i%6)*55, 180 + (i/6)*45, 50, 40}; return r; }
+/* autres rectangles cliquables                                      */
+static SDL_Rect pick_class_rect(int i){SDL_Rect r = {15 + (i%3)*220, 55 + (i/3)*30, 212, 28}; return r; }
+static SDL_Rect pick_favorite_rect(int i){SDL_Rect r = {20 + (i%3)*220, 340 + (i/3)*34, 210, 30}; return r; }
+static SDL_Rect draft_btn(void)     { SDL_Rect r = {20, 470, 260, 34};  return r; }
+static SDL_Rect stuff_card(int i)    { SDL_Rect r = {20 + (i%2)*330, 60 + (i/2)*105, 320, 100}; return r; }
+static SDL_Rect stuff_favorite_btn(int i){SDL_Rect r = {20 + i*98, 500, 90, 34}; return r;}
+static SDL_Rect element_btn(int element, int add) { SDL_Rect r = {460 + add*70, 160 + element*60, 60, 36}; return r; }
+static SDL_Rect endturn_btn(int y0)  { SDL_Rect r = {10, y0 + 92, 150, 50}; return r; }
+static SDL_Rect chat_btn(int y0)     { SDL_Rect r = {170, y0 + 92, 90, 30}; return r; }
+static SDL_Rect chat_field(int y0)   { SDL_Rect r = {270, y0 + 92, 300, 30}; return r; }
+static SDL_Rect chat_send(int y0)    { SDL_Rect r = {580, y0 + 92, 80, 30}; return r; }
+static int pt_in(SDL_Rect r, int x, int y)
+{ return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; }
 
 static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
 {
-    Fighter *me = &g->f[g->my_index];
+    Fighter *me = &g->f[g->turn];
     int y0 = GRID_H * TILE;
     SDL_Rect panel = {0, y0, WIN_W, 160};
     SDL_SetRenderDrawColor(r, 30, 30, 30, 255);
     SDL_RenderFillRect(r, &panel);
     char line[128];
     SDL_Color white = {255,255,255,255};
-    snprintf(line, sizeof line, "PV: %d  PA: %d  PM: %d  atk: %+d%%",
-             me->hp, me->pa, me->pm, me->atk_mod);
+    snprintf(line, sizeof line, "T%d - Perso %d | PV: %d/%d PA: %d PM: %d INIT: %d",
+             me->team + 1, g->turn % g->team_size + 1,
+             me->hp, me->hp_max, me->pa, me->pm, me->initiative);
     draw_text(r, font, line, 10, y0 + 6, white);
+    if (me->pano >= 0)
+        draw_text(r, font, PANOPLIES[me->pano].name, 400, y0 + 6, white);
 
     int k;
     for (k = 0; k < N_EQUIPPED; k++) {
         Skill *s = &me->spells[k];
-        SDL_Rect b = {10 + k * 190, y0 + 30, 180, 56};
-        /* case de sort du kit pixel art, sinon rectangle               */
-        SDL_Texture *slot = g_assets[g->sel_skill == k ? 6 : 5];
-        if (slot)
-            SDL_RenderCopy(r, slot, NULL, &b);
-        else {
-            if (g->sel_skill == k)
-                SDL_SetRenderDrawColor(r, 200, 170, 60, 255);
-            else
-                SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
-            SDL_RenderFillRect(r, &b);
-        }
+        SDL_Rect b = {10 + k * 165, y0 + 30, 160, 56};
+        SDL_Rect icon = {b.x + 4, b.y + 10, 30, 36};
+        if (g->sel_skill == k)
+            SDL_SetRenderDrawColor(r, 112, 82, 38, 255);
+        else
+            SDL_SetRenderDrawColor(r, 55, 48, 42, 255);
+        SDL_RenderFillRect(r, &b);
         SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
         SDL_RenderDrawRect(r, &b);
+        if (g_spell_icons) {
+            SDL_Rect icon_src = spell_icon_rect(me->spell_icon[k]);
+            SDL_RenderCopy(r, g_spell_icons, &icon_src, &icon);
+        }
         char t[96];
-        snprintf(t, sizeof t, "%d %s (%dPA P%d)", k+1, s->name, s->pa, s->range);
-        draw_text(r, font, t, b.x + 6, b.y + 6, white);
+        snprintf(t, sizeof t, "%d %.15s", k+1, s->name);
+        draw_text(r, font, t, b.x + 38, b.y + 7, white);
+        snprintf(t, sizeof t, "%dPA P%d", s->pa, s->range);
+        draw_text(r, font, t, b.x + 38, b.y + 30, white);
         snprintf(t, sizeof t, "effet %d  CD %d/%d",
                  s->power, me->cd_left[k], s->cooldown);
-        draw_text(r, font, t, b.x + 6, b.y + 30, white);
+        draw_text(r, font, t, b.x + 38, b.y + 42, white);
     }
-    draw_text(r, font, "Espace = fin de tour  |  clic = cibler case",
-              10, y0 + 94, white);
-    if (g->turn != g->my_index)
-        draw_text(r, font, "Tour de l'adversaire...", 10, y0 + 118, white);
+    /* bouton FIN DE TOUR (clic)                                      */
+    SDL_Rect be = endturn_btn(y0);
+    int my_turn = me->team == g->my_index;
+    if (my_turn) SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
+    else         SDL_SetRenderDrawColor(r, 50, 50, 60, 255);
+    SDL_RenderFillRect(r, &be);
+    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawRect(r, &be);
+    draw_text(r, font, my_turn ? "FIN DE TOUR" : "attendez...",
+              be.x + 12, be.y + 6, white);
+    draw_text(r, font, "clic case = se deplacer / cibler",
+              be.x + 12, be.y + 26, white);
+    draw_text(r, font, "E : EMOTES", 560, y0 + 6, white);
+
+    /* chat : bouton, champ, envoi                                    */
+    SDL_Rect bt = chat_btn(y0);
+    SDL_Rect bf = chat_field(y0);
+    SDL_Rect bs = chat_send(y0);
+    SDL_SetRenderDrawColor(r, g->chat_active ? 90 : 60,
+                             g->chat_active ? 80 : 60, 120, 255);
+    SDL_RenderFillRect(r, &bt);
+    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawRect(r, &bt);
+    draw_text(r, font, "Chat", bt.x + 16, bt.y + 6, white);
+    SDL_SetRenderDrawColor(r, 25, 25, 25, 255);
+    SDL_RenderFillRect(r, &bf);
+    SDL_SetRenderDrawColor(r, g->chat_active ? 255 : 160,
+                             g->chat_active ? 220 : 160, 80, 255);
+    SDL_RenderDrawRect(r, &bf);
+    {
+        char t[300];
+        snprintf(t, sizeof t, "%s%s", g->chat_input,
+                 g->chat_active ? "_" : "");
+        draw_text(r, font, t[0] ? t : "message...", bf.x + 6, bf.y + 6,
+                  g->chat_active ? (SDL_Color){255,220,80,255}
+                                 : (SDL_Color){130,130,130,255});
+    }
+    SDL_SetRenderDrawColor(r, 70, 90, 70, 255);
+    SDL_RenderFillRect(r, &bs);
+    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawRect(r, &bs);
+    draw_text(r, font, "ENVOYER", bs.x + 6, bs.y + 6, white);
+
+    /* journal : 3 derniers messages                                  */
+    {
+        int n = g->chat_log_n, first = n > 3 ? n - 3 : 0, q, ly = y0 + 126;
+        for (q = first; q < n; q++, ly += 16)
+            draw_text(r, font, g->chat_log[q], 170, ly,
+                      (SDL_Color){200, 200, 200, 255});
+    }
+    if (!my_turn)
+        draw_text(r, font, "Tour de l'adversaire...", 500, y0 + 6, white);
 }
+
+
 
 static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
 {
     SDL_Color white = {255,255,255,255};
-    draw_text(r, font, "DOFUS ARENA FANMADE - P2P 1v1", 20, 20, white);
-    draw_text(r, font, "H = Heberger (host)", 20, 70, white);
-    draw_text(r, font, "J = Rejoindre (join 127.0.0.1)", 20, 100, white);
-    if (g->net.role == NET_HOST && !g->net.has_peer)
-        draw_text(r, font, "En attente d'un adversaire sur le port 7777...",
-                  20, 150, white);
+    SDL_Color grey  = {130,130,130,255};
+    SDL_Color hover = {200,200,240,255};
+    char line[96];
+    int mx, my;
+    SDL_GetMouseState(&mx, &my);
+
+    {
+        SDL_Rect frame = {UI_HEADER_X, UI_HEADER_Y,
+                          UI_HEADER_W, UI_HEADER_H};
+        SDL_Rect banner = {12, 10, 648, 42};
+        draw_ui_sprite(r, frame, banner);
+        draw_text(r, font, "DOFUS ARENA FANMADE - P2P", 26, 15, white);
+        draw_text(r, font, "Connexion directe UDP", 26, 32, grey);
+        draw_character_sprite(r, CLASS_CUT_INDEX[0],
+                              (SDL_Rect){548, 152, 60, 60}, 0);
+        draw_character_sprite(r, CLASS_CUT_INDEX[1],
+                              (SDL_Rect){600, 152, 60, 60}, 1);
+    }
+    draw_text(r, font, "Format :", 350, 48, grey);
+    {
+        static const int sizes[3] = {1, 2, 5};
+        int i;
+        for (i = 0; i < 3; i++) {
+            SDL_Rect b = menu_size_btn(i);
+            int selected = g->team_size_choice == sizes[i];
+            SDL_SetRenderDrawColor(r, selected ? 70 : 40,
+                                   selected ? 115 : 50,
+                                   selected ? 75 : 65, 255);
+            SDL_RenderFillRect(r, &b);
+            SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
+            SDL_RenderDrawRect(r, &b);
+            snprintf(line, sizeof line, "%dv%d", sizes[i], sizes[i]);
+            draw_text(r, font, line, b.x + 12, b.y + 12, white);
+        }
+    }
+
+    /* bouton HEBERGER */
+    SDL_Rect bh = menu_btn_host();
+    int in_h = pt_in(bh, mx, my);
+    int can_connect = g->net.sock == SOCK_INVALID;
+    const char *host_label = !can_connect
+                           ? (g->net.role == NET_HOST
+                              ? "EN ATTENTE DE L'ADVERSAIRE"
+                              : "CONNEXION EN COURS...")
+                           : (g->net.role == NET_NONE
+                              ? "CREER UNE PARTIE - HEBERGER"
+                              : "RECONNECTER");
+    SDL_SetRenderDrawColor(r, can_connect ? (in_h ? 90 : 70) : 45,
+                           can_connect ? (in_h ? 90 : 70) : 45,
+                           can_connect ? (in_h ? 130 : 110) : 55, 255);
+    SDL_RenderFillRect(r, &bh);
+    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawRect(r, &bh);
+    draw_text(r, font, host_label, bh.x + 10, bh.y + 12,
+              can_connect && in_h ? hover : white);
+
+    /* bouton REJOINDRE + champ IP */
+    SDL_Rect bj = menu_btn_join();
+    int in_j = pt_in(bj, mx, my);
+    SDL_SetRenderDrawColor(r, can_connect ? (in_j ? 90 : 70) : 45,
+                           can_connect ? (in_j ? 90 : 70) : 45,
+                           can_connect ? (in_j ? 130 : 110) : 55, 255);
+    SDL_RenderFillRect(r, &bj);
+    SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawRect(r, &bj);
+    draw_text(r, font, "REJOINDRE UNE PARTIE", bj.x + 10, bj.y + 12,
+              can_connect && in_j ? hover : white);
+
+    SDL_Rect bi = menu_btn_ipfield();
+    SDL_SetRenderDrawColor(r, 25, 25, 25, 255);
+    SDL_RenderFillRect(r, &bi);
+    if (g->ip_editing)
+        SDL_SetRenderDrawColor(r, 255, 220, 80, 255);
+    else
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+    SDL_RenderDrawRect(r, &bi);
+    snprintf(line, sizeof line, "%s%s", g->ip_text,
+              g->ip_editing ? "_" : "");
+    draw_text(r, font, line[0] ? line : "IP IPv4 de l'hote", bi.x + 8, bi.y + 12,
+              g->ip_editing ? (SDL_Color){255,220,80,255} : grey);
+    draw_text(r, font, "UDP : 7777", 560, 132, white);
+
+    if (g->menu_status[0])
+        draw_text(r, font, g->menu_status, 20, 280, white);
+
+    draw_text(r, font, "LAN : saisissez l'IP locale de l'hote.", 20, 320, grey);
+    draw_text(r, font, "Internet : IP publique + redirection UDP 7777 sur la box",
+              20, 344, grey);
+    draw_text(r, font, "et autorisation du jeu dans le pare-feu de l'hote.",
+              20, 368, grey);
+    draw_text(r, font, "L'hote communique son IP publique au joueur distant.",
+              20, 392, grey);
+    draw_text(r, font, "FAVORIS (classe + panoplie) :", 20, 422, white);
+    {
+        int i;
+        for (i = 0; i < MAX_FAVORITES; i++) {
+            SDL_Rect b = favorite_btn(i);
+            int selected = g->selected_favorite == i;
+            SDL_SetRenderDrawColor(r, selected ? 75 : 45,
+                                   selected ? 105 : 55, 75, 255);
+            SDL_RenderFillRect(r, &b);
+            SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
+            SDL_RenderDrawRect(r, &b);
+            if (g->favorite_class[i] >= 0) {
+                snprintf(line, sizeof line, "F%d %s + P%d", i + 1,
+                         CLASSES[g->favorite_class[i]].name,
+                         g->favorite_pano[i] + 1);
+            } else {
+                snprintf(line, sizeof line, "F%d - vide -", i + 1);
+            }
+            draw_text(r, font, line, b.x + 4, b.y + 8, white);
+        }
+    }
+
+    /* clavier virtuel pour saisir l'IP a la souris                    */
+    if (g->ip_editing) {
+        int i;
+        static const char *KEYS[12] = {"1","2","3","4","5","6",
+                                      "7","8","9","0",".","Bksp"};
+        SDL_Rect ok = {20 + 6*55, 180 + 45, 160, 40};
+        for (i = 0; i < 12; i++) {
+            SDL_Rect b = menu_kbd(i);
+            SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
+            SDL_RenderFillRect(r, &b);
+            SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+            SDL_RenderDrawRect(r, &b);
+            draw_text(r, font, KEYS[i], b.x + 14, b.y + 12, white);
+        }
+        SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
+        SDL_RenderFillRect(r, &ok);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderDrawRect(r, &ok);
+        draw_text(r, font, "OK", ok.x + 60, ok.y + 12, white);
+    }
 }
 
 static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
@@ -913,54 +2236,102 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
     SDL_Color white = {255,255,255,255};
     SDL_Color grey  = {130,130,130,255};
     char line[96];
-    draw_text(r, font, "Choisissez votre classe (touches 1-9 puis A-C) :", 20, 20, white);
+    int unit = unit_for_slot(g, g->my_index, g->setup_unit);
+    snprintf(line, sizeof line, "T%d - PERSONNAGE %d : choisissez la classe",
+             g->my_index + 1, g->setup_unit + 1);
+    draw_text(r, font, line, 20, 20, white);
     int i;
     for (i = 0; i < N_CLASSES; i++) {
         snprintf(line, sizeof line, "%2d %-12s", i+1, CLASSES[i].name);
-        int col = i % 3;
-        /* Roublard (13e) en attente de sprite : grisé                */
-        draw_text(r, font, line, 20 + col*220, 60 + (i/3)*30,
-                  i < N_PLAYABLE ? white : grey);
+        /* classes sans sprite : grisees (Sadida en attente)          */
+        int has_sprite = CLASS_CUT_INDEX[i] >= 0;
+        SDL_Rect b = pick_class_rect(i);
+        int mx, my;
+        SDL_GetMouseState(&mx, &my);
+        int hover = has_sprite && pt_in(b, mx, my);
+        if (has_sprite)
+            SDL_SetRenderDrawColor(r, hover ? 100 : 70, hover ? 100 : 70,
+                                   hover ? 140 : 110, 255);
+        else
+            SDL_SetRenderDrawColor(r, 40, 40, 40, 255);
+        SDL_RenderFillRect(r, &b);
+        SDL_SetRenderDrawColor(r, 120, 120, 120, 255);
+        SDL_RenderDrawRect(r, &b);
+        draw_character_sprite(r, CLASS_CUT_INDEX[i],
+                              (SDL_Rect){b.x, b.y, 28, 28}, 0);
+        draw_text(r, font, line, b.x + 32, b.y + 6,
+                  has_sprite ? white : grey);
     }
-    draw_text(r, font, "Roublard : bientot (sprites en attente)", 20, 210, grey);
-    if (g->class_chosen[g->my_index] >= 0) {
+    if (g->class_chosen[unit] >= 0) {
         snprintf(line, sizeof line, "Votre classe : %s",
-                 CLASSES[g->class_chosen[g->my_index]].name);
+                 CLASSES[g->class_chosen[unit]].name);
         draw_text(r, font, line, 20, 240, white);
     }
-    if (g->class_chosen[1 - g->my_index] >= 0) {
-        snprintf(line, sizeof line, "Adversaire pret : %s",
-                 CLASSES[g->class_chosen[1 - g->my_index]].name);
-        draw_text(r, font, line, 20, 270, white);
+    {
+        int slot;
+        for (slot = 0; slot < g->team_size; slot++) {
+            int enemy = unit_for_slot(g, 1 - g->my_index, slot);
+            if (g->class_chosen[enemy] >= 0) {
+                snprintf(line, sizeof line, "T%d perso %d : %s",
+                         2 - g->my_index, slot + 1,
+                         CLASSES[g->class_chosen[enemy]].name);
+                draw_text(r, font, line, 300, 240 + slot*22, grey);
+            }
+        }
     }
-    if (g->class_chosen[0] >= 0 && g->class_chosen[1] >= 0 && g->net.has_peer)
-        draw_text(r, font, "Passez au draft de sorts...", 20, 300, white);
+    draw_text(r, font, "Favoris classe + panoplie :", 20, 315, white);
+    {
+        int i;
+        for (i = 0; i < MAX_FAVORITES; i++) {
+            SDL_Rect b = pick_favorite_rect(i);
+            if (g->favorite_class[i] >= 0) {
+                SDL_SetRenderDrawColor(r, 70, 85, 65, 255);
+                SDL_RenderFillRect(r, &b);
+                if (g->selected_favorite == i)
+                    SDL_SetRenderDrawColor(r, 245, 205, 70, 255);
+                else
+                    SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
+                SDL_RenderDrawRect(r, &b);
+                snprintf(line, sizeof line, "F%d %s + P%d", i + 1,
+                         CLASSES[g->favorite_class[i]].name,
+                         g->favorite_pano[i] + 1);
+                draw_text(r, font, line, b.x + 4, b.y + 7, white);
+            }
+        }
+    }
 }
 
-/* écran de draft : 16 sorts de la classe, en choisir 4                 */
+/* ecran de draft : 16 sorts de la classe, en choisir 4                 */
 static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
 {
     SDL_Color white = {255,255,255,255};
     SDL_Color green = {80,255,120,255};
     char line[128];
-    int cls = g->class_chosen[g->my_index];
+    int unit = unit_for_slot(g, g->my_index, g->setup_unit);
+    int cls = g->class_chosen[unit];
     int i;
     if (cls < 0 || cls >= N_CLASSES) { g->state = ST_PICK; return; }
 
-    snprintf(line, sizeof line, "DRAFT %s : choisissez 4 sorts parmi 16 (%d/4)",
-             CLASSES[cls].name, g->draft_count[g->my_index]);
+    snprintf(line, sizeof line, "PERSO %d - DRAFT %s : choisissez 4 sorts (%d/4)",
+             g->setup_unit + 1, CLASSES[cls].name, g->draft_count[unit]);
     draw_text(r, font, line, 20, 20, white);
     for (i = 0; i < N_CLASS_SPELLS; i++) {
         Skill *s = &CLASSES[cls].spells[i];
         int col = i % 4, row = i / 4;
         SDL_Rect b = {10 + col * 175, 60 + row * 100, 170, 96};
-        if (g->draft[g->my_index][i])
+        SDL_Rect icon = {b.x + 5, b.y + 32, 42, 48};
+        if (g->draft[unit][i])
             SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
         else
             SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
         SDL_RenderFillRect(r, &b);
         SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
         SDL_RenderDrawRect(r, &b);
+        if (g_spell_icons) {
+            SDL_Rect icon_src = spell_icon_rect((cls * N_CLASS_SPELLS + i)
+                                      % (SPELL_ICON_COLS * SPELL_ICON_ROWS));
+            SDL_RenderCopy(r, g_spell_icons, &icon_src, &icon);
+        }
         snprintf(line, sizeof line, "%X %s", i+1, s->name);
         draw_text(r, font, line, b.x + 4, b.y + 4, white);
         const char *kind = s->kind == SK_ATK ? "attaque" :
@@ -968,31 +2339,161 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
                            s->kind == SK_BUFF ? "buff"   : "special";
         snprintf(line, sizeof line, "%s %d, %dPA, P%d, CD%d",
                  kind, s->power, s->pa, s->range, s->cooldown);
-        draw_text(r, font, line, b.x + 4, b.y + 22, white);
-        snprintf(line, sizeof line, "touche %X", i+1);
-        draw_text(r, font, line, b.x + 4, b.y + 74, white);
+        draw_text(r, font, line, b.x + 52, b.y + 30, white);
+        snprintf(line, sizeof line, "%s",
+                 g->draft[unit][i] ? "dans le deck" : "clic");
+        draw_text(r, font, line, b.x + 52, b.y + 60, white);
     }
-    if (g->draft_count[g->my_index] >= N_EQUIPPED)
-        draw_text(r, font, "Entree = valider votre deck", 20, 480, white);
-    if (g->draft_ready[1 - g->my_index])
-        draw_text(r, font, "L'adversaire a valide son deck.", 20, 505, green);
+    if (g->draft_count[unit] >= N_EQUIPPED) {
+        SDL_Rect vb = draft_btn();
+        SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
+        SDL_RenderFillRect(r, &vb);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderDrawRect(r, &vb);
+        draw_text(r, font, "VALIDER LE DECK (clic)", vb.x + 8, vb.y + 8, white);
+    }
+    {
+        int slot;
+        for (slot = 0; slot < g->team_size; slot++)
+            if (g->draft_ready[unit_for_slot(g, 1 - g->my_index, slot)] == 1) {
+                snprintf(line, sizeof line, "T%d a valide son deck (%d/%d)",
+                         2 - g->my_index, slot + 1, g->team_size);
+                draw_text(r, font, line, 300, 505 + slot*20, green);
+            }
+    }
+}
+
+/* ecran de choix de panoplie (apres le draft, avant le combat)          */
+static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    SDL_Color white = {255,255,255,255};
+    SDL_Color green = {80,255,120,255};
+    char line[160];
+    int i;
+    int unit = unit_for_slot(g, g->my_index, g->setup_unit);
+    snprintf(line, sizeof line, "PERSO %d - choisissez votre panoplie",
+             g->setup_unit + 1);
+    draw_text(r, font, line, 20, 20, white);
+    for (i = 0; i < N_PANOPLIES; i++) {
+        Panoplie *p = &PANOPLIES[i];
+        SDL_Rect b = stuff_card(i);
+        if (g->stuff_chosen[unit] == i)
+            SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
+        else
+            SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
+        SDL_RenderFillRect(r, &b);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderDrawRect(r, &b);
+        snprintf(line, sizeof line, "%d %s", i+1, p->name);
+        draw_text(r, font, line, b.x + 6, b.y + 4, white);
+        /* resume des bonus */
+        snprintf(line, sizeof line, "PV+%d DMG+%d%% SOIN+%d%% PUI+%d PORTE+%d",
+                 p->hp_bonus, p->dmg_pct, p->heal_pct, p->puissance, p->range_bonus);
+        draw_text(r, font, line, b.x + 6, b.y + 24, white);
+        snprintf(line, sizeof line, "PA+%d PM+%d RETPA-%d RETPM-%d RENVOI-%d",
+                 p->pa_bonus, p->pm_bonus, p->ret_pa, p->ret_pm, p->reflect);
+        draw_text(r, font, line, b.x + 6, b.y + 44, white);
+        snprintf(line, sizeof line, "(%s)", p->desc);
+        draw_text(r, font, line, b.x + 6, b.y + 64, white);
+    }
+    if (g->stuff_chosen[unit] >= 0) {
+        snprintf(line, sizeof line, "Votre panoplie : %s",
+                 PANOPLIES[g->stuff_chosen[unit]].name);
+        draw_text(r, font, line, 20, 480, green);
+    }
+    if (g->menu_status[0])
+        draw_text(r, font, g->menu_status, 300, 480, green);
+    {
+        int i;
+        for (i = 0; i < MAX_FAVORITES; i++) {
+            SDL_Rect b = stuff_favorite_btn(i);
+            SDL_SetRenderDrawColor(r, 55, 75, 65, 255);
+            SDL_RenderFillRect(r, &b);
+            SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
+            SDL_RenderDrawRect(r, &b);
+            snprintf(line, sizeof line, "SAUVER F%d", i + 1);
+            draw_text(r, font, line, b.x + 5, b.y + 10, white);
+        }
+        {
+            SDL_Rect b = {520, 500, 130, 34};
+            SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
+            SDL_RenderFillRect(r, &b);
+            SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
+            SDL_RenderDrawRect(r, &b);
+            draw_text(r, font, "CONTINUER", b.x + 8, b.y + 8, white);
+        }
+    }
+}
+
+static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    static const char *names[ELEMENT_COUNT] = {"AIR", "FEU", "TERRE", "EAU"};
+    static const SDL_Rect element_icons[ELEMENT_COUNT] = {
+        {490, 181, 120, 141}, {665, 181, 123, 141},
+        {831, 181, 124, 141}, {977, 181, 108, 141}
+    };
+    Fighter *f = &g->f[unit_for_slot(g, g->my_index, g->setup_unit)];
+    int i, total = 0;
+    char line[128];
+    SDL_Color white = {255, 255, 255, 255};
+    SDL_Color grey = {155, 155, 155, 255};
+    for (i = 0; i < ELEMENT_COUNT; i++) total += f->elements[i];
+    snprintf(line, sizeof line, "PERSO %d - repartissez %d points elementaires",
+             g->setup_unit + 1, ELEMENT_POINTS);
+    draw_text(r, font, line, 20, 20, white);
+    draw_text(r, font, "Initiative = Air (un malus Air reduit temporairement l'initiative).",
+              20, 50, grey);
+    draw_text(r, font, "Les boutons modifient la repartition par pas de 5 points.",
+              20, 75, grey);
+    draw_text(r, font, "Elements : Air (Agilite), Feu (Intelligence), Terre (Force), Eau (Chance).",
+              20, 100, grey);
+    for (i = 0; i < ELEMENT_COUNT; i++) {
+        SDL_Rect minus = element_btn(i, 0), plus = element_btn(i, 1);
+        SDL_Rect icon = {25, 158 + i * 60, 52, 52};
+        draw_ui_sprite(r, element_icons[i], icon);
+        snprintf(line, sizeof line, "%s : %d", names[i], f->elements[i]);
+        draw_text(r, font, line, 100, 169 + i*60, white);
+        SDL_SetRenderDrawColor(r, 110, 65, 65, 255);
+        SDL_RenderFillRect(r, &minus);
+        SDL_SetRenderDrawColor(r, 210, 210, 210, 255);
+        SDL_RenderDrawRect(r, &minus);
+        draw_text(r, font, "-5", minus.x + 18, minus.y + 8, white);
+        SDL_SetRenderDrawColor(r, 55, 115, 65, 255);
+        SDL_RenderFillRect(r, &plus);
+        SDL_SetRenderDrawColor(r, 210, 210, 210, 255);
+        SDL_RenderDrawRect(r, &plus);
+        draw_text(r, font, "+5", plus.x + 18, plus.y + 8, white);
+    }
+    snprintf(line, sizeof line, "Points repartis : %d/%d", total, ELEMENT_POINTS);
+    draw_text(r, font, line, 100, 410, white);
+    {
+        SDL_Rect done = {100, 460, 250, 42};
+        SDL_SetRenderDrawColor(r, total == ELEMENT_POINTS ? 55 : 45,
+                               total == ELEMENT_POINTS ? 140 : 55,
+                               total == ELEMENT_POINTS ? 65 : 55, 255);
+        SDL_RenderFillRect(r, &done);
+        SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
+        SDL_RenderDrawRect(r, &done);
+        draw_text(r, font, "VALIDER PERSONNAGE", done.x + 14, done.y + 12, white);
+    }
 }
 
 static void draft_click(Game *g, int mx, int my)
 {
     int i;
-    int cls = g->class_chosen[g->my_index];
+    int unit = unit_for_slot(g, g->my_index, g->setup_unit);
+    int cls = g->class_chosen[unit];
     if (cls < 0) return;
     for (i = 0; i < N_CLASS_SPELLS; i++) {
         int col = i % 4, row = i / 4;
         SDL_Rect b = {10 + col * 175, 60 + row * 100, 170, 96};
         if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
-            if (!g->draft[g->my_index][i] && g->draft_count[g->my_index] < N_EQUIPPED) {
-                g->draft[g->my_index][i] = 1;
-                g->draft_count[g->my_index]++;
-            } else if (g->draft[g->my_index][i]) {
-                g->draft[g->my_index][i] = 0;
-                g->draft_count[g->my_index]--;
+            if (!g->draft[unit][i] && g->draft_count[unit] < N_EQUIPPED) {
+                g->draft[unit][i] = 1;
+                g->draft_count[unit]++;
+            } else if (g->draft[unit][i]) {
+                g->draft[unit][i] = 0;
+                g->draft_count[unit]--;
             }
             break;
         }
@@ -1008,21 +2509,34 @@ int main(int argc, char **argv)
     SDL_Window *win = NULL;
     SDL_Renderer *ren = NULL;
     TTF_Font *font = NULL;
-    int i, j, running = 1;
+    int i, j, running = 1, audio_scene = -1;
 
     memset(&game, 0, sizeof game);
     game.my_index = 0;
+    game.team_size = 1;
+    game.team_size_choice = 1;
+    game.net.sock = SOCK_INVALID;
+    game.net.role = NET_NONE;
     game.sel_skill = -1;
     game.winner = -1;
-    for (i = 0; i < 2; i++) {
+    game.selected_favorite = -1;
+    game.emote_fighter = -1;
+    for (i = 0; i < MAX_FIGHTERS; i++) {
         game.class_chosen[i] = -1;
-        game.draft_ready[i] = 0;
+        game.draft_ready[i] = -1;
         game.draft_count[i] = 0;
+        game.stuff_chosen[i] = -1;
+        game.stuff_ready[i] = -1;
         for (j = 0; j < N_CLASS_SPELLS; j++) game.draft[i][j] = 0;
     }
+    favorites_load(&game);
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
-    if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) { fprintf(stderr, "IMG\n"); return 1; }
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    if ((IMG_Init(IMG_INIT_PNG | IMG_INIT_WEBP)
+     & (IMG_INIT_PNG | IMG_INIT_WEBP)) != (IMG_INIT_PNG | IMG_INIT_WEBP)) {
+    fprintf(stderr, "SDL_image (PNG/WebP): %s\n", IMG_GetError());
+    return 1;
+    }
     if (TTF_Init() != 0) { fprintf(stderr, "TTF\n"); return 1; }
     if (!net_init()) { fprintf(stderr, "WSA\n"); return 1; }
 
@@ -1031,22 +2545,49 @@ int main(int argc, char **argv)
                            WIN_W, WIN_H, 0);
     ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     font = TTF_OpenFont("assets/font.ttf", 16);
-    if (!font) font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16);
+#ifdef _WIN32
+    if (!font) {
+        const char *windows_dir = getenv("WINDIR");
+        char font_path[512];
+        if (windows_dir) {
+            int path_len = snprintf(font_path, sizeof font_path,
+                                    "%s\\Fonts\\segoeui.ttf", windows_dir);
+            if (path_len >= 0 && (size_t)path_len < sizeof font_path)
+                font = TTF_OpenFont(font_path, 16);
+        }
+    }
+    if (!font) {
+        fprintf(stderr, "Police introuvable (assets/font.ttf ou Windows Segoe UI).\n");
+    }
+#else
+    if (!font)
+        font = TTF_OpenFont("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16);
+    if (!font)
+        fprintf(stderr, "Police introuvable (assets/font.ttf / DejaVu Sans).\n");
+#endif
 
-    for (i = 0; i < N_ASSETS; i++) g_assets[i] = load_asset(ren, ASSET_PATHS[i]);
+    g_tilesheet = load_asset(ren, "assets/tiles/tilesheet.png");
+    load_ui_atlas(ren);
+    load_visual_effects(ren);
+    load_audio();
 
     if (argc >= 2 && !strcmp(argv[1], "host")) {
+        if (argc >= 3) {
+            int size = atoi(argv[2]);
+            if (size == 1 || size == 2 || size == 5)
+                game.team_size_choice = size;
+        }
+        game.team_size = game.team_size_choice;
         if (!net_open(&game, NET_HOST, NULL)) { fprintf(stderr, "bind 7777 impossible\n"); return 1; }
         game.state = ST_MENU;
+        snprintf(game.menu_status, sizeof game.menu_status,
+                 "En attente sur UDP 7777. Partagez votre IP publique.");
         printf("En attente sur le port %d...\n", PORT);
     } else if (argc >= 3 && !strcmp(argv[1], "join")) {
-        if (!net_open(&game, NET_JOIN, argv[2])) { fprintf(stderr, "ip invalide\n"); return 1; }
-        game.my_index = 1;
-        net_send(&game, "HELLO client");
-        game.state = ST_PICK;
+        snprintf(game.ip_text, sizeof game.ip_text, "%s", argv[2]);
+        if (!net_begin_join(&game, game.ip_text)) { fprintf(stderr, "ip invalide\n"); return 1; }
     } else {
         game.state = ST_MENU;
-        game.net.sock = SOCK_INVALID;
     }
 
     while (running) {
@@ -1056,79 +2597,411 @@ int main(int argc, char **argv)
                 running = 0;
                 if (game.net.sock != SOCK_INVALID) net_send(&game, "BYE");
             } else if (ev.type == SDL_KEYDOWN) {
+                /* CLAVIER : uniquement pour taper un message de chat   */
                 SDL_Keycode k = ev.key.keysym.sym;
+                if (game.chat_active) {
+                    size_t len = strlen(game.chat_input);
+                    if (k == SDLK_RETURN) {
+                        if (len > 0) {
+                            char msg[300];
+                            snprintf(msg, sizeof msg, "CHAT %d %s",
+                                     game.my_index, game.chat_input);
+                            net_send(&game, msg);
+                            {   /* affichage local immediate            */
+                                char line[128];
+                                snprintf(line, sizeof line, "Vous> %s",
+                                         game.chat_input);
+                                if (game.chat_log_n < 6) {
+                                    strcpy(game.chat_log[game.chat_log_n], line);
+                                    game.chat_log_n++;
+                                } else {
+                                    int q;
+                                    for (q = 0; q < 5; q++)
+                                        strcpy(game.chat_log[q], game.chat_log[q+1]);
+                                    strcpy(game.chat_log[5], line);
+                                }
+                            }
+                            game.chat_input[0] = 0;
+                        }
+                        game.chat_active = 0;
+                    } else if (k == SDLK_ESCAPE) {
+                        game.chat_active = 0;
+                    } else if (k == SDLK_BACKSPACE && len > 0) {
+                        game.chat_input[len - 1] = 0;
+                    } else if (k >= 32 && k <= 126
+                               && len < sizeof game.chat_input - 1) {
+                        game.chat_input[len] = (char)k;
+                        game.chat_input[len + 1] = 0;
+                    }
+                } else if (game.state == ST_MENU && game.ip_editing) {
+                    size_t len = strlen(game.ip_text);
+                    if (k == SDLK_RETURN || k == SDLK_ESCAPE) {
+                        game.ip_editing = 0;
+                        SDL_StopTextInput();
+                    } else if (k == SDLK_BACKSPACE && len > 0) {
+                        game.ip_text[len - 1] = 0;
+                    }
+                } else if (game.state == ST_BATTLE
+                           && game.f[game.turn].team == game.my_index) {
+                    static const int emotes[8] = {0,1,2,3,16,17,18,19};
+                    if (k == SDLK_e) {
+                        game.emote_menu_open = !game.emote_menu_open;
+                        play_sound(game.emote_menu_open
+                                   ? SFX_MENU_SELECT : SFX_MENU_CANCEL);
+                    } else if (game.emote_menu_open
+                               && k >= SDLK_1 && k <= SDLK_8) {
+                        show_emote(&game, game.turn, emotes[k - SDLK_1]);
+                        play_sound(SFX_MENU_SELECT);
+                    } else if (game.emote_menu_open && k == SDLK_ESCAPE) {
+                        game.emote_menu_open = 0;
+                        play_sound(SFX_MENU_CANCEL);
+                    }
+                }
+            } else if (ev.type == SDL_TEXTINPUT
+                       && game.state == ST_MENU && game.ip_editing) {
+                const char *text = ev.text.text;
+                while (*text && strlen(game.ip_text) < sizeof game.ip_text - 1) {
+                    size_t len = strlen(game.ip_text);
+                    if ((*text >= '0' && *text <= '9') || *text == '.') {
+                        game.ip_text[len] = *text;
+                        game.ip_text[len + 1] = 0;
+                    }
+                    text++;
+                }
+            } else if (ev.type == SDL_MOUSEBUTTONDOWN
+                       && ev.button.button == SDL_BUTTON_LEFT) {
+                int mx = ev.button.x, my = ev.button.y;
                 if (game.state == ST_MENU) {
-                    if (k == SDLK_h && game.net.sock == SOCK_INVALID) {
-                        net_open(&game, NET_HOST, NULL);
-                    } else if (k == SDLK_j && game.net.sock == SOCK_INVALID) {
-                        net_open(&game, NET_JOIN, "127.0.0.1");
-                        game.my_index = 1;
-                        net_send(&game, "HELLO client");
+                    if (game.ip_editing) {
+                        /* clavier virtuel IP                            */
+                        int kb;
+                        for (kb = 0; kb < 12; kb++) {
+                            SDL_Rect b = menu_kbd(kb);
+                            if (pt_in(b, mx, my)) {
+                                size_t len = strlen(game.ip_text);
+                                static const char K[12] =
+                                    {'1','2','3','4','5','6','7','8','9','0','.','\b'};
+                                if (K[kb] == '\b') {
+                                    if (len > 0) game.ip_text[len-1] = 0;
+                                } else if (len < sizeof game.ip_text - 1) {
+                                    game.ip_text[len] = K[kb];
+                                    game.ip_text[len+1] = 0;
+                                }
+                            }
+                        }
+                        SDL_Rect ok = {20 + 6*55, 180 + 45, 160, 40};
+                        if (pt_in(ok, mx, my)) {
+                            game.ip_editing = 0;
+                            SDL_StopTextInput();
+                        }
+                    } else {
+                        SDL_Rect bi = menu_btn_ipfield();
+                        SDL_Rect bh = menu_btn_host();
+                        SDL_Rect bj = menu_btn_join();
+                        int handled = 0;
+                        static const int sizes[3] = {1, 2, 5};
+                        int q;
+                        for (q = 0; q < 3; q++) {
+                            if (pt_in(menu_size_btn(q), mx, my)) {
+                                game.team_size_choice = sizes[q];
+                                if (game.net.role == NET_HOST
+                                    && !game.net.connected)
+                                    game.team_size = sizes[q];
+                                handled = 1;
+                                break;
+                            }
+                        }
+                        for (q = 0; !handled && q < MAX_FAVORITES; q++) {
+                            if (pt_in(favorite_btn(q), mx, my)) {
+                                game.selected_favorite = q;
+                                snprintf(game.menu_status,
+                                         sizeof game.menu_status,
+                                         game.favorite_class[q] >= 0
+                                         ? "Favori selectionne : F%d."
+                                         : "Emplacement de favori F%d vide.",
+                                         q + 1);
+                                handled = 1;
+                            }
+                        }
+                        if (!handled && pt_in(bh, mx, my)
+                            && game.net.sock == SOCK_INVALID) {
+                            if (game.net.role == NET_JOIN) {
+                                if (!net_begin_join(&game, game.ip_text)) {
+                                    snprintf(game.menu_status,
+                                             sizeof game.menu_status,
+                                             "Reconnexion impossible : verifiez l'IP IPv4.");
+                                }
+                            } else {
+                                game.team_size = game.team_size_choice;
+                                if (!net_open(&game, NET_HOST, NULL)) {
+                                    fprintf(stderr, "bind 7777 impossible\n");
+                                    snprintf(game.menu_status,
+                                             sizeof game.menu_status,
+                                             "Impossible d'ouvrir le port UDP 7777.");
+                                } else {
+                                    printf("En attente sur le port %d...\n", PORT);
+                                    snprintf(game.menu_status,
+                                             sizeof game.menu_status,
+                                             "En attente sur UDP 7777. Partagez votre IP publique.");
+                                }
+                            }
+                        } else if (!handled && pt_in(bi, mx, my)) {
+                            game.ip_editing = 1;
+                            SDL_StartTextInput();
+                        } else if (!handled && pt_in(bj, mx, my)
+                                  && game.net.sock == SOCK_INVALID) {
+                            if (!game.ip_text[0]) {
+                                snprintf(game.menu_status,
+                                         sizeof game.menu_status,
+                                         "Saisissez l'IP IPv4 de l'hote.");
+                            } else if (net_begin_join(&game, game.ip_text)) {
+                                /* net_begin_join affiche l'etat de connexion. */
+                            } else {
+                                fprintf(stderr, "IP invalide\n");
+                                snprintf(game.menu_status,
+                                         sizeof game.menu_status,
+                                         "IP invalide : entrez une adresse IPv4.");
+                            }
+                        }
                     }
                 } else if (game.state == ST_PICK) {
-                    int pick = -1;
-                    if (k >= SDLK_1 && k <= SDLK_9) pick = (int)(k - SDLK_1);
-                    else if (k >= SDLK_a && k <= SDLK_c) pick = 9 + (int)(k - SDLK_a);
-                    if (pick >= 0 && pick < N_CLASSES) {
-                        if (pick >= N_PLAYABLE) {
-                            /* Roublard indisponible pour l'instant    */
-                        } else {
-                            game.class_chosen[game.my_index] = pick;
+                    int pick, slot = game.setup_unit;
+                    int unit = unit_for_slot(&game, game.my_index, slot);
+                    int handled = 0;
+                    for (pick = 0; pick < MAX_FAVORITES; pick++) {
+                        if (game.favorite_class[pick] >= 0
+                            && pt_in(pick_favorite_rect(pick), mx, my)) {
+                            int msg_unit = unit;
+                            game.class_chosen[unit] = game.favorite_class[pick];
+                            game.stuff_chosen[unit] = game.favorite_pano[pick];
+                            {
+                                char msg[32];
+                                snprintf(msg, sizeof msg, "CLASS %d %d",
+                                         msg_unit, game.class_chosen[unit]);
+                                net_send(&game, msg);
+                                snprintf(msg, sizeof msg, "STUFF %d %d",
+                                         msg_unit, game.stuff_chosen[unit]);
+                                net_send(&game, msg);
+                            }
+                            advance_setup(&game);
+                            handled = 1;
+                            break;
+                        }
+                    }
+                    if (handled) continue;
+                    for (pick = 0; pick < N_CLASSES; pick++) {
+                        if (CLASS_CUT_INDEX[pick] < 0) continue;
+                        if (pt_in(pick_class_rect(pick), mx, my)) {
+                            game.class_chosen[unit] = pick;
+                            if (game.selected_favorite >= 0
+                                && game.selected_favorite < MAX_FAVORITES
+                                && game.favorite_class[game.selected_favorite] == pick)
+                                game.stuff_chosen[unit] =
+                                    game.favorite_pano[game.selected_favorite];
                             char msg[32];
                             snprintf(msg, sizeof msg, "CLASS %d %d",
-                                     game.my_index, pick);
+                                     unit, pick);
                             net_send(&game, msg);
-                            if (game.class_chosen[0] >= 0 && game.class_chosen[1] >= 0)
-                                game.state = ST_DRAFT;
+                            if (game.stuff_chosen[unit] >= 0) {
+                                snprintf(msg, sizeof msg, "STUFF %d %d",
+                                         unit, game.stuff_chosen[unit]);
+                                net_send(&game, msg);
+                            }
+                            advance_setup(&game);
+                            break;
                         }
                     }
                 } else if (game.state == ST_DRAFT) {
-                    int s = -1;
-                    if (k >= SDLK_1 && k <= SDLK_9) s = (int)(k - SDLK_1);
-                    else if (k >= SDLK_a && k <= SDLK_g) s = 9 + (int)(k - SDLK_a);
-                    if (s >= 0 && s < N_CLASS_SPELLS) {
-                        if (!game.draft[game.my_index][s]
-                            && game.draft_count[game.my_index] < N_EQUIPPED) {
-                            game.draft[game.my_index][s] = 1;
-                            game.draft_count[game.my_index]++;
-                        } else if (game.draft[game.my_index][s]) {
-                            game.draft[game.my_index][s] = 0;
-                            game.draft_count[game.my_index]--;
+                    SDL_Rect vb = draft_btn();
+                    int unit = unit_for_slot(&game, game.my_index,
+                                             game.setup_unit);
+                    if (pt_in(vb, mx, my)
+                        && game.draft_count[unit] == N_EQUIPPED) {
+                        sync_draft(&game, unit);
+                    } else {
+                        draft_click(&game, mx, my);
+                    }
+                } else if (game.state == ST_STUFF) {
+                    int p, unit = unit_for_slot(&game, game.my_index,
+                                                game.setup_unit);
+                    for (p = 0; p < N_PANOPLIES; p++) {
+                        if (pt_in(stuff_card(p), mx, my)) {
+                            game.stuff_chosen[unit] = p;
+                            break;
                         }
-                    } else if (k == SDLK_RETURN
-                               && game.draft_count[game.my_index] == N_EQUIPPED) {
-                        sync_draft(&game, game.my_index);
+                    }
+                    for (p = 0; p < MAX_FAVORITES; p++) {
+                        if (pt_in(stuff_favorite_btn(p), mx, my)
+                            && game.class_chosen[unit] >= 0
+                            && game.stuff_chosen[unit] >= 0) {
+                            game.favorite_class[p] = game.class_chosen[unit];
+                            game.favorite_pano[p] = game.stuff_chosen[unit];
+                            game.selected_favorite = p;
+                            snprintf(game.menu_status, sizeof game.menu_status,
+                                     favorites_save(&game)
+                                     ? "Favori F%d enregistre."
+                                     : "Erreur : impossible d'enregistrer le favori F%d.",
+                                     p + 1);
+                            break;
+                        }
+                    }
+                    {
+                        SDL_Rect done = {520, 500, 130, 34};
+                        if (pt_in(done, mx, my)
+                            && game.stuff_chosen[unit] >= 0)
+                            sync_stuff(&game, unit);
+                    }
+                } else if (game.state == ST_ELEMENTS) {
+                    Fighter *f = &game.f[unit_for_slot(&game, game.my_index,
+                                                       game.setup_unit)];
+                    int element, total = 0, i;
+                    for (i = 0; i < ELEMENT_COUNT; i++)
+                        total += f->elements[i];
+                    for (element = 0; element < ELEMENT_COUNT; element++) {
+                        if (pt_in(element_btn(element, 0), mx, my)
+                            && f->elements[element] >= 5)
+                            f->elements[element] -= 5;
+                        else if (pt_in(element_btn(element, 1), mx, my)
+                                 && total <= ELEMENT_POINTS - 5
+                                 && f->elements[element] <= ELEMENT_POINTS - 5)
+                            f->elements[element] += 5;
+                    }
+                    {
+                        SDL_Rect done = {100, 460, 250, 42};
+                        if (pt_in(done, mx, my)) {
+                            total = 0;
+                            for (i = 0; i < ELEMENT_COUNT; i++)
+                                total += f->elements[i];
+                            if (total == ELEMENT_POINTS) {
+                                int unit = (int)(f - game.f);
+                                char msg[96];
+                                snprintf(msg, sizeof msg, "ELEMENTS %d %d %d %d %d",
+                                         unit, f->elements[ELEM_AIR],
+                                         f->elements[ELEM_FIRE],
+                                         f->elements[ELEM_EARTH],
+                                         f->elements[ELEM_WATER]);
+                                net_send(&game, msg);
+                                game.draft_ready[unit] = 2;
+                                advance_setup(&game);
+                            }
+                        }
                     }
                 } else if (game.state == ST_BATTLE) {
-                    if (k == SDLK_SPACE && game.turn == game.my_index)
-                        end_turn(&game, 0);
-                    else if (k >= SDLK_1 && k <= SDLK_4)
-                        game.sel_skill = (int)(k - SDLK_1);
-                }
-            } else if (ev.type == SDL_MOUSEBUTTONDOWN) {
-                int mx = ev.button.x, my = ev.button.y;
-                if (game.state == ST_DRAFT) {
-                    draft_click(&game, mx, my);
-                } else if (game.state == ST_BATTLE) {
-                    if (mx < GRID_W * TILE && my < GRID_H * TILE) {
-                        int tx = mx / TILE, ty = my / TILE;
-                        if (game.sel_skill >= 0) try_cast(&game, tx, ty);
-                        else                    try_move(&game, tx, ty);
-                    } else if (game.turn == game.my_index) {
-                        int y0 = GRID_H * TILE;
+                    int y0 = GRID_H * TILE;
+                    int ox = map_origin_x(&game), oy = map_origin_y(&game);
+                    int handled = 0;
+                    if (game.emote_menu_open) {
+                        static const int emotes[8] = {0,1,2,3,16,17,18,19};
+                        int option;
+                        for (option = 0; option < 8; option++) {
+                            if (pt_in(emote_option_rect(option), mx, my)) {
+                                show_emote(&game, game.turn, emotes[option]);
+                                play_sound(SFX_MENU_SELECT);
+                                handled = 1;
+                                break;
+                            }
+                        }
+                        if (!handled) {
+                            game.emote_menu_open = 0;
+                            play_sound(SFX_MENU_CANCEL);
+                        }
+                    }
+                    if (!handled && mx >= ox && mx < ox + game.map_width * TILE
+                        && my >= oy && my < oy + game.map_height * TILE) {
+                        int tx = (mx - ox) / TILE, ty = (my - oy) / TILE;
+                        if (game.cell[ty][tx] == CELL_GROUND) {
+                            if (game.sel_skill >= 0) try_cast(&game, tx, ty);
+                            else                    try_move(&game, tx, ty);
+                        }
+                    } else if (!handled && my >= GRID_H * TILE) {
+                        /* barre de sorts : clic pour selectionner      */
                         int k;
                         for (k = 0; k < N_EQUIPPED; k++) {
-                            SDL_Rect b = {10 + k*190, y0 + 30, 180, 56};
-                            if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h)
+                            SDL_Rect b = {10 + k*165, y0 + 30, 160, 56};
+                            if (pt_in(b, mx, my))
                                 game.sel_skill = (game.sel_skill == k) ? -1 : k;
                         }
+                        /* fin de tour                                   */
+                        if (game.f[game.turn].team == game.my_index
+                            && pt_in(endturn_btn(y0), mx, my))
+                            end_turn(&game, 0);
+                        /* chat : bouton / champ / envoyer               */
+                        if (pt_in(chat_btn(y0), mx, my)
+                            || pt_in(chat_field(y0), mx, my))
+                            game.chat_active = !game.chat_active;
+                        if (pt_in(chat_send(y0), mx, my)) {
+                            if (game.chat_input[0]) {
+                                char msg[300];
+                                snprintf(msg, sizeof msg, "CHAT %d %s",
+                                         game.my_index, game.chat_input);
+                                net_send(&game, msg);
+                                {
+                                    char line[128];
+                                    snprintf(line, sizeof line, "Vous> %s",
+                                             game.chat_input);
+                                    if (game.chat_log_n < 6) {
+                                        strcpy(game.chat_log[game.chat_log_n],
+                                               line);
+                                        game.chat_log_n++;
+                                    } else {
+                                        int q;
+                                        for (q = 0; q < 5; q++)
+                                            strcpy(game.chat_log[q],
+                                                   game.chat_log[q+1]);
+                                        strcpy(game.chat_log[5], line);
+                                    }
+                                }
+                                game.chat_input[0] = 0;
+                            }
+                            game.chat_active = 0;
+                        }
                     }
+                } else if (game.state == ST_GAMEOVER) {
+                    /* clic pour quitter                                  */
+                    running = 0;
+                    if (game.net.sock != SOCK_INVALID) net_send(&game, "BYE");
                 }
             }
         }
 
-        if (game.net.sock != SOCK_INVALID)
+        if (game.net.sock != SOCK_INVALID) {
+            Uint32 now;
             net_poll(&game);
+            now = SDL_GetTicks();
+            if (game.net.sock != SOCK_INVALID) {
+                if (game.net.connected) {
+                    if (now - game.net.last_recv_ms >= NET_TIMEOUT_MS) {
+                        net_disconnect(&game,
+                            "Connexion perdue. Cliquez RECONNECTER pour relancer.");
+                    } else if (now - game.net.last_keepalive_ms
+                               >= NET_KEEPALIVE_MS) {
+                        net_send(&game, "PING");
+                        game.net.last_keepalive_ms = now;
+                    }
+                } else if (game.net.role == NET_JOIN) {
+                    if (now - game.net.connect_started_ms
+                        >= NET_CONNECT_TIMEOUT_MS) {
+                        net_disconnect(&game,
+                            "Delai de connexion depasse. Verifiez l'IP/UDP 7777 puis RECONNECTER.");
+                    } else if (now - game.net.last_keepalive_ms
+                               >= NET_KEEPALIVE_MS) {
+                        net_send(&game, "HELLO client");
+                        game.net.last_keepalive_ms = now;
+                    }
+                }
+            }
+        }
+        {
+            int scene = game.state == ST_BATTLE ? 1
+                      : game.state == ST_GAMEOVER ? 2 : 0;
+            if (scene != audio_scene) {
+                play_music_for_state(game.state);
+                if (scene == 2)
+                    play_sound(game.winner == game.my_index
+                               ? SFX_VICTORY : SFX_GAME_OVER);
+                audio_scene = scene;
+            }
+        }
         anim_update(&game);
 
         SDL_SetRenderDrawColor(ren, 15, 15, 15, 255);
@@ -1138,22 +3011,31 @@ int main(int argc, char **argv)
         case ST_MENU:     draw_menu(ren, font, &game); break;
         case ST_PICK:     draw_pick(ren, font, &game); break;
         case ST_DRAFT:    draw_draft(ren, font, &game); break;
+        case ST_STUFF:    draw_stuff(ren, font, &game); break;
+        case ST_ELEMENTS: draw_elements(ren, font, &game); break;
         case ST_BATTLE: {
-            int a, b;
-            for (b = 0; b < GRID_H; b++)
-                for (a = 0; a < GRID_W; a++)
-                    draw_tile(ren, a, b, game.blocked[b][a]);
-            draw_fighter(ren, &game, 0, font);
-            draw_fighter(ren, &game, 1, font);
+            int a, b, fighter;
+            for (b = 0; b < game.map_height; b++)
+                for (a = 0; a < game.map_width; a++)
+                    draw_tile(ren, &game, a, b, game.cell[b][a]);
+            for (fighter = 0; fighter < 2 * game.team_size; fighter++)
+                draw_fighter(ren, &game, fighter, font);
+            draw_vfx(&game, ren);
             draw_skillbar(ren, &game, font);
+            draw_emote_menu(&game, ren, font);
             break;
         }
         case ST_GAMEOVER: {
             SDL_Color w = {255,255,255,255};
             char msg[64];
-            snprintf(msg, sizeof msg, "%s gagne ! (Echap pour quitter)",
-                     game.winner == game.my_index ? "Vous" : "Adversaire");
-            draw_text(ren, font, msg, WIN_W/2 - 150, WIN_H/2, w);
+            SDL_Rect banner = {20, WIN_H/2 - 55, WIN_W - 40, 58};
+            SDL_SetRenderDrawColor(ren, 35, 28, 24, 235);
+            SDL_RenderFillRect(ren, &banner);
+            SDL_SetRenderDrawColor(ren, 205, 170, 105, 255);
+            SDL_RenderDrawRect(ren, &banner);
+            snprintf(msg, sizeof msg, "%s gagne ! (clic pour quitter)",
+                     game.winner == game.my_index ? "Votre equipe" : "Equipe adverse");
+            draw_text(ren, font, msg, WIN_W/2 - 150, banner.y + 20, w);
             break;
         }
         }
@@ -1164,8 +3046,24 @@ int main(int argc, char **argv)
 
     if (game.net.sock != SOCK_INVALID)
         net_close(game.net.sock);
-    for (i = 0; i < N_ASSETS; i++)
-        if (g_assets[i]) SDL_DestroyTexture(g_assets[i]);
+    if (g_ui_atlas) SDL_DestroyTexture(g_ui_atlas);
+    if (g_tilesheet) SDL_DestroyTexture(g_tilesheet);
+    if (g_character_cut_sheet) SDL_DestroyTexture(g_character_cut_sheet);
+    if (g_spell_icons) SDL_DestroyTexture(g_spell_icons);
+    if (g_emote_sheet) SDL_DestroyTexture(g_emote_sheet);
+    for (i = 0; i < VFX_FRAME_COUNT; i++)
+        if (g_vfx_frames[i]) SDL_DestroyTexture(g_vfx_frames[i]);
+    if (g_audio_ready) {
+        Mix_HaltMusic();
+        Mix_HaltChannel(-1);
+        if (g_menu_music) Mix_FreeMusic(g_menu_music);
+        for (i = 0; i < 4; i++)
+            if (g_battle_music[i]) Mix_FreeMusic(g_battle_music[i]);
+        for (i = 0; i < SFX_COUNT; i++)
+            if (g_sounds[i]) Mix_FreeChunk(g_sounds[i]);
+        Mix_CloseAudio();
+    }
+    Mix_Quit();
     if (font) TTF_CloseFont(font);
     if (ren) SDL_DestroyRenderer(ren);
     if (win) SDL_DestroyWindow(win);

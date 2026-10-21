@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://clujo26lrt44o"
+path="res://.godot/imported/ES_Thunder Storm 03 - Fredrik Ekstrom.mp3-1d422f019e8c897847503f230233b68e.mp3str"
+
+[deps]
+
+source_file="res://BGM/ES_Thunder Storm 03 - Fredrik Ekstrom.mp3"
+dest_files=["res://.godot/imported/ES_Thunder Storm 03 - Fredrik Ekstrom.mp3-1d422f019e8c897847503f230233b68e.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

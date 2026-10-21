@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://dyck6dqcfdy6x"
+path="res://.godot/imported/ES_Terra Requiem II - Dian Shuai.mp3-6301524399a8f5fccac5a9956b12197b.mp3str"
+
+[deps]
+
+source_file="res://BGM/ES_Terra Requiem II - Dian Shuai.mp3"
+dest_files=["res://.godot/imported/ES_Terra Requiem II - Dian Shuai.mp3-6301524399a8f5fccac5a9956b12197b.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

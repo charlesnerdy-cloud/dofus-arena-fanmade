@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://djy67spuov2xy"
+path="res://.godot/imported/ES_Dragon's Honor - Yi Nantiro.mp3-9e90ab3ec81d9b335eb96b3a68a8179e.mp3str"
+
+[deps]
+
+source_file="res://BGM/Menu/ES_Dragon's Honor - Yi Nantiro.mp3"
+dest_files=["res://.godot/imported/ES_Dragon's Honor - Yi Nantiro.mp3-9e90ab3ec81d9b335eb96b3a68a8179e.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
