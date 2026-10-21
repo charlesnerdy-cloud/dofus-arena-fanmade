@@ -5,6 +5,7 @@ Jeu de combat tactique 1v1 en Peer-to-Peer inspiré de Dofus Arena, en C / SDL2.
 - P2P en UDP (port 7777) : `./dofus-arena host` / `./dofus-arena join <ip>`
 - Modes 1v1, 2v2 et 5v5 : chaque joueur controle une equipe T1/T2
 - Mode solo : jouez contre une IA classique ou un bot neuronal embarqué qui affine le choix des attaques
+- Défi local immédiat : `./dofus-arena challenge 424242` lance le bot neuronal avec une graine reproductible
 - 13 classes, 16 sorts chacune, draft de 4 sorts par personnage
 - Arènes générées aléatoirement (9–14 × 7–10 cases), contours et dimensions variables,
   décor de donjon tiré de `assets/tiles/tilesheet.png`
@@ -20,11 +21,29 @@ Jeu de combat tactique 1v1 en Peer-to-Peer inspiré de Dofus Arena, en C / SDL2.
     sudo apt install build-essential libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
     make
 
+## Android (Samsung Galaxy A52)
+
+Le workflow **Android build** compile un APK de débogage arm64-v8a pour les
+téléphones Android 6.0 ou ultérieurs. Sur chaque tag de version `v*`, l'APK
+est également joint à la release GitHub. Téléchargez
+`Dofus-Arena-Android-arm64-<version>.apk` depuis la release, ouvrez-le sur le
+téléphone et autorisez l'installation depuis cette source si Android le
+demande. L'interface s'utilise au toucher ; le jeu copie ses ressources dans
+le stockage privé de l'application au premier démarrage et utilise la police
+Roboto déjà fournie par Android. La connexion P2P requiert Internet.
+
 ## Installation
     sudo make install
 
 The executable is installed to `/usr/local/bin` by default. To choose a
 different prefix, use `sudo make install PREFIX=/path/to/prefix`.
+
+Pour lancer directement un défi local contre le bot neuronal, exécutez
+`./dofus-arena challenge 424242` (ou `dofus-arena.exe challenge 424242` sous
+Windows). La graine fixe le choix de l'équipe IA et la génération de l'arène ;
+vous choisissez ensuite votre personnage et vos sorts normalement. Remplacez
+`424242` par une autre valeur entière comprise entre 1 et 4294967295 pour
+générer un autre défi.
 
 ## Partie en reseau
 - L'hote choisit le format **1v1**, **2v2** ou **5v5**, puis **CREER UNE PARTIE - HEBERGER** ; l'autre joueur saisit son

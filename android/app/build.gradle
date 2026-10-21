@@ -1,0 +1,50 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "org.libsdl.app"
+    compileSdk 35
+    ndkVersion "27.2.12479018"
+
+    defaultConfig {
+        applicationId "com.gaia.dofusarena"
+        minSdk 23
+        targetSdk 35
+        versionCode 3
+        versionName "1.2"
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+
+        externalNativeBuild {
+            ndkBuild {
+                arguments "APP_PLATFORM=android-23",
+                          "APP_ABI=arm64-v8a",
+                          "SUPPORT_HARFBUZZ=false",
+                          "SUPPORT_WAVPACK=false",
+                          "SUPPORT_FLAC_DRFLAC=false"
+            }
+        }
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = ["src/main/assets"]
+        }
+    }
+
+    externalNativeBuild {
+        ndkBuild {
+            path "jni/Android.mk"
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+    }
+}

@@ -22,11 +22,21 @@
  *
  * ==========================================================================*/
 
+#ifdef __ANDROID__
+#include <SDL.h>
+#include <SDL_image.h>
+#include <SDL_ttf.h>
+#include <SDL_mixer.h>
+#include <SDL_system.h>
+#else
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
+#endif
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -602,6 +612,7 @@ typedef struct {
     int       setup_unit;
     int       solo_mode;
     int       neural_bot;
+    unsigned  challenge_seed;
     Uint32    ai_next_action_ms;
     int       turn_order[MAX_FIGHTERS];
     int       turn_pos;
@@ -830,6 +841,7 @@ static void reset_match(Game *g)
     int i;
     g->state = ST_PICK;
     g->solo_mode = 0;
+    g->challenge_seed = 0;
     g->ai_next_action_ms = 0;
     g->turn = 0;
     g->turn_count = 0;
@@ -1369,8 +1381,9 @@ static void check_stuff_start(Game *g)
             || g->stuff_chosen[i] < 0 || g->stuff_ready[i] != 1)
             return;
     if (g->solo_mode) {
-        unsigned seed = (unsigned)time(NULL) ^ SDL_GetTicks()
-                      ^ (unsigned)clock();
+        unsigned seed = g->challenge_seed;
+        if (!seed)
+            seed = (unsigned)time(NULL) ^ SDL_GetTicks() ^ (unsigned)clock();
         start_battle(g, seed);
     } else if (g->net.role == NET_HOST) {
         unsigned seed = (unsigned)time(NULL) ^ SDL_GetTicks()
@@ -1430,13 +1443,17 @@ static void prepare_ai_team(Game *g)
     }
 }
 
-static void start_solo_game(Game *g)
+static void start_solo_game(Game *g, unsigned challenge_seed)
 {
     reset_match(g);
     g->my_index = 0;
     g->team_size = g->team_size_choice;
     g->solo_mode = 1;
-    srand((unsigned)time(NULL) ^ SDL_GetTicks());
+    g->challenge_seed = challenge_seed;
+    if (challenge_seed)
+        g->neural_bot = 1;
+    srand(challenge_seed ? challenge_seed
+                         : (unsigned)time(NULL) ^ SDL_GetTicks());
     prepare_ai_team(g);
     g->menu_status[0] = 0;
 }
@@ -2279,7 +2296,9 @@ static void load_visual_effects(SDL_Renderer *renderer)
     char path[160];
     g_characters_sheet =
         load_asset(renderer, "assets/character/Characters.png");
+#ifndef __ANDROID__
     g_spell_icons = load_asset(renderer, "assets/character/spells_icon/spell4.webp");
+#endif
     g_emote_sheet = load_asset(renderer, "assets/bubble_emotes.png");
     for (i = 0; i < VFX_FRAME_COUNT; i++) {
         snprintf(path, sizeof path,
@@ -3053,9 +3072,14 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
     snprintf(line, sizeof line, "T%d - PERSONNAGE %d : choisissez la classe",
              g->my_index + 1, g->setup_unit + 1);
     draw_text(r, font, line, 20, 20, white);
-    if (g->solo_mode)
+    if (g->challenge_seed) {
+        snprintf(line, sizeof line, "Defi %u - bot neuronal",
+                 g->challenge_seed);
+        draw_text(r, font, line, 330, 20, grey);
+    } else if (g->solo_mode) {
         draw_text(r, font, "Votre adversaire IA prepare son equipe.",
                   330, 20, grey);
+    }
     int i;
     for (i = 0; i < N_CLASSES; i++) {
         snprintf(line, sizeof line, "%2d %-12s", i+1, CLASSES[i].name);
@@ -3321,6 +3345,16 @@ int main(int argc, char **argv)
     TTF_Font *font = NULL;
     int i, j, running = 1, audio_scene = -1;
 
+#ifdef __ANDROID__
+    {
+        const char *storage_path = SDL_AndroidGetInternalStoragePath();
+        if (!storage_path || chdir(storage_path) != 0) {
+            fprintf(stderr, "Android: stockage interne indisponible.\n");
+            return 1;
+        }
+    }
+#endif
+
     memset(&game, 0, sizeof game);
     game.my_index = 0;
     game.team_size = 1;
@@ -3346,8 +3380,12 @@ int main(int argc, char **argv)
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     srand((unsigned)time(NULL) ^ SDL_GetTicks() ^ (unsigned)clock());
+#ifdef __ANDROID__
+    if ((IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG) != IMG_INIT_PNG) {
+#else
     if ((IMG_Init(IMG_INIT_PNG | IMG_INIT_WEBP)
      & (IMG_INIT_PNG | IMG_INIT_WEBP)) != (IMG_INIT_PNG | IMG_INIT_WEBP)) {
+#endif
     fprintf(stderr, "SDL_image (PNG/WebP): %s\n", IMG_GetError());
     return 1;
     }
@@ -3417,6 +3455,28 @@ int main(int argc, char **argv)
     } else if (argc >= 3 && !strcmp(argv[1], "join")) {
         snprintf(game.ip_text, sizeof game.ip_text, "%s", argv[2]);
         if (!net_begin_join(&game, game.ip_text)) { fprintf(stderr, "ip invalide\n"); return 1; }
+    } else if (argc >= 2 && !strcmp(argv[1], "challenge")) {
+        unsigned seed = 424242u;
+        if (argc >= 3) {
+            char *end = NULL;
+            unsigned long long parsed;
+            if (argv[2][0] == '-') {
+                fprintf(stderr, "graine invalide: utilisez un entier positif.\n");
+                return 1;
+            }
+            errno = 0;
+            parsed = strtoull(argv[2], &end, 10);
+            if (!argv[2][0] || errno == ERANGE || !end || *end != '\0'
+                || parsed == 0 || parsed > UINT_MAX) {
+                fprintf(stderr, "graine invalide: utilisez un entier 1..%u.\n",
+                        UINT_MAX);
+                return 1;
+            }
+            seed = (unsigned)parsed;
+        }
+        start_solo_game(&game, seed);
+        printf("Defi local contre le bot neuronal, graine %u.\n",
+               game.challenge_seed);
     } else {
         game.state = ST_MENU;
     }
@@ -3625,7 +3685,7 @@ int main(int argc, char **argv)
                         }
                         if (!handled && pt_in(menu_btn_solo(), mx, my)
                             && game.net.sock == SOCK_INVALID) {
-                            start_solo_game(&game);
+                            start_solo_game(&game, 0);
                             handled = 1;
                         }
                         if (!handled && pt_in(menu_btn_bot_model(), mx, my)

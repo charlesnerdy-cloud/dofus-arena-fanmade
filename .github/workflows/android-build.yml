@@ -1,0 +1,90 @@
+name: Android build
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Install Android SDK and NDK
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
+
+      - name: Fetch SDL2 Android sources
+        env:
+          SDL_REVISION: 8acf7cfc0f88717e5c036f60f0314bfcafe39189
+          SDL_IMAGE_REVISION: a26592522b7051e6e8d5fdec9f09490677d2b7f1
+          SDL_TTF_REVISION: e438b0bf4aef3110a79d196c4fb1865d97f8847e
+          SDL_MIXER_REVISION: 556de667736eac58815acba8175a493963801b6b
+        run: |
+          set -euo pipefail
+          clone_at() {
+            local repository="$1"
+            local revision="$2"
+            local destination="$3"
+            git init "$destination"
+            git -C "$destination" remote add origin "$repository"
+            git -C "$destination" fetch --depth 1 origin "$revision"
+            git -C "$destination" checkout --detach FETCH_HEAD
+            git -C "$destination" submodule update --init --depth 1
+          }
+          clone_at https://github.com/libsdl-org/SDL.git "$SDL_REVISION" android/app/jni/SDL
+          clone_at https://github.com/libsdl-org/SDL_image.git "$SDL_IMAGE_REVISION" android/app/jni/SDL_image
+          clone_at https://github.com/libsdl-org/SDL_ttf.git "$SDL_TTF_REVISION" android/app/jni/SDL_ttf
+          clone_at https://github.com/libsdl-org/SDL_mixer.git "$SDL_MIXER_REVISION" android/app/jni/SDL_mixer
+          mkdir -p android/app/src/main/java/org/libsdl/app
+          cp -R android/app/jni/SDL/android-project/app/src/main/java/org/libsdl/app/. \
+            android/app/src/main/java/org/libsdl/app/
+          cp game.c android/app/jni/src/game.c
+          mkdir -p android/app/jni/src/tools
+          cp tools/bot_model.h android/app/jni/src/tools/bot_model.h
+          mkdir -p android/app/src/main/assets/assets
+          cp -R assets/BGM assets/Sounds assets/UI/UI.png \
+            assets/character/Characters.png assets/bubble_emotes.png \
+            assets/VFX assets/tiles/tilesheet.png \
+            android/app/src/main/assets/assets/
+
+      - name: Build arm64 Android APK
+        run: gradle -p android --no-daemon assembleDebug
+
+      - name: Name APK for phone download
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+            Dofus-Arena-Android-arm64-${GITHUB_REF_NAME}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dofus-Arena-Android-arm64
+          path: Dofus-Arena-Android-arm64-${{ github.ref_name }}.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach APK to GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Dofus-Arena-Android-arm64-${{ github.ref_name }}.apk
+          fail_on_unmatched_files: true
