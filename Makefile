@@ -11,7 +11,7 @@ SRC      = game.c
 
 ifeq ($(OS),Windows_NT)
 TARGET   = dofus-arena.exe
-LDLIBS  := -lSDL2main $(LDLIBS) -lws2_32
+LDLIBS  := -lmingw32 -lSDL2main $(LDLIBS) -lws2_32
 CFLAGS  += -D_WIN32_WINNT=0x0A00
 endif
 
