@@ -165,6 +165,10 @@ static SDL_Window *g_window;            /* fenetre principale (plein ecran) */
 static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
                       int x, int y, SDL_Color c);
 static SDL_Texture *load_asset(SDL_Renderer *r, const char *path);
+static void pref_erase(const char *name);
+#define PIN_MAX_TRIES 5
+static void draw_tinted(SDL_Renderer *r, SDL_Texture *t, SDL_Rect dst,
+                        int cr, int cg, int cb);
 
 /* --- nouvelle interface : panneaux et boutons 9-slice ---------------- */
 typedef enum {
@@ -191,6 +195,9 @@ static SDL_Texture *g_hp_bar_frame;  /* fond de la barre                */
 static SDL_Texture *g_hp_mp;         /* segment de ressource             */
 static SDL_Texture *g_hp_ribbon;     /* ruban de titre                   */
 static SDL_Texture *g_hp_sheet;      /* grande feuille de parchemin      */
+static SDL_Texture *g_hp_slot;       /* emplacement (carre 32x32)        */
+static SDL_Texture *g_hp_btn;        /* bouton papier (16x16)            */
+static SDL_Texture *g_hp_knob;       /* bouton rond                      */
 
 static void load_humble_ui(SDL_Renderer *renderer)
 {
@@ -200,6 +207,19 @@ static void load_humble_ui(SDL_Renderer *renderer)
     g_hp_mp        = load_asset(renderer, "assets/UI/humble/bar_mp.png");
     g_hp_ribbon    = load_asset(renderer, "assets/UI/humble/header_ribbon.png");
     g_hp_sheet     = load_asset(renderer, "assets/UI/humble/paper_sheet.png");
+    g_hp_slot      = load_asset(renderer, "assets/UI/humble/slot.png");
+    g_hp_btn       = load_asset(renderer, "assets/UI/humble/btn_paper.png");
+    g_hp_knob      = load_asset(renderer, "assets/UI/humble/knob.png");
+}
+
+/* dessine une texture teintee (le papier creme devient sombre)         */
+static void draw_tinted(SDL_Renderer *r, SDL_Texture *t, SDL_Rect dst,
+                        int cr, int cg, int cb)
+{
+    if (!t) return;
+    SDL_SetTextureColorMod(t, cr, cg, cb);
+    SDL_RenderCopy(r, t, NULL, &dst);
+    SDL_SetTextureColorMod(t, 255, 255, 255);
 }
 
 /* barre segmentee : le remplissage est repete jusqu'a la largeur voulue */
@@ -281,6 +301,44 @@ static void draw_hud_frame(SDL_Renderer *r, int id, SDL_Rect dst, int tint)
     else SDL_SetTextureColorMod(g_hud_sheet, 255, 255, 255);
     SDL_RenderCopy(r, g_hud_sheet, &src, &dst);
     SDL_SetTextureColorMod(g_hud_sheet, 255, 255, 255);
+}
+
+/* dessine un panneau 9-slice teinte (le papier creme est assombri)   */
+static void draw_nine_slice_tinted(SDL_Renderer *r, SDL_Texture *t,
+                                   SDL_Rect dst, int b,
+                                   int cr, int cg, int cb)
+{
+    int tw, th, i;
+    SDL_Rect sc[9], dc[9];
+    if (!t) return;
+    SDL_QueryTexture(t, NULL, NULL, &tw, &th);
+    if (b <= 0 || b * 2 >= tw || b * 2 >= th || dst.w < b * 2
+        || dst.h < b * 2) {
+        draw_tinted(r, t, dst, cr, cg, cb);
+        return;
+    }
+    sc[0].x = 0;         sc[0].y = 0;         sc[0].w = b; sc[0].h = b;
+    sc[1].x = b;         sc[1].y = 0;         sc[1].w = tw - 2*b; sc[1].h = b;
+    sc[2].x = tw - b;    sc[2].y = 0;         sc[2].w = b; sc[2].h = b;
+    sc[3].x = 0;         sc[3].y = b;         sc[3].w = b; sc[3].h = th - 2*b;
+    sc[4].x = b;         sc[4].y = b;         sc[4].w = tw - 2*b; sc[4].h = th - 2*b;
+    sc[5].x = tw - b;    sc[5].y = b;         sc[5].w = b; sc[5].h = th - 2*b;
+    sc[6].x = 0;         sc[6].y = th - b;    sc[6].w = b; sc[6].h = b;
+    sc[7].x = b;         sc[7].y = th - b;    sc[7].w = tw - 2*b; sc[7].h = b;
+    sc[8].x = tw - b;    sc[8].y = th - b;    sc[8].w = b; sc[8].h = b;
+    dc[0].x = dst.x;               dc[0].y = dst.y;               dc[0].w = b; dc[0].h = b;
+    dc[1].x = dst.x + b;           dc[1].y = dst.y;               dc[1].w = dst.w - 2*b; dc[1].h = b;
+    dc[2].x = dst.x + dst.w - b;   dc[2].y = dst.y;               dc[2].w = b; dc[2].h = b;
+    dc[3].x = dst.x;               dc[3].y = dst.y + b;           dc[3].w = b; dc[3].h = dst.h - 2*b;
+    dc[4].x = dst.x + b;           dc[4].y = dst.y + b;           dc[4].w = dst.w - 2*b; dc[4].h = dst.h - 2*b;
+    dc[5].x = dst.x + dst.w - b;   dc[5].y = dst.y + b;           dc[5].w = b; dc[5].h = dst.h - 2*b;
+    dc[6].x = dst.x;               dc[6].y = dst.y + dst.h - b;   dc[6].w = b; dc[6].h = b;
+    dc[7].x = dst.x + b;           dc[7].y = dst.y + dst.h - b;   dc[7].w = dst.w - 2*b; dc[7].h = b;
+    dc[8].x = dst.x + dst.w - b;   dc[8].y = dst.y + dst.h - b;   dc[8].w = b; dc[8].h = b;
+    SDL_SetTextureColorMod(t, cr, cg, cb);
+    for (i = 0; i < 9; i++)
+        SDL_RenderCopy(r, t, &sc[i], &dc[i]);
+    SDL_SetTextureColorMod(t, 255, 255, 255);
 }
 
 /* dessine un panneau 9-slice (bord de 16 px) etrille a toute taille   */
@@ -1166,6 +1224,7 @@ typedef struct {
     char      pin_first[8];       /* premiere saisie (mode creation)        */
     int       pin_have_first;
     int       pin_attempts;       /* essais restants                        */
+    int       pin_forget_armed;   /* confirmation de l'effacement           */
     Uint32    pin_lock_until;     /* fin de blocage (ms)                    */
     char      pin_msg[96];        /* message a l'ecran                      */
     char      pin_salt[32];       /* sel du hash                            */
@@ -3554,6 +3613,15 @@ static void draw_ui_sprite(SDL_Renderer *renderer, SDL_Rect source,
 
 static void draw_ui_panel(SDL_Renderer *renderer, SDL_Rect destination)
 {
+    /* nouvelle interface : feuille de papier (Humble Pixel) teintee     */
+    if (g_hp_sheet) {
+        draw_nine_slice_tinted(renderer, g_hp_sheet, destination, 16,
+                               72, 58, 45);
+        SDL_SetRenderDrawColor(renderer, 150, 122, 78, 200);
+        SDL_RenderDrawRect(renderer, &destination);
+        return;
+    }
+    {
     int source_x[3] = {UI_PANEL_X, UI_PANEL_X + UI_PANEL_BORDER,
                        UI_PANEL_X + UI_PANEL_W - UI_PANEL_BORDER};
     int source_y[3] = {UI_PANEL_Y, UI_PANEL_Y + UI_PANEL_BORDER,
@@ -3587,10 +3655,19 @@ static void draw_ui_panel(SDL_Renderer *renderer, SDL_Rect destination)
             draw_ui_sprite(renderer, source, target);
         }
     }
+    }
 }
 
 static void draw_ui_banner(SDL_Renderer *renderer, SDL_Rect destination)
 {
+    /* banniere : papier un peu plus clair que les panneaux              */
+    if (g_hp_sheet) {
+        draw_nine_slice_tinted(renderer, g_hp_sheet, destination, 16,
+                               96, 78, 58);
+        SDL_SetRenderDrawColor(renderer, 190, 158, 96, 220);
+        SDL_RenderDrawRect(renderer, &destination);
+        return;
+    }
     draw_ui_panel(renderer, destination);
 }
 
@@ -5248,10 +5325,9 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
     char line[128];
     SDL_Color white = {255,255,255,255};
     snprintf(line, sizeof line,
-             "Tour %d T%dP%d | PV%d/%d PA%d PM%d INIT%d",
+             "Tour %d  -  T%d P%d",
              g->turn_count + 1, me->team + 1,
-             g->turn % g->team_size + 1,
-             me->hp, me->hp_max, me->pa, me->pm, me->initiative);
+             g->turn % g->team_size + 1);
     draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
                    (SDL_Rect){8, y0 + 5, 24, 25});
     draw_text(r, font, line, 350, y0 + 68, white);
@@ -5259,7 +5335,7 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
         char lv[64];
         snprintf(lv, sizeof lv, "SONGE - NIVEAU %d (record %d)",
                  g->songe_level, g->songe_best);
-        draw_text(r, font, lv, 620, y0 + 68, (SDL_Color){255, 214, 120, 255});
+        draw_text(r, font, lv, 470, y0 + 68, (SDL_Color){255, 214, 120, 255});
     }
 
     int k;
@@ -5267,9 +5343,16 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
         Skill *s = &me->spells[k];
         SDL_Rect b = {350 + k * 165, y0 + 6, 160, 58};
         SDL_Rect icon = {b.x + 4, b.y + 8, 30, 36};
-        draw_nine_slice(r, g_ui9[UI9_PANEL_GREY], b, 12);
+        if (g_hp_slot) {
+            draw_nine_slice_tinted(r, g_hp_slot, b, 8, 78, 70, 60);
+        } else {
+            draw_nine_slice(r, g_ui9[UI9_PANEL_GREY], b, 12);
+        }
         if (g->sel_skill == k) {
-            draw_nine_slice(r, g_ui9[UI9_PANEL_TAN], b, 12);
+            if (g_hp_slot)
+                draw_nine_slice_tinted(r, g_hp_slot, b, 8, 165, 130, 80);
+            else
+                draw_nine_slice(r, g_ui9[UI9_PANEL_TAN], b, 12);
             SDL_SetRenderDrawColor(r, 255, 214, 120, 200);
             SDL_RenderDrawRect(r, &b);
         }
@@ -5492,11 +5575,15 @@ static void draw_tooltip(SDL_Renderer *r, TTF_Font *font, int mx, int my)
         /* ombre portee du panneau */
         SDL_SetRenderDrawColor(r, 0, 0, 0, 90);
         SDL_RenderFillRect(r, &(SDL_Rect){x + 3, y + 3, w, h});
-        SDL_SetRenderDrawColor(r, 14, 16, 24, 238);
-        SDL_RenderFillRect(r, &bg);
+        if (g_hp_sheet) {
+            draw_nine_slice_tinted(r, g_hp_sheet, bg, 12, 46, 40, 36);
+        } else {
+            SDL_SetRenderDrawColor(r, 14, 16, 24, 238);
+            SDL_RenderFillRect(r, &bg);
+        }
         SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
         SDL_RenderDrawRect(r, &bg);
-        SDL_SetRenderDrawColor(r, 70, 60, 40, 255);
+        SDL_SetRenderDrawColor(r, 120, 100, 60, 255);
         SDL_RenderDrawRect(r, &inner);
         if (g_tip_title[0]) {
             draw_text(r, font, g_tip_title, x + 8, y + 5, gold);
@@ -5749,6 +5836,45 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
 }
 
 /* ------------------------------------------------------------------ */
+/* Remise a zero : PIN, favoris, records et defis du jour              */
+/* ------------------------------------------------------------------ */
+static void pin_reset_entry(Game *g);
+
+static void wipe_all_data(Game *g)
+{
+    int i;
+    pref_erase("pin.txt");
+    pref_erase("favorites.txt");
+    pref_erase("songe.txt");
+    pref_erase("challenges.txt");
+    /* code PIN */
+    g->pin_set = 0;
+    g->pin_mode = 0;
+    g->pin_have_first = 0;
+    g->pin_attempts = PIN_MAX_TRIES;
+    g->pin_salt[0] = 0;
+    g->pin_hash[0] = 0;
+    g->pin_lock_until = 0;
+    /* favoris */
+    for (i = 0; i < MAX_FAVORITES; i++) {
+        g->favorite_class[i] = -1;
+        g->favorite_pano[i] = -1;
+    }
+    g->selected_favorite = -1;
+    /* record du Songe */
+    g->songe_best = 0;
+    g->songe_level = 0;
+    /* defis du jour */
+    g->challenge_points = 0;
+    for (i = 0; i < DAILY_CHALLENGES; i++) {
+        g->challenge_done[i] = 0;
+        g->challenge_progress[i] = 0;
+    }
+    challenges_build(g);
+    pin_reset_entry(g);
+}
+
+/* ------------------------------------------------------------------ */
 /* Mode « fenetre plein ecran » : sans bordure, fenetre centree        */
 /* ------------------------------------------------------------------ */
 static void apply_fullscreen(Game *g, int on)
@@ -5797,6 +5923,18 @@ static void ui_button(SDL_Renderer *r, SDL_Rect b, const char *label,
         border = (SDL_Color){165, 132, 82, 255};
         text_col = (SDL_Color){240, 232, 215, 255};
     }
+    if (g_hp_btn) {
+        /* bouton papier Humble Pixel (9-slice teinte)                   */
+        if (!enabled)      draw_nine_slice_tinted(r, g_hp_btn, b, 8, 62, 56, 50);
+        else if (selected) draw_nine_slice_tinted(r, g_hp_btn, b, 8, 150, 118, 70);
+        else if (hovered)  draw_nine_slice_tinted(r, g_hp_btn, b, 8, 120, 96, 62);
+        else               draw_nine_slice_tinted(r, g_hp_btn, b, 8, 88, 74, 58);
+        SDL_SetRenderDrawColor(r, border.r, border.g, border.b, 255);
+        SDL_RenderDrawRect(r, &b);
+        if (label)
+            draw_text(r, font, label, b.x + 8, b.y + (b.h - 16) / 2, text_col);
+        return;
+    }
     for (y = 0; y < b.h; y++) {
         float t = (float)y / (float)(b.h > 1 ? b.h - 1 : 1);
         SDL_SetRenderDrawColor(r,
@@ -5818,6 +5956,7 @@ static void ui_button(SDL_Renderer *r, SDL_Rect b, const char *label,
 /* ------------------------------------------------------------------ */
 /* Verrouillage par code PIN (a la banque, ou a MapleStory)            */
 /* ------------------------------------------------------------------ */
+
 #define PIN_LENGTH      6
 #define PIN_MAX_TRIES   5
 #define PIN_LOCK_MS     30000
@@ -5844,6 +5983,23 @@ static void pin_path(char *out, size_t n)
     if (!dir) { out[0] = 0; return; }
     snprintf(out, n, "%spin.txt", dir);
     SDL_free(dir);
+}
+
+/* chemin d'un fichier de preferences quelconque                         */
+static void pref_file(const char *name, char *out, size_t n)
+{
+    char *dir = SDL_GetPrefPath("DofusArenaFanmade", "DofusArena");
+    if (!dir) { out[0] = 0; return; }
+    snprintf(out, n, "%s%s", dir, name);
+    SDL_free(dir);
+}
+
+/* efface un fichier de preferences                                    */
+static void pref_erase(const char *name)
+{
+    char path[512];
+    pref_file(name, path, sizeof path);
+    if (path[0]) remove(path);
 }
 
 /* charge le code enregistre (le fichier ne contient que le hash)      */
@@ -6107,10 +6263,15 @@ static void draw_pin(SDL_Renderer *r, TTF_Font *font, Game *g)
     {
         SDL_Rect b = pin_forget();
         int hovered = pt_in(b, mx, my);
-        ui_button(r, b, "CODE OUBLIE ?", font, hovered, 0, 1);
+        if (g->pin_forget_armed) {
+            ui_button(r, b, "TOUT EFFACER ?", font, hovered, 1, 1);
+        } else {
+            ui_button(r, b, "CODE OUBLIE ?", font, hovered, 0, 1);
+        }
         if (hovered) {
             tip_begin("Code oublie ?");
-            tip_add("Efface le code PIN et la progression, puis repart de zero.");
+            tip_add("Efface le code PIN, les favoris, le record du Songe");
+            tip_add("et les defis du jour. Deux clics pour confirmer.");
         }
     }
     {
@@ -6133,6 +6294,7 @@ static void pin_reset_entry(Game *g)
     g->pin_len = 0;
     g->pin_entry[0] = 0;
     g->pin_msg[0] = 0;
+    g->pin_forget_armed = 0;
 }
 
 /* Called quand le joueur valide 6 chiffres                            */
@@ -7503,20 +7665,18 @@ int main(int argc, char **argv)
                     if (pt_in(pin_quit(), mx, my)) {
                         running = 0;
                     } else if (pt_in(pin_forget(), mx, my)) {
-                        /* mot de passe oublie : tout effacer            */
-                        char path[512];
-                        FILE *f;
-                        pin_path(path, sizeof path);
-                        if (path[0] && (f = fopen(path, "w")) != NULL) {
-                            fclose(f);
+                        /* mot de passe oublie : confirmation puis effacement */
+                        if (!game.pin_forget_armed) {
+                            game.pin_forget_armed = 1;
+                            snprintf(game.pin_msg, sizeof game.pin_msg,
+                                     "Recliquez pour effacer le code ET "
+                                     "toutes les donnees.");
+                        } else {
+                            wipe_all_data(&game);
+                            game.pin_forget_armed = 0;
+                            snprintf(game.pin_msg, sizeof game.pin_msg,
+                                     "Donnees effacees. Definissez un nouveau code.");
                         }
-                        game.pin_set = 0;
-                        game.pin_mode = 0;
-                        game.pin_have_first = 0;
-                        game.pin_attempts = PIN_MAX_TRIES;
-                        pin_reset_entry(&game);
-                        snprintf(game.pin_msg, sizeof game.pin_msg,
-                                 "Tout est efface. Definissez un nouveau code.");
                     } else if (!locked) {
                         for (k = 0; k < 12; k++) {
                             if (!pt_in(pin_key(k), mx, my)) continue;
