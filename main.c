@@ -160,6 +160,7 @@ static SDL_Texture *g_spell_icons;
 static SDL_Texture *g_emote_sheet;
 static SDL_Texture *g_creatures_sheet;
 static SDL_Rect g_creature_frames[N_CREATURES];
+static SDL_Window *g_window;            /* fenetre principale (plein ecran) */
 
 /* Cadre utile d'une frame : rectangle des pixels opaques.             */
 typedef struct {
@@ -908,8 +909,8 @@ typedef struct {
 /* ------------------------------------------------------------------ */
 /* Ǹtat global du jeu                                                  */
 /* ------------------------------------------------------------------ */
-typedef enum { ST_MENU, ST_PICK, ST_DRAFT, ST_STUFF, ST_ELEMENTS,
-               ST_DOFUS, ST_ACHIEVEMENTS, ST_CHALLENGES, ST_SONGE,
+typedef enum { ST_MENU, ST_PIN, ST_PICK, ST_DRAFT, ST_STUFF, ST_ELEMENTS,
+               ST_DOFUS, ST_ACHIEVEMENTS, ST_CHALLENGES, ST_DEFS, ST_SONGE,
                ST_BATTLE, ST_GAMEOVER } GameState;
 
 typedef struct {
@@ -980,6 +981,26 @@ typedef struct {
     int       emote_fighter;
     int       emote_index;
     Uint32    emote_until;
+    /* --- fenetre plein ecran sans bordure et definitions ---------------- */
+    int       fullscreen;         /* mode fenetre plein ecran (sans bordure) */
+    int       defs_cat;           /* categorie affichee dans les defs      */
+    int       defs_scroll;        /* defilement de la liste des definitions */
+    /* --- verrouillage par code PIN -------------------------------------- */
+    int       pin_set;            /* 1 = un code PIN est deja enregistre   */
+    int       pin_mode;           /* 0 = creation, 1 = deverrouillage      */
+    char      pin_entry[8];       /* saisie en cours (6 chiffres)           */
+    int       pin_len;
+    char      pin_first[8];       /* premiere saisie (mode creation)        */
+    int       pin_have_first;
+    int       pin_attempts;       /* essais restants                        */
+    Uint32    pin_lock_until;     /* fin de blocage (ms)                    */
+    char      pin_msg[96];        /* message a l'ecran                      */
+    char      pin_salt[32];       /* sel du hash                            */
+    char      pin_hash[32];       /* hash du code                          */
+    /* --- commande de ligne de commande, executee apres le deverrouillage */
+    int       cli_pending;        /* 0 = rien, 1 = host, 2 = join, 3 = defi */
+    unsigned  cli_seed;
+    char      cli_ip[64];
     int       vfx_active;
     int       vfx_x;
     int       vfx_y;
@@ -1069,7 +1090,7 @@ static void challenges_build(Game *g)
                     break;
                 case CH_FAST:
                     snprintf(desc, sizeof desc,
-                             "Gagnez un combat solo en %d tours ou moins.",
+                             "Gagnez un combat solo en %d tours ou moins (le chronometre est severe).",
                              param);
                     break;
                 case CH_CLASS:
@@ -1084,12 +1105,12 @@ static void challenges_build(Game *g)
                     break;
                 case CH_FLAWLESS:
                     snprintf(desc, sizeof desc,
-                             "Gagnez un combat solo sans perdre le moindre PV.");
+                             "Gagnez un combat solo sans perdre le moindre PV. Un cheveu de plus et c'est fini.");
                     break;
                 case CH_HEALER:
                     snprintf(desc, sizeof desc,
                              "Gagnez un combat solo en finissant avec plus de "
-                             "%d %% de PV.", param);
+                             "%d %% de PV. Les monstres ne pardonnent pas.", param);
                     break;
             }
             g->challenge_progress[i] = 0;
@@ -4748,6 +4769,16 @@ static SDL_Rect menu_size_btn(int i) { SDL_Rect r = {350 + i*66, 70, 60, 40}; re
 static SDL_Rect menu_settings_btn(void) { SDL_Rect r = {880, 70, 124, 40}; return r; }
 static SDL_Rect menu_btn_songe(void) { SDL_Rect r = {20, 170, 320, 40}; return r; }
 static SDL_Rect menu_btn_challenges(void) { SDL_Rect r = {20, 220, 320, 40}; return r; }
+static SDL_Rect menu_btn_defs(void) { SDL_Rect r = {350, 256, 200, 34}; return r; }
+static SDL_Rect defs_cat_rect(int i) { SDL_Rect r = {24, 74 + i * 52, 200, 44}; return r; }
+/* pave numerique du code PIN                                        */
+static SDL_Rect pin_key(int i) { SDL_Rect r = {392 + (i % 3) * 88, 170 + (i / 3) * 62, 80, 54}; return r; }
+static SDL_Rect pin_field(void) { SDL_Rect r = {392, 108, 240, 44}; return r; }
+static SDL_Rect pin_forget(void) { SDL_Rect r = {24, 60, 190, 34}; return r; }
+static SDL_Rect defs_back_btn(void) { SDL_Rect r = {WIN_W - 150, WIN_H - 60, 130, 32}; return r; }
+static SDL_Rect defs_up_btn(void) { SDL_Rect r = {WIN_W - 60, 74, 40, 30}; return r; }
+static SDL_Rect defs_down_btn(void) { SDL_Rect r = {WIN_W - 60, WIN_H - 130, 40, 30}; return r; }
+static SDL_Rect pin_quit(void) { SDL_Rect r = {810, 60, 190, 34}; return r; }
 static SDL_Rect menu_btn_achievements(void) { SDL_Rect r = {20, 270, 320, 40}; return r; }
 /* ecran Songe                                                         */
 static SDL_Rect songe_party_btn(int i) { SDL_Rect r = {40 + i*80, 168, 70, 46}; return r; }
@@ -4763,17 +4794,17 @@ static SDL_Rect songe_kbd_ok(void) { SDL_Rect r = {20 + 6*55, 441, 160, 38}; ret
 static SDL_Rect challenge_card(int i) { SDL_Rect r = {24, 96 + i*116, 624, 106}; return r; }
 static SDL_Rect challenge_btn(int i)  { SDL_Rect r = {560, 148 + i*116, 76, 32}; return r; }
 static SDL_Rect challenge_back_btn(void) { SDL_Rect r = {440, 424, 140, 32}; return r; }
-static SDL_Rect settings_panel(void) { SDL_Rect r = {72, 64, 528, 512}; return r; }
+static SDL_Rect settings_panel(void) { SDL_Rect r = {72, 64, 528, 480}; return r; }
 static SDL_Rect settings_row(int row)
-{ SDL_Rect r = {96, 144 + row * 52, 480, 42}; return r; }
+{ SDL_Rect r = {96, 132 + row * 50, 480, 40}; return r; }
 static SDL_Rect settings_minus_btn(int row)
-{ SDL_Rect r = {454, 149 + row * 52, 36, 32}; return r; }
+{ SDL_Rect r = {454, 136 + row * 50, 36, 32}; return r; }
 static SDL_Rect settings_plus_btn(int row)
-{ SDL_Rect r = {500, 149 + row * 52, 36, 32}; return r; }
+{ SDL_Rect r = {500, 136 + row * 50, 36, 32}; return r; }
 static SDL_Rect settings_toggle_btn(int row)
-{ SDL_Rect r = {444, 149 + row * 52, 120, 32}; return r; }
+{ SDL_Rect r = {444, 136 + row * 50, 120, 32}; return r; }
 static SDL_Rect settings_back_btn(void)
-{ SDL_Rect r = {264, 510, 144, 38}; return r; }
+{ SDL_Rect r = {264, 494, 144, 34}; return r; }
 static SDL_Rect favorite_btn(int i)  { SDL_Rect r = {20 + i*126, 414, 118, 32}; return r; }
 /* clavier virtuel pour l'IP (12 touches : 123456 / 7890.⌫ / OK)        */
 static SDL_Rect menu_kbd(int i)     { SDL_Rect r = {20 + (i%6)*55, 180 + (i/6)*45, 50, 40}; return r; }
@@ -4806,7 +4837,8 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
         "Taille de fenetre",
         "Mode daltonien",
         "Reduire les flashs (epilepsie)",
-        "Sous-titres si effets muets"
+        "Sous-titres si effets muets",
+        "Plein ecran sans bordure (F11)"
     };
     SDL_Rect panel = settings_panel();
     SDL_Color white = {245, 235, 215, 255};
@@ -4817,9 +4849,9 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
     SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
     SDL_RenderFillRect(r, &panel);
     draw_ui_panel(r, panel);
-    draw_ui_banner(r, (SDL_Rect){88, 75, 496, 52});
-    draw_text(r, font, "PARAMETRES", 270, 91, white);
-    for (i = 0; i < 6; i++) {
+    draw_ui_banner(r, (SDL_Rect){88, 70, 496, 48});
+    draw_text(r, font, "PARAMETRES", 270, 84, white);
+    for (i = 0; i < 7; i++) {
         SDL_Rect row = settings_row(i);
         SDL_SetRenderDrawColor(r, 31, 27, 28, 240);
         SDL_RenderFillRect(r, &row);
@@ -4839,12 +4871,13 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
                 draw_text(r, font, value, 540, row.y + 12, white);
             }
         } else if (i == 2) {
-            draw_text(r, font, "672 x 640 (fixe, comme nos habitudes)", 448, row.y + 12, white);
+            draw_text(r, font, "1024 x 480 (fixe, comme nos habitudes)", 448, row.y + 12, white);
         } else {
             SDL_Rect toggle = settings_toggle_btn(i);
             int enabled = i == 3 ? g->colorblind_mode
                         : i == 4 ? g->reduce_flashing
-                                 : g->subtitles_when_muted;
+                        : i == 5 ? g->subtitles_when_muted
+                                 : g->fullscreen;
             SDL_SetRenderDrawColor(r, enabled ? 57 : 65,
                                    enabled ? 105 : 53,
                                    enabled ? 70 : 49, 255);
@@ -4866,9 +4899,9 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, back);
         SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
         SDL_RenderDrawRect(r, &back);
-        draw_text(r, font, "RETOUR", back.x + 42, back.y + 11, white);
+        draw_text(r, font, "RETOUR", back.x + 42, back.y + 9, white);
     }
-    draw_text(r, font, "ECHAP pour revenir (ou furter avec les reglages)", 236, 558, muted);
+    draw_text(r, font, "ECHAP pour revenir (ou furter avec les reglages)", 236, 556, muted);
 }
 
 static void draw_audio_subtitle(SDL_Renderer *r, TTF_Font *font, Game *g)
@@ -4963,18 +4996,18 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
                     tip_add("Effet %d  -  CD %d/%d", sk->power,
                             me->cd_left[k], sk->cooldown);
                 }
-                tip_add("Survolez une cible pour l'estimation.");
+                tip_add("Survolez une cible pour l'estimation des degats.");
             }
         }
         if (pt_in(endturn_btn(y0), mx, my)) {
             tip_begin("Fin de tour");
-            tip_add("Termine le tour et laisse jouer les invocations.");
+            tip_add("Termine le tour ; vos invocations en profitent.");
         } else if (pt_in(chat_btn(y0), mx, my)) {
             tip_begin("Chat");
-            tip_add("Ouvrir la saisie du chat de l'equipe.");
+            tip_add("Ouvrir le chat. Essayez de rester aimable.");
         } else if (pt_in(ingame_menu_btn(y0), mx, my)) {
             tip_begin("Menu de la partie");
-            tip_add("Quitter, se rendre, supprimer la fenetre.");
+            tip_add("Quitter, se rendre, ou supprimer la fenetre (honnete)." );
         }
         draw_tooltip(r, font, mx, my);
     }
@@ -5201,7 +5234,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         ui_button(r, ab, "ACHIEVE", font, hovered, 0, 1);
         if (hovered) {
             tip_begin("Achievements");
-            tip_add("69 succes a debloquer.");
+            tip_add("69 succes a debloquer. Le 70 est encore secret.");
         }
     }
     {
@@ -5210,9 +5243,9 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         ui_button(r, sb, "SONGE", font, hovered, 0, 1);
         if (hovered) {
             tip_begin("Mode Songe");
-            tip_add("Expedition infinie contre les monstres.");
-            tip_add("Jouable en solo ou en equipe (1 a 5).");
-            tip_add("Record actuel : niveau %d", g->songe_best);
+            tip_add("Expedition infinie contre des monstres qui s'en lassent pas.");
+            tip_add("En solo ou a plusieurs (1 a 5). Plus c'est long, plus c'est beau.");
+            tip_add("Record actuel : niveau %d. Le reve attend.", g->songe_best);
         }
     }
     {
@@ -5221,8 +5254,18 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         ui_button(r, cb, "DEFIS", font, hovered, 0, 1);
         if (hovered) {
             tip_begin("Defis du jour");
-            tip_add("3 defis a relever chaque jour.");
-            tip_add("Score actuel : %d points", g->challenge_points);
+            tip_add("3 defis par jour, et ils se renouvellent seuls.");
+            tip_add("Score : %d points (depensez-les en cafe).", g->challenge_points);
+        }
+    }
+    {
+        SDL_Rect db = menu_btn_defs();
+        int hovered = pt_in(db, mx, my);
+        ui_button(r, db, "DEFINITIONS", font, hovered, 0, 1);
+        if (hovered) {
+            tip_begin("Definitions");
+            tip_add("Le manuel de survie : regles, classes, equipement.");
+            tip_add("F11 pour le plein ecran sans bordure.");
         }
     }
     draw_text(r, font, "Format (le gore ne compte que sur le papier) :", 350, 48, grey);
@@ -5257,7 +5300,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     ui_button(r, bh, host_label, font, in_h, 0, can_connect);
     if (in_h) {
         tip_begin("Heberger une partie");
-        tip_add("Ouvre le port UDP 7777 et attend un adversaire.");
+        tip_add("Ouvre le port UDP 7777 et attend un adversaire,havrit.");
         tip_add("Partagez votre IP publique ou locale.");
     }
 
@@ -5267,7 +5310,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     ui_button(r, bj, "REJOINDRE UNE PARTIE", font, in_j, 0, can_connect);
     if (in_j) {
         tip_begin("Rejoindre une partie");
-        tip_add("Saisissez l'IP de l'hote puis cliquez ici.");
+        tip_add("Saisissez l'IP de l'hote, puis cliquez ici. Croisez les doigts.");
     }
 
     SDL_Rect bi = menu_btn_ipfield();
@@ -5285,7 +5328,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_text(r, font, "UDP 7777", 560, 132, white);
     if (pt_in(bi, mx, my)) {
         tip_begin("Adresse IP de l'hote");
-        tip_add("Exemple : 192.168.1.24 (LAN) ou IP publique.");
+        tip_add("Exemple : 192.168.1.24 (LAN) ou votre IP publique.");
     }
 
     {
@@ -5295,7 +5338,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         ui_button(r, solo, "JOUER SEUL (IA)", font, hovered, 0, enabled);
         if (hovered) {
             tip_begin("Jouer seul");
-            tip_add("Combat contre l'IA, avec un bot au choix.");
+            tip_add("Combat contre l'IA. Le bot choisit, vous encaissez.");
         }
     }
     {
@@ -5389,6 +5432,23 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
 }
 
 /* ------------------------------------------------------------------ */
+/* Mode « fenetre plein ecran » : sans bordure, fenetre centree        */
+/* ------------------------------------------------------------------ */
+static void apply_fullscreen(Game *g, int on)
+{
+    if (!g_window) return;
+    if (on) {
+        SDL_SetWindowFullscreen(g_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    } else {
+        SDL_SetWindowFullscreen(g_window, 0);
+        SDL_SetWindowPosition(g_window, SDL_WINDOWPOS_CENTERED,
+                              SDL_WINDOWPOS_CENTERED);
+    }
+    SDL_SetWindowBordered(g_window, on ? SDL_FALSE : SDL_TRUE);
+    g->fullscreen = on ? 1 : 0;
+}
+
+/* ------------------------------------------------------------------ */
 /* Habillage d'interface : boutons et panneaux « parchemin »           */
 /* ------------------------------------------------------------------ */
 
@@ -5436,6 +5496,503 @@ static void ui_button(SDL_Renderer *r, SDL_Rect b, const char *label,
     SDL_RenderDrawRect(r, &b);
     if (label)
         draw_text(r, font, label, b.x + 8, b.y + (b.h - 16) / 2, text_col);
+}
+
+/* ------------------------------------------------------------------ */
+/* Verrouillage par code PIN (a la banque, ou a MapleStory)            */
+/* ------------------------------------------------------------------ */
+#define PIN_LENGTH      6
+#define PIN_MAX_TRIES   5
+#define PIN_LOCK_MS     30000
+
+/* hash FNV-1a 64 bits, sale et repete (suffisant pour un jeu local)   */
+static void pin_hash(const char *salt, const char *pin, char *out, size_t n)
+{
+    unsigned long long h = 1469598103934665603ULL;
+    char buf[128];
+    int i, j;
+    for (i = 0; i < 50000; i++) {
+        snprintf(buf, sizeof buf, "%s|%s|%d", salt, pin, i);
+        for (j = 0; buf[j]; j++) {
+            h ^= (unsigned char)buf[j];
+            h *= 1099511628211ULL;
+        }
+    }
+    snprintf(out, n, "%016llx", h);
+}
+
+static void pin_path(char *out, size_t n)
+{
+    char *dir = SDL_GetPrefPath("DofusArenaFanmade", "DofusArena");
+    if (!dir) { out[0] = 0; return; }
+    snprintf(out, n, "%spin.txt", dir);
+    SDL_free(dir);
+}
+
+/* charge le code enregistre (le fichier ne contient que le hash)      */
+static void pin_load(Game *g)
+{
+    char path[512];
+    char line[128];
+    FILE *file;
+    g->pin_set = 0;
+    g->pin_salt[0] = 0;
+    g->pin_hash[0] = 0;
+    pin_path(path, sizeof path);
+    if (!path[0]) return;
+    file = fopen(path, "r");
+    if (!file) return;
+    while (fgets(line, sizeof line, file)) {
+        if (!strncmp(line, "salt=", 5))
+            snprintf(g->pin_salt, sizeof g->pin_salt, "%s", line + 5);
+        else if (!strncmp(line, "hash=", 5))
+            snprintf(g->pin_hash, sizeof g->pin_hash, "%s", line + 5);
+    }
+    fclose(file);
+    {
+        char *nl;
+        nl = strchr(g->pin_salt, '\n'); if (nl) *nl = 0;
+        nl = strchr(g->pin_hash, '\n'); if (nl) *nl = 0;
+    }
+    g->pin_set = (g->pin_salt[0] && g->pin_hash[0]) ? 1 : 0;
+}
+
+static void pin_save(Game *g)
+{
+    char path[512];
+    FILE *file;
+    pin_path(path, sizeof path);
+    if (!path[0]) return;
+    file = fopen(path, "w");
+    if (!file) return;
+    fprintf(file, "salt=%s\nhash=%s\n", g->pin_salt, g->pin_hash);
+    fclose(file);
+}
+
+/* verifie le code saisi (hash compare)                                */
+static int pin_check(Game *g, const char *pin)
+{
+    char h[32];
+    if (!g->pin_salt[0]) return 0;
+    pin_hash(g->pin_salt, pin, h, sizeof h);
+    return strcmp(h, g->pin_hash) == 0;
+}
+
+/* enregistre un nouveau code (nouveau sel aleatoire)                  */
+static void pin_set_new(Game *g, const char *pin)
+{
+    unsigned long long r;
+    char h[32];
+    r = (unsigned long long)time(NULL) ^ ((unsigned long long)SDL_GetTicks() << 16)
+        ^ (unsigned long long)rand() ^ (unsigned long long)(size_t)pin;
+    snprintf(g->pin_salt, sizeof g->pin_salt, "%016llx", r);
+    pin_hash(g->pin_salt, pin, h, sizeof h);
+    snprintf(g->pin_hash, sizeof g->pin_hash, "%s", h);
+    g->pin_set = 1;
+    pin_save(g);
+}
+
+/* ------------------------------------------------------------------ */
+/* Fenetre de definitions : le manuel de survie du jeu                 */
+/* ------------------------------------------------------------------ */
+typedef struct { const char *term; const char *def; } DefEntry;
+typedef struct { const char *name; const DefEntry *e; int n; } DefCategory;
+
+static const DefEntry DEF_COMBAT[] = {
+    {"PA (Points d'Action)",
+     "Chaque sort en consomme. Les reperes, c'est le budget du mois."},
+    {"PM (Points de Mouvement)",
+     "Le nombre de cases que vous pouvez traverser avant la fin du tour."},
+    {"Initiative",
+     "C'est l'Air qui decide qui joue en premier. Un malus d'Air, et on vous attend."},
+    {"Portee",
+     "Cases touchees par le sort. Hors de portee, votre sort est decoratif."},
+    {"Ligne de vue",
+     "Les murs bloquent, les fosses non. C'est injuste, mais c'est comme ca."},
+    {"Zone verte",
+     "Toutes les cases que vos PM permettent d'atteindre. Deplacement."},
+    {"Zone bleue",
+     "La portee du sort selectionne. On regarde, on choisit, on vise."},
+    {"Zone rouge",
+     "Les ennemis que le sort peut reellement toucher. Le reste, c'est du decor."},
+    {"Tour",
+     "Un combat est une suite de tours. Le mode Songe, lui, n'a pas de fin."},
+    {"PV",
+     "Vos points de vie. Ils descendent, c'est le principe de la chose."},
+};
+
+static const DefEntry DEF_CLASSES[] = {
+    {"Iop Cogneur", "Front-line, epee lourde. Il tape fort, il pense tard."},
+    {"Cra Flechard", "Archer longue portee. Il tire loin, il parle peu."},
+    {"Ecaflip Casino", "Agilite et chance. Son plan depend de la pile ou face."},
+    {"Eniripsa Blouse", "Soigneur de talent. Elle soigne, et elle s'ennuie."},
+    {"Enutrof Magot", "Pelles, tresors, et un那份 de malediction bien placee."},
+    {"Sram Fourbe", "Rogue discrete. Ses pieges font le travail, pas lui."},
+    {"Sacrieur Maso", "Martyr de combat. Il se sacrifie, et il sourit."},
+    {"Sadida Ronceux", "Nature et ronces. Elle plante, puis elle attend."},
+    {"Osamodas Zoo", "Le maitre des invocations : Tofu, Bwork, Wyrmling..."},
+    {"Xelor Retard", "Maitre du temps. Il arrive toujours en retard, gagne quand meme."},
+    {"Feca Boucline", "Defenseur glyphes. Il attend, et il gagne."},
+    {"Pandawa Bourre", "Force brute. Son sort Panoplie le transforme en ours."},
+    {"Roublard Boom", "Poudre, plombs, et escroquerie. Sa panoplie sent la fraude."},
+    {"Invocation",
+     "Creature invoquee sur l'arene. Elle se bat a votre place, et meurt a votre place."},
+};
+
+static const DefEntry DEF_EQUIP[] = {
+    {"Panoplie",
+     "Un objet qui change les regles du combat. 24 au catalogue, toutes avec des bonus."},
+    {"Dofus",
+     "Bonus d'equipe choisi une fois par combat. La bentonite, c'est pour les gros budgets."},
+    {"Elements",
+     "Air (Agilite), Feu (Intelligence), Terre (Force), Eau (Chance) : 100 points a repartir."},
+    {"Sort Panoplie",
+     "La transformation du Pandawa : plus de degats, plus de PM. On devient un ours."},
+    {"Deck (draft)",
+     "4 sorts choisis parmi les 16 de votre classe. Pas un de plus, c'est la regle."},
+    {"Favoris",
+     "5 emplacements memoire pour un duo classe + panoplie. Pratique pour le spam."},
+};
+
+static const DefEntry DEF_MODES[] = {
+    {"Solo",
+     "Vous contre l'IA. Deux bots au choix : classique (rapide) ou neuronal (fort)."},
+    {"P2P",
+     "Deux joueurs en UDP 7777, sur le meme reseau. L'hote heberge, l'autre rejoint."},
+    {"Mode Songe",
+     "Une expedition infinie contre les monstres du reve. Record sauvegarde sur disque."},
+    {"Defis du jour",
+     "3 defis par jour, renouveles a minuit. Ils rapportent des points, les points ne rapportent rien."},
+    {"Achievements",
+     "69 succes a decocher. Le 70 reste mystereux, comme tout ce qui est gratuit."},
+};
+
+static const DefEntry DEF_NET[] = {
+    {"UDP 7777",
+     "Le port du jeu. Si ca ne marche pas, c'est souvent le pare-feu (ou votre box)."},
+    {"Heberger",
+     "Ouvre le port et attend un adversaire. Il partage son IP publique, par gentillesse."},
+    {"Rejoindre",
+     "Saisissez l'IP de l'hote, puis cliquez. L'IP se tape a la souris, mercy."},
+    {"Anti-humiliation",
+     "Quand l'IA gagne, une musique pardonne. Tout le monde a besoin de ca."},
+    {"Astuce",
+     "Survolez tout : l'info-bulle est la meilleure documentation du jeu."},
+};
+
+static const DefCategory DEF_CATS[5] = {
+    {"COMBAT",     DEF_COMBAT, (int)(sizeof DEF_COMBAT / sizeof DEF_COMBAT[0])},
+    {"CLASSES",    DEF_CLASSES, (int)(sizeof DEF_CLASSES / sizeof DEF_CLASSES[0])},
+    {"EQUIPEMENT", DEF_EQUIP,   (int)(sizeof DEF_EQUIP / sizeof DEF_EQUIP[0])},
+    {"MODES",      DEF_MODES,   (int)(sizeof DEF_MODES / sizeof DEF_MODES[0])},
+    {"RESEAU",     DEF_NET,     (int)(sizeof DEF_NET / sizeof DEF_NET[0])},
+};
+#define DEF_NCAT (int)(sizeof DEF_CATS / sizeof DEF_CATS[0])
+
+/* ------------------------------------------------------------------ */
+/* Ecran de verrouillage : saisie du code PIN                          */
+/* ------------------------------------------------------------------ */
+static void draw_pin(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    SDL_Color white = {245, 235, 215, 255};
+    SDL_Color gold  = {255, 214, 120, 255};
+    SDL_Color grey  = {175, 170, 160, 255};
+    SDL_Color red   = {235, 90, 80, 255};
+    SDL_Color green = {120, 235, 140, 255};
+    char line[128];
+    int i, mx, my;
+    int creating = (g->pin_mode == 0);
+    int locked = ((Sint32)(g->pin_lock_until - SDL_GetTicks()) > 0);
+    mouse_logical(&mx, &my);
+    tip_reset();
+
+    SDL_SetRenderDrawColor(r, 16, 14, 16, 255);
+    SDL_RenderClear(r);
+    draw_ui_panel(r, (SDL_Rect){232, 28, 560, 424});
+    draw_ui_banner(r, (SDL_Rect){240, 34, 544, 48});
+    draw_text(r, font, creating ? "CODE PIN - CREATION" : "CODE PIN",
+              268, 42, gold);
+    draw_text(r, font, creating
+              ? "Choisissez un code a 6 chiffres."
+              : "Saisissez votre code pour ouvrir le jeu.",
+              268, 62, grey);
+
+    /* champ de saisie (masque, comme une banque)                       */
+    {
+        SDL_Rect f = pin_field();
+        SDL_SetRenderDrawColor(r, 22, 22, 28, 255);
+        SDL_RenderFillRect(r, &f);
+        SDL_SetRenderDrawColor(r, g->pin_msg[0] == '\0' ? 205 : 120,
+                               g->pin_msg[0] == '\0' ? 170 : 60,
+                               g->pin_msg[0] == '\0' ? 105 : 60, 255);
+        SDL_RenderDrawRect(r, &f);
+        for (i = 0; i < PIN_LENGTH; i++) {
+            int cx = f.x + 22 + i * 38;
+            if (i < g->pin_len) {
+                SDL_SetRenderDrawColor(r, gold.r, gold.g, gold.b, 255);
+            } else {
+                SDL_SetRenderDrawColor(r, 90, 86, 80, 255);
+            }
+            SDL_RenderFillRect(r, &(SDL_Rect){cx, f.y + 14, 20, 16});
+        }
+    }
+
+    /* pave numerique : 1-9, puis C / 0 / OK                            */
+    for (i = 0; i < 12; i++) {
+        SDL_Rect b = pin_key(i);
+        char label[4];
+        int hovered = pt_in(b, mx, my);
+        if (i < 9) snprintf(label, sizeof label, "%d", i + 1);
+        else if (i == 9) snprintf(label, sizeof label, "C");
+        else if (i == 10) snprintf(label, sizeof label, "0");
+        else snprintf(label, sizeof label, "OK");
+        if (i == 11) {
+            int ready = (g->pin_len == PIN_LENGTH);
+            ui_button(r, b, label, font, hovered && ready, 0, ready);
+        } else {
+            ui_button(r, b, label, font, hovered, 0,
+                      !(i == 9 && g->pin_len == 0));
+        }
+        if (hovered) {
+            if (i == 9) {
+                tip_begin("Effacer");
+                tip_add("Efface le code en cours de saisie.");
+            } else if (i == 11) {
+                tip_begin("Valider");
+                tip_add("Il faut 6 chiffres avant de valider.");
+            } else {
+                tip_begin("Chiffre");
+                tip_add("Cliquez pour composer votre code.");
+            }
+        }
+    }
+
+    /* messages / etat du verrouillage                                  */
+    if (locked) {
+        int rest = (int)((g->pin_lock_until - SDL_GetTicks()) / 1000) + 1;
+        snprintf(line, sizeof line,
+                 "Trop d'essais. Reessayez dans %d secondes.", rest);
+        draw_text(r, font, line, 268, 424, red);
+    } else if (g->pin_msg[0]) {
+        draw_text(r, font, g->pin_msg, 268, 424,
+                  (g->pin_attempts > 0) ? red : green);
+    } else if (creating && g->pin_have_first) {
+        draw_text(r, font, "Confirmez votre code (une deuxieme fois).",
+                  268, 424, gold);
+    } else if (creating) {
+        draw_text(r, font, "Choisissez 6 chiffres. Notez-les quelque part.",
+                  268, 424, grey);
+    } else {
+        snprintf(line, sizeof line, "Essais restants : %d", PIN_MAX_TRIES);
+        draw_text(r, font, line, 268, 424, grey);
+    }
+
+    {
+        SDL_Rect b = pin_forget();
+        int hovered = pt_in(b, mx, my);
+        ui_button(r, b, "CODE OUBLIE ?", font, hovered, 0, 1);
+        if (hovered) {
+            tip_begin("Code oublie ?");
+            tip_add("Efface le code PIN et la progression, puis repart de zero.");
+        }
+    }
+    {
+        SDL_Rect b = pin_quit();
+        int hovered = pt_in(b, mx, my);
+        ui_button(r, b, "QUITTER", font, hovered, 0, 1);
+        if (hovered) {
+            tip_begin("Quitter");
+            tip_add("Fermer le jeu (le code PIN reste memorise).");
+        }
+    }
+    draw_tooltip(r, font, mx, my);
+}
+
+/* ------------------------------------------------------------------ */
+/* Logique du code PIN : creation, confirmation, deverrouillage        */
+/* ------------------------------------------------------------------ */
+static void pin_reset_entry(Game *g)
+{
+    g->pin_len = 0;
+    g->pin_entry[0] = 0;
+    g->pin_msg[0] = 0;
+}
+
+/* Called quand le joueur valide 6 chiffres                            */
+/* execute la commande de ligne de commande apres le deverrouillage    */
+static void pin_run_cli(Game *g)
+{
+    if (g->cli_pending == 1) {                 /* heberger                */
+        g->team_size = g->team_size_choice;
+        if (!net_open(g, NET_HOST, NULL)) {
+            fprintf(stderr, "bind 7777 impossible\n");
+            snprintf(g->menu_status, sizeof g->menu_status,
+                     "Bind UDP 7777 impossible.");
+            return;
+        }
+        g->state = ST_MENU;
+        snprintf(g->menu_status, sizeof g->menu_status,
+                 "En attente sur UDP 7777. Partagez votre IP publique.");
+        printf("En attente sur le port %d...\n", PORT);
+    } else if (g->cli_pending == 2) {          /* rejoindre              */
+        snprintf(g->ip_text, sizeof g->ip_text, "%s", g->cli_ip);
+        if (!net_begin_join(g, g->cli_ip)) {
+            fprintf(stderr, "ip invalide\n");
+            snprintf(g->menu_status, sizeof g->menu_status,
+                     "IP invalide : entrez une adresse IPv4.");
+        }
+    } else if (g->cli_pending == 3) {          /* defi local              */
+        start_solo_game(g, g->cli_seed);
+        printf("Defi local contre le bot neuronal, graine %u.\n",
+               g->challenge_seed);
+    }
+    g->cli_pending = 0;
+}
+
+static void pin_submit(Game *g)
+{
+    if (g->pin_len != PIN_LENGTH) return;
+    if ((Sint32)(g->pin_lock_until - SDL_GetTicks()) > 0) return;
+    if (g->pin_mode == 0) {
+        /* creation : on demande la confirmation                       */
+        if (!g->pin_have_first) {
+            snprintf(g->pin_first, sizeof g->pin_first, "%s", g->pin_entry);
+            g->pin_have_first = 1;
+            pin_reset_entry(g);
+            snprintf(g->pin_msg, sizeof g->pin_msg,
+                     "Code memorize. Reb validez-le pour confirmer.");
+            return;
+        }
+        if (strcmp(g->pin_first, g->pin_entry) != 0) {
+            g->pin_have_first = 0;
+            pin_reset_entry(g);
+            snprintf(g->pin_msg, sizeof g->pin_msg,
+                     "Les deux codes different. On recommence.");
+            return;
+        }
+        pin_set_new(g, g->pin_entry);
+        g->pin_have_first = 0;
+        pin_reset_entry(g);
+        g->pin_mode = 1;
+        g->pin_attempts = PIN_MAX_TRIES;
+        g->state = ST_MENU;
+        snprintf(g->menu_status, sizeof g->menu_status,
+                 "Code PIN enregistre. Bienvenue a bord.");
+        return;
+    }
+    /* deverrouillage                                                */
+    if (pin_check(g, g->pin_entry)) {
+        g->pin_attempts = PIN_MAX_TRIES;
+        g->state = ST_MENU;
+        pin_reset_entry(g);
+        snprintf(g->menu_status, sizeof g->menu_status,
+                 "Code accepte. Bonne partie.");
+        pin_run_cli(g);
+        return;
+    }
+    g->pin_attempts--;
+    pin_reset_entry(g);
+    if (g->pin_attempts > 0) {
+        snprintf(g->pin_msg, sizeof g->pin_msg,
+                 "Code incorrect. %d essai(s) restant(s).", g->pin_attempts);
+    } else {
+        g->pin_lock_until = SDL_GetTicks() + PIN_LOCK_MS;
+        g->pin_attempts = PIN_MAX_TRIES;
+        snprintf(g->pin_msg, sizeof g->pin_msg,
+                 "Trop d'essais. Le jeu se verrouille un moment.");
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Ecran Definitions                                                    */
+/* ------------------------------------------------------------------ */
+static void draw_defs(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    SDL_Color white = {245, 235, 215, 255};
+    SDL_Color gold  = {255, 214, 120, 255};
+    SDL_Color grey  = {175, 170, 160, 255};
+    char line[200];
+    int i, mx, my;
+    const DefCategory *cat;
+    int total, visible, first;
+    mouse_logical(&mx, &my);
+    tip_reset();
+
+    if (g->defs_cat < 0 || g->defs_cat >= DEF_NCAT) g->defs_cat = 0;
+    cat = &DEF_CATS[g->defs_cat];
+
+    SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
+    SDL_RenderClear(r);
+    draw_ui_panel(r, (SDL_Rect){8, 6, WIN_W - 16, WIN_H - 12});
+    draw_ui_banner(r, (SDL_Rect){14, 8, WIN_W - 28, 48});
+    draw_text(r, font, "DEFINITIONS", 24, 14, gold);
+    draw_text(r, font, "le manuel de survie du jeu", 190, 16, grey);
+
+    /* colonnes de categories (a gauche) */
+    for (i = 0; i < DEF_NCAT; i++) {
+        SDL_Rect b = {24, 74 + i * 52, 200, 44};
+        int selected = (i == g->defs_cat);
+        int hovered = pt_in(b, mx, my);
+        ui_button(r, b, DEF_CATS[i].name, font, hovered, selected, 1);
+        if (hovered) {
+            tip_begin(DEF_CATS[i].name);
+            tip_add("%d entrees dans cette categorie.", DEF_CATS[i].n);
+        }
+    }
+    /* les categories en colonne de droite : le contenu */
+    total = cat->n;
+    visible = 8;
+    first = g->defs_scroll;
+    if (first > total - visible) first = total - visible;
+    if (first < 0) first = 0;
+    g->defs_scroll = first;
+    for (i = 0; i < visible && first + i < total; i++) {
+        int y = 74 + i * 44;
+        const DefEntry *e = &cat->e[first + i];
+        SDL_Rect row = {240, y - 4, WIN_W - 320, 40};
+        int hovered = pt_in(row, mx, my);
+        SDL_SetRenderDrawColor(r, hovered ? 44 : 32, hovered ? 40 : 28,
+                               hovered ? 46 : 26, 255);
+        SDL_RenderFillRect(r, &row);
+        SDL_SetRenderDrawColor(r, hovered ? 225 : 120, hovered ? 190 : 95,
+                               hovered ? 120 : 65, 255);
+        SDL_RenderDrawRect(r, &row);
+        draw_text(r, font, e->term, row.x + 8, row.y + 2, gold);
+        draw_text(r, font, e->def, row.x + 8, row.y + 20, white);
+    }
+    /* navigation */
+    {
+        SDL_Rect up = defs_up_btn();
+        SDL_Rect down = defs_down_btn();
+        SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
+        SDL_RenderFillRect(r, &up);
+        SDL_RenderFillRect(r, &down);
+        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
+        SDL_RenderDrawRect(r, &up);
+        SDL_RenderDrawRect(r, &down);
+        draw_text(r, font, "UP", up.x + 10, up.y + 8, white);
+        draw_text(r, font, "DOWN", down.x + 2, down.y + 8, white);
+        if (pt_in(up, mx, my)) {
+            tip_begin("Monter");
+            tip_add("Molette de la souris aussi.");
+        } else if (pt_in(down, mx, my)) {
+            tip_begin("Descendre");
+            tip_add("Molette de la souris aussi.");
+        }
+    }
+    snprintf(line, sizeof line, "%d / %d", total ? first + 1 : 0, total);
+    draw_text(r, font, line, WIN_W - 118, WIN_H - 96, grey);
+    {
+        SDL_Rect back = defs_back_btn();
+        SDL_SetRenderDrawColor(r, 64, 48, 38, 255);
+        SDL_RenderFillRect(r, &back);
+        SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
+        SDL_RenderDrawRect(r, &back);
+        draw_text(r, font, "RETOUR", back.x + 32, back.y + 9, white);
+    }
+    draw_text(r, font, "Astuce : la molette de la souris fait defiler la liste.",
+              24, WIN_H - 46, grey);
+    draw_tooltip(r, font, mx, my);
 }
 
 /* ------------------------------------------------------------------ */
@@ -5497,9 +6054,9 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_text(r, font, "LANCER LE SONGE (SOLO)", b.x + 26, b.y + 14, white);
         if (hovered) {
             tip_begin("Lancer le Songe");
-            tip_add("Equipe de %d membre(s) contre l'IA.",
+            tip_add("Equipe de %d contre l'IA, et la suite au reve.",
                     g->songe_party);
-            tip_add("Les niveaux sont sans fin : visez le record !");
+            tip_add("Les niveaux sont sans fin : visez le record, c'est le seul but.");
         }
     }
     {
@@ -5513,8 +6070,8 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_text(r, font, "HEBERGER (MULTIJOUEUR)", b.x + 22, b.y + 14, white);
         if (hovered) {
             tip_begin("Heberger un Songe");
-            tip_add("Votre ami se joint a vous en UDP 7777.");
-            tip_add("Les slots d'equipe sont partages entre les joueurs.");
+            tip_add("Votre ami se joint a vous en UDP 7777, et le reve continue.");
+            tip_add("Les slots d'equipe sont partages entre les joueurs (moitie-moitie).");
         }
     }
     {
@@ -6223,6 +6780,7 @@ int main(int argc, char **argv)
     SDL_RenderSetLogicalSize(ren, WIN_W, WIN_H);
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     g_ren = ren;
+    g_window = win;
     SDL_ShowWindow(win);
     SDL_RaiseWindow(win);
     font = TTF_OpenFont("assets/font.ttf", 16);
@@ -6253,45 +6811,56 @@ int main(int argc, char **argv)
     load_audio();
     apply_audio_settings(&game);
 
-    if (argc >= 2 && !strcmp(argv[1], "host")) {
-        if (argc >= 3) {
-            int size = atoi(argv[2]);
-            if (size == 1 || size == 2 || size == 5)
-                game.team_size_choice = size;
-        }
-        game.team_size = game.team_size_choice;
-        if (!net_open(&game, NET_HOST, NULL)) { fprintf(stderr, "bind 7777 impossible\n"); return 1; }
-        game.state = ST_MENU;
-        snprintf(game.menu_status, sizeof game.menu_status,
-                 "En attente sur UDP 7777. Partagez votre IP publique.");
-        printf("En attente sur le port %d...\n", PORT);
-    } else if (argc >= 3 && !strcmp(argv[1], "join")) {
-        snprintf(game.ip_text, sizeof game.ip_text, "%s", argv[2]);
-        if (!net_begin_join(&game, game.ip_text)) { fprintf(stderr, "ip invalide\n"); return 1; }
-    } else if (argc >= 2 && !strcmp(argv[1], "challenge")) {
-        unsigned seed = 424242u;
-        if (argc >= 3) {
-            char *end = NULL;
-            unsigned long long parsed;
-            if (argv[2][0] == '-') {
-                fprintf(stderr, "graine invalide: utilisez un entier positif.\n");
-                return 1;
+    /* La commande CLI est memorisee : elle ne sera executee qu'apres
+     * avoir saisi le code PIN (le jeu est verrouille au lancement).   */
+    {
+        int cli = 0;                 /* 1 = host, 2 = join, 3 = challenge */
+        unsigned cli_seed = 424242u;
+        char cli_ip[64] = {0};
+        int cli_size = 0;
+        if (argc >= 2 && !strcmp(argv[1], "host")) {
+            cli = 1;
+            if (argc >= 3) {
+                int size = atoi(argv[2]);
+                if (size == 1 || size == 2 || size == 5) cli_size = size;
             }
-            errno = 0;
-            parsed = strtoull(argv[2], &end, 10);
-            if (!argv[2][0] || errno == ERANGE || !end || *end != '\0'
-                || parsed == 0 || parsed > UINT_MAX) {
-                fprintf(stderr, "graine invalide: utilisez un entier 1..%u.\n",
-                        UINT_MAX);
-                return 1;
+        } else if (argc >= 3 && !strcmp(argv[1], "join")) {
+            cli = 2;
+            snprintf(cli_ip, sizeof cli_ip, "%s", argv[2]);
+        } else if (argc >= 2 && !strcmp(argv[1], "challenge")) {
+            cli = 3;
+            if (argc >= 3) {
+                char *end = NULL;
+                unsigned long long parsed;
+                if (argv[2][0] == '-') {
+                    fprintf(stderr, "graine invalide: utilisez un entier positif.\n");
+                    return 1;
+                }
+                errno = 0;
+                parsed = strtoull(argv[2], &end, 10);
+                if (!argv[2][0] || errno == ERANGE || !end || *end != '\0'
+                    || parsed == 0 || parsed > UINT_MAX) {
+                    fprintf(stderr, "graine invalide: utilisez un entier 1..%u.\n",
+                            UINT_MAX);
+                    return 1;
+                }
+                cli_seed = (unsigned)parsed;
             }
-            seed = (unsigned)parsed;
         }
-        start_solo_game(&game, seed);
-        printf("Defi local contre le bot neuronal, graine %u.\n",
-               game.challenge_seed);
-    } else {
-        game.state = ST_MENU;
+        /* verrouillage : code PIN a definir ou a saisir                */
+        pin_load(&game);
+        game.pin_mode = game.pin_set ? 1 : 0;
+        game.pin_attempts = PIN_MAX_TRIES;
+        game.state = ST_PIN;
+        pin_reset_entry(&game);
+        if (cli == 1) {
+            if (cli_size) game.team_size_choice = cli_size;
+            game.team_size = game.team_size_choice;
+        }
+        /* memorise pour l'apres-deverrouillage                       */
+        game.cli_pending = cli;
+        game.cli_seed = cli_seed;
+        snprintf(game.cli_ip, sizeof game.cli_ip, "%s", cli_ip);
     }
 
     while (running) {
@@ -6341,11 +6910,14 @@ int main(int argc, char **argv)
                         game.chat_input[len] = (char)k;
                         game.chat_input[len + 1] = 0;
                     }
+                } else if (k == SDLK_F11) {
+                    apply_fullscreen(&game, !game.fullscreen);
                 } else if (game.state == ST_MENU && game.settings_open) {
                     if (k == SDLK_ESCAPE)
                         game.settings_open = 0;
                 } else if ((game.state == ST_SONGE
                             || game.state == ST_CHALLENGES
+                            || game.state == ST_DEFS
                             || game.state == ST_ACHIEVEMENTS)
                            && k == SDLK_ESCAPE) {
                     game.state = ST_MENU;
@@ -6416,6 +6988,11 @@ int main(int argc, char **argv)
                                    ? SFX_MENU_SELECT : SFX_MENU_CANCEL);
                     }
                 }
+            } else if (ev.type == SDL_MOUSEWHEEL) {
+                if (game.state == ST_DEFS) {
+                    int step = ev.wheel.y > 0 ? -1 : (ev.wheel.y < 0 ? 1 : 0);
+                    game.defs_scroll += step;
+                }
             } else if (ev.type == SDL_TEXTINPUT
                        && (game.state == ST_MENU || game.state == ST_SONGE)
                        && game.ip_editing) {
@@ -6455,16 +7032,18 @@ int main(int argc, char **argv)
                                     apply_audio_settings(&game);
                                 }
                             }
-                            for (row = 3; row < 6; row++) {
+                            for (row = 3; row < 7; row++) {
                                 if (!pt_in(settings_toggle_btn(row), mx, my))
                                     continue;
                                 if (row == 3) {
                                     game.colorblind_mode = !game.colorblind_mode;
                                 } else if (row == 4) {
                                     game.reduce_flashing = !game.reduce_flashing;
-                                } else {
+                                } else if (row == 5) {
                                     game.subtitles_when_muted =
                                         !game.subtitles_when_muted;
+                                } else {
+                                    apply_fullscreen(&game, !game.fullscreen);
                                 }
                             }
                         }
@@ -6515,6 +7094,12 @@ int main(int argc, char **argv)
                         }
                         if (!handled && pt_in(menu_btn_challenges(), mx, my)) {
                             game.state = ST_CHALLENGES;
+                            handled = 1;
+                        }
+                        if (!handled && pt_in(menu_btn_defs(), mx, my)) {
+                            game.state = ST_DEFS;
+                            game.defs_cat = 0;
+                            game.defs_scroll = 0;
                             handled = 1;
                         }
                         for (q = 0; q < 3; q++) {
@@ -6593,6 +7178,60 @@ int main(int argc, char **argv)
                                          "IP invalide : entrez une adresse IPv4.");
                             }
                         }
+                    }
+                } else if (game.state == ST_PIN) {
+                    int k;
+                    int locked = ((Sint32)(game.pin_lock_until
+                                           - SDL_GetTicks()) > 0);
+                    if (pt_in(pin_quit(), mx, my)) {
+                        running = 0;
+                    } else if (pt_in(pin_forget(), mx, my)) {
+                        /* mot de passe oublie : tout effacer            */
+                        char path[512];
+                        FILE *f;
+                        pin_path(path, sizeof path);
+                        if (path[0] && (f = fopen(path, "w")) != NULL) {
+                            fclose(f);
+                        }
+                        game.pin_set = 0;
+                        game.pin_mode = 0;
+                        game.pin_have_first = 0;
+                        game.pin_attempts = PIN_MAX_TRIES;
+                        pin_reset_entry(&game);
+                        snprintf(game.pin_msg, sizeof game.pin_msg,
+                                 "Tout est efface. Definissez un nouveau code.");
+                    } else if (!locked) {
+                        for (k = 0; k < 12; k++) {
+                            if (!pt_in(pin_key(k), mx, my)) continue;
+                            if (k == 9) {              /* C : effacer      */
+                                pin_reset_entry(&game);
+                            } else if (k == 11) {      /* OK : valider     */
+                                pin_submit(&game);
+                            } else if (game.pin_len < PIN_LENGTH) {
+                                int digit = (k == 10) ? 0 : (k + 1);
+                                game.pin_entry[game.pin_len++] =
+                                    (char)('0' + digit);
+                                game.pin_entry[game.pin_len] = 0;
+                                game.pin_msg[0] = 0;
+                            }
+                            break;
+                        }
+                    }
+                } else if (game.state == ST_DEFS) {
+                    int q;
+                    if (pt_in(defs_back_btn(), mx, my)) {
+                        game.state = ST_MENU;
+                    } else if (pt_in(defs_up_btn(), mx, my)) {
+                        game.defs_scroll--;
+                    } else if (pt_in(defs_down_btn(), mx, my)) {
+                        game.defs_scroll++;
+                    } else {
+                        for (q = 0; q < DEF_NCAT; q++)
+                            if (pt_in(defs_cat_rect(q), mx, my)) {
+                                game.defs_cat = q;
+                                game.defs_scroll = 0;
+                                break;
+                            }
                     }
                 } else if (game.state == ST_SONGE) {
                     int q;
@@ -6984,6 +7623,7 @@ int main(int argc, char **argv)
         }
         switch (game.state) {
         case ST_MENU:     draw_menu(ren, font, &game); break;
+        case ST_PIN:      draw_pin(ren, font, &game); break;
         case ST_PICK:     draw_pick(ren, font, &game); break;
         case ST_DRAFT:    draw_draft(ren, font, &game); break;
         case ST_STUFF:    draw_stuff(ren, font, &game); break;
@@ -6991,6 +7631,7 @@ int main(int argc, char **argv)
         case ST_DOFUS:    draw_dofus(ren, font, &game); break;
         case ST_ACHIEVEMENTS: draw_achievements(ren, font, &game); break;
         case ST_CHALLENGES: draw_challenges(ren, font, &game); break;
+        case ST_DEFS:      draw_defs(ren, font, &game); break;
         case ST_SONGE:    draw_songe(ren, font, &game); break;
         case ST_BATTLE: {
             int a, b, fighter, mx, my;
