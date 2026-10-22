@@ -1,0 +1,149 @@
+{
+  "image": "creatures.png",
+  "image_size": {
+    "width": 320,
+    "height": 16
+  },
+  "frames": [
+    {
+      "x": 0,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Tofu"
+    },
+    {
+      "x": 16,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Gobball"
+    },
+    {
+      "x": 32,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Prespic"
+    },
+    {
+      "x": 48,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Sanglier"
+    },
+    {
+      "x": 64,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Bwork"
+    },
+    {
+      "x": 80,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Crackler"
+    },
+    {
+      "x": 96,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Wyrmling"
+    },
+    {
+      "x": 112,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Dopeul"
+    },
+    {
+      "x": 128,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Coffre"
+    },
+    {
+      "x": 144,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Arbre"
+    },
+    {
+      "x": 160,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Chauve-souris"
+    },
+    {
+      "x": 176,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Loup-garou"
+    },
+    {
+      "x": 192,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Araignee"
+    },
+    {
+      "x": 208,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Araignee-brune"
+    },
+    {
+      "x": 224,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Arbre-mort"
+    },
+    {
+      "x": 240,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Buisson"
+    },
+    {
+      "x": 256,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Fleur-bleue"
+    },
+    {
+      "x": 272,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Fleur-de-feu"
+    },
+    {
+      "x": 288,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Fleur-maudite"
+    },
+    {
+      "x": 304,
+      "y": 0,
+      "w": 16,
+      "h": 16,
+      "name": "Torche"
+    }
+  ]
+}
