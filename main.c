@@ -603,16 +603,15 @@ static SDL_Renderer *g_ren;      /* pour la conversion souris -> logique */
  * Les evenements souris arrivent en pixels fenetre : on convertit.      */
 static void point_logical(int wx, int wy, int *lx, int *ly)
 {
-    float sx = 1.0f, sy = 1.0f;
-    SDL_Rect vp = {0, 0, WIN_W, WIN_H};
+    float fx = 0.0f, fy = 0.0f;
     if (g_ren) {
-        SDL_RenderGetScale(g_ren, &sx, &sy);
-        SDL_RenderGetViewport(g_ren, &vp);
-        if (sx <= 0.0f) sx = 1.0f;
-        if (sy <= 0.0f) sy = 1.0f;
+        SDL_RenderWindowToLogical(g_ren, (float)wx, (float)wy, &fx, &fy);
+    } else {
+        fx = (float)wx;
+        fy = (float)wy;
     }
-    *lx = (int)((wx - vp.x) / sx);
-    *ly = (int)((wy - vp.y) / sy);
+    *lx = (int)fx;
+    *ly = (int)fy;
 }
 
 static void mouse_logical(int *lx, int *ly)
@@ -8148,7 +8147,7 @@ int main(int argc, char **argv)
 
     win = SDL_CreateWindow("Dofus Arena Gaïa Project's version",
                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                           1280, 800, SDL_WINDOW_RESIZABLE);
+                           WIN_W, WIN_H, 0);
     if (!win) {
         fprintf(stderr, "Fenetre SDL indisponible: %s\n", SDL_GetError());
         return 1;
