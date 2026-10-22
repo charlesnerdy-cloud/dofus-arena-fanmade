@@ -268,3 +268,49 @@ défaut**, à activer dans *Options → Microphone*).
   (`Mix_QuickLoad_RAW`) avec un fondu aux extrémités
 * La musique est atténuée (65 %, puis 35 % si le ton monte) via
   `Mix_VolumeMusic`
+
+---
+
+## 🗄️ Base de données SQLite
+
+Depuis la **V4.0**, toutes les données du jeu vivent dans une base **SQLite** :
+`dofus_arena.db` (dans le dossier de préférences SDL2).
+
+| Table | Contenu |
+|---|---|
+| `favorites` | les 5 favoris (classe + panoplie) |
+| `records` | records (niveau max du Songe, points des défis) |
+| `challenges` | défis du jour validés (jour + index) |
+| `pin` | sel + hash du code PIN (jamais en clair) |
+| `meta` | espace réservé (version du schéma, etc.) |
+
+### Zéro dépendance
+
+SQLite est **chargé dynamiquement** à l'exécution (`SDL_LoadObject`) :
+**rien à installer, rien à compiler en plus**. Si la bibliothèque est absente
+de la machine (ou sur Android), le jeu bascule automatiquement sur les
+**anciens fichiers texte** — le comportement est identique.
+
+Tentatives de chargement, dans l'ordre : `libsqlite3.so.0`, `libsqlite3.so`,
+`libsqlite3.0.dylib`, `libsqlite3.dylib`, `sqlite3.dll`, `libsqlite3.dll`.
+
+### Migration automatique
+
+Au premier lancement avec SQLite disponible, les anciens fichiers
+(`favorites.txt`, `songe.txt`, `pin.txt`) sont **importés** dans la base puis
+supprimés. Aucune donnée n'est perdue.
+
+---
+
+## 🌿 Décors, lumière et ombres
+
+* **Décors** : le sol n'est plus uniforme (variation de teinte par case) et
+  des **props** (arbres, buissons, fleurs, coffres) sont semés sur l'arène,
+  triés en profondeur avec les combattants et les invocations.
+* **Lumière** : chaque combattant éclaire une zone (halo chaud pour le
+  joueur actif, bleu pour les alliés, rouge pour les ennemis), le halo de
+  sélection brille, et une vignette assombrit les bords de la scène.
+* **Ombres** : les losanges noirs ont été remplacés par des **ombres
+  douces** (dégradé radial aplati) qui suivent les sprites.
+* **Invocations animées** : une créature invoquée **saute** jusqu'à sa case
+  (interpolation + arc), puis **fonce** sur sa cible quand elle attaque.

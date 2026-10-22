@@ -118,7 +118,7 @@ typedef int Sock;
 #define MONSTER_FRAME_COUNT 10
 #define DAILY_CHALLENGES 3
 #define MAX_FAVORITES 5
-#define ELEMENT_COUNT 4
+#define ELEMENT_COUNT 5
 #define ELEMENT_POINTS 100
 #define MAX_HP 100
 
@@ -160,6 +160,7 @@ static SDL_Texture *g_spell_icons;
 static SDL_Texture *g_emote_sheet;
 static SDL_Texture *g_creatures_sheet;
 static SDL_Rect g_creature_frames[N_CREATURES];
+static SDL_Texture *g_glow_tex;         /* degrade radial (halo/ombre)  */
 static int   g_music_duck = 100;    /* volume de la musique (%)          */
 /* micro local : capture, niveau, hauteur de voix, anti-toxicite        */
 static SDL_AudioDeviceID g_mic_device = 0;
@@ -170,11 +171,193 @@ static int      g_mic_voice = 0;        /* 1 = une voix est detectee      */
 static int      g_mic_toxic = 0;        /* 0..100 : niveau d'agressivite  */
 static int      g_mic_db = -60;         /* niveau en dB                   */
 static Uint32   g_mic_last_voice = 0;
+typedef struct {
+    void *lib;
+    void *db;
+    int   (*open)(const char *, void **, int, const char *);
+    int   (*close)(void *);
+    int   (*exec)(void *, const char *, void *, void *, char **);
+    int   (*prepare)(void *, const char *, int, void **, const char **);
+    int   (*bind_int)(void *, int, int);
+    int   (*bind_text)(void *, int, const char *, int, void *);
+    int   (*step)(void *);
+    int   (*column_int)(void *, int);
+    const unsigned char *(*column_text)(void *, int);
+    int   (*finalize)(void *);
+    const char *(*errmsg)(void *);
+} Sqlite;
+
+#define SQLITE_OK          0
+#define SQLITE_ROW       100
+#define SQLITE_DONE      101
+#define SQLITE_OPEN_READWRITE 0x00000002
+#define SQLITE_OPEN_CREATE   0x00000004
+#define SQLITE_TRANSIENT  ((void (*)(void *)) -1)
+
+static Sqlite g_sql;
+static int    g_sql_ready = 0;
+
+/* charge la bibliotheque SQLite si elle est presente sur la machine   */
+static int sqlite_load(void)
+{
+    static const char *candidates[] = {
+        "libsqlite3.so.0", "libsqlite3.so", "libsqlite3.0.dylib",
+        "libsqlite3.dylib", "sqlite3.dll", "libsqlite3.dll", NULL
+    };
+    int i;
+    if (g_sql_ready) return 1;
+    for (i = 0; candidates[i]; i++) {
+        g_sql.lib = SDL_LoadObject(candidates[i]);
+        if (g_sql.lib) break;
+    }
+    if (!g_sql.lib) return 0;
+    g_sql.open        = (int (*)(const char *, void **, int, const char *))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_open_v2");
+    g_sql.close       = (int (*)(void *))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_close_v2");
+    if (!g_sql.close)
+        g_sql.close   = (int (*)(void *))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_close");
+    g_sql.exec        = (int (*)(void *, const char *, void *, void *, char **))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_exec");
+    g_sql.prepare     = (int (*)(void *, const char *, int, void **, const char **))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_prepare_v2");
+    g_sql.bind_int    = (int (*)(void *, int, int))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_bind_int");
+    g_sql.bind_text   = (int (*)(void *, int, const char *, int, void *))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_bind_text");
+    g_sql.step        = (int (*)(void *))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_step");
+    g_sql.column_int  = (int (*)(void *, int))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_column_int");
+    g_sql.column_text = (const unsigned char *(*)(void *, int))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_column_text");
+    g_sql.finalize    = (int (*)(void *))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_finalize");
+    g_sql.errmsg      = (const char *(*)(void *))
+                        SDL_LoadFunction(g_sql.lib, "sqlite3_errmsg");
+    if (!g_sql.open || !g_sql.close || !g_sql.exec || !g_sql.prepare
+        || !g_sql.bind_int || !g_sql.bind_text || !g_sql.step
+        || !g_sql.column_int || !g_sql.column_text || !g_sql.finalize) {
+        SDL_UnloadObject(g_sql.lib);
+        g_sql.lib = NULL;
+        return 0;
+    }
+    g_sql_ready = 1;
+    return 1;
+}
+
+/* ouvre la base et cree les tables                                    */
+static int db_open(void)
+{
+    char path[512];
+    if (!sqlite_load()) return 0;
+    {
+        char *dir = SDL_GetPrefPath("DofusArenaFanmade", "DofusArena");
+        if (!dir) return 0;
+        snprintf(path, sizeof path, "%sdofus_arena.db", dir);
+        SDL_free(dir);
+    }
+    if (g_sql.open(path, &g_sql.db,
+                   SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL)
+        != SQLITE_OK) {
+        g_sql.db = NULL;
+        return 0;
+    }
+    g_sql.exec(g_sql.db,
+        "CREATE TABLE IF NOT EXISTS meta("
+        " key TEXT PRIMARY KEY, value TEXT);"
+        "CREATE TABLE IF NOT EXISTS favorites("
+        " slot INTEGER PRIMARY KEY, cls INTEGER, pano INTEGER);"
+        "CREATE TABLE IF NOT EXISTS records("
+        " name TEXT PRIMARY KEY, value INTEGER);"
+        "CREATE TABLE IF NOT EXISTS challenges("
+        " day INTEGER, idx INTEGER, done INTEGER,"
+        " PRIMARY KEY(day, idx));"
+        "CREATE TABLE IF NOT EXISTS pin("
+        " id INTEGER PRIMARY KEY, salt TEXT, hash TEXT);", NULL, NULL, NULL);
+    return 1;
+}
+
+static void db_close(void)
+{
+    if (g_sql.db && g_sql.close) g_sql.close(g_sql.db);
+    g_sql.db = NULL;
+}
+
+static int db_exec(const char *sql)
+{
+    if (!g_sql.db) return -1;
+    return g_sql.exec(g_sql.db, sql, NULL, NULL, NULL);
+}
+
+/* lecture d'un entier (retourne def si absent)                         */
+static int db_get_int(const char *sql, int def)
+{
+    void *stmt = NULL;
+    int value = def;
+    if (!g_sql.db) return def;
+    if (g_sql.prepare(g_sql.db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return def;
+    if (g_sql.step(stmt) == SQLITE_ROW)
+        value = g_sql.column_int(stmt, 0);
+    g_sql.finalize(stmt);
+    return value;
+}
+
+/* ecrit d'un couple cle/valeur entier                                 */
+static void db_set_int(const char *key, int value)
+{
+    void *stmt = NULL;
+    char sql[256];
+    if (!g_sql.db) return;
+    snprintf(sql, sizeof sql,
+             "INSERT INTO records(name,value) VALUES('%s',%d) "
+             "ON CONFLICT(name) DO UPDATE SET value=%d;", key, value, value);
+    db_exec(sql);
+    if (g_sql.prepare(g_sql.db, "DELETE FROM records WHERE name=?1", -1,
+                      &stmt, NULL) == SQLITE_OK) {
+        g_sql.bind_text(stmt, 1, key, -1, SQLITE_TRANSIENT);
+        g_sql.bind_int(stmt, 2, value);
+        g_sql.step(stmt);
+        g_sql.finalize(stmt);
+    }
+}
+
+/* ecrit d'un couple cle/valeur texte                                   */
+static void db_set_text(const char *sql, const char *value)
+{
+    void *stmt = NULL;
+    if (!g_sql.db) return;
+    if (g_sql.prepare(g_sql.db, sql, -1, &stmt, NULL) != SQLITE_OK) return;
+    g_sql.bind_text(stmt, 1, value, -1, SQLITE_TRANSIENT);
+    g_sql.step(stmt);
+    g_sql.finalize(stmt);
+}
+
+/* lecture d'un texte (retourne 0 si absent)                            */
+static int db_get_text(const char *sql, char *out, size_t n)
+{
+    void *stmt = NULL;
+    int found = 0;
+    out[0] = 0;
+    if (!g_sql.db) return 0;
+    if (g_sql.prepare(g_sql.db, sql, -1, &stmt, NULL) != SQLITE_OK) return 0;
+    if (g_sql.step(stmt) == SQLITE_ROW) {
+        const unsigned char *t = g_sql.column_text(stmt, 0);
+        if (t) snprintf(out, n, "%s", t);
+        found = 1;
+    }
+    g_sql.finalize(stmt);
+    return found;
+}
+
 static SDL_Window *g_window;            /* fenetre principale (plein ecran) */
 
 static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
                       int x, int y, SDL_Color c);
 static SDL_Texture *load_asset(SDL_Renderer *r, const char *path);
+static void pref_file(const char *name, char *out, size_t n);
 static void pref_erase(const char *name);
 #define PIN_MAX_TRIES 5
 static void draw_tinted(SDL_Renderer *r, SDL_Texture *t, SDL_Rect dst,
@@ -551,7 +734,7 @@ static const SDL_Rect MAP_VOID_RECTS[MAP_THEME_COUNT] = {
 /* Sorts                                                               */
 /* ------------------------------------------------------------------ */
 typedef enum { SK_ATK, SK_HEAL, SK_BUFF, SK_SPECIAL, SK_SUMMON } SkillKind;
-typedef enum { ELEM_AIR, ELEM_FIRE, ELEM_EARTH, ELEM_WATER } Element;
+typedef enum { ELEM_AIR, ELEM_FIRE, ELEM_EARTH, ELEM_WATER, ELEM_VITA } Element;
 
 typedef struct {
     const char *name;
@@ -1144,6 +1327,11 @@ typedef struct {
     AnimState anim;
     int   anim_frame;
     Uint32 anim_until;
+    /* animation de deplacement (interpolation + saut)                   */
+    float from_x, from_y;
+    Uint32 move_until;
+    int   lunge_x, lunge_y;    /* cible de la derniere attaque         */
+    Uint32 attack_until;
     char name[32];
 } Summon;
 
@@ -1157,6 +1345,7 @@ typedef enum { ST_MENU, ST_PIN, ST_PICK, ST_DRAFT, ST_STUFF, ST_ELEMENTS,
 typedef struct {
     GameState state;
     int       cell[GRID_H][GRID_W];  /* sol, mur, fausse ou hors-arene  */
+    unsigned char decor[GRID_H][GRID_W];  /* props decoratifs (0 = rien)  */
     int       map_width;
     int       map_height;
     int       map_theme;
@@ -1638,10 +1827,11 @@ static void reset_match(Game *g)
         g->stuff_ready[i] = -1;
         memset(g->draft[i], 0, sizeof g->draft[i]);
         memset(&g->f[i], 0, sizeof g->f[i]);
-        g->f[i].elements[ELEM_AIR] = 25;
-        g->f[i].elements[ELEM_FIRE] = 25;
-        g->f[i].elements[ELEM_EARTH] = 25;
-        g->f[i].elements[ELEM_WATER] = 25;
+        g->f[i].elements[ELEM_AIR] = 20;
+        g->f[i].elements[ELEM_FIRE] = 20;
+        g->f[i].elements[ELEM_EARTH] = 20;
+        g->f[i].elements[ELEM_WATER] = 20;
+        g->f[i].elements[ELEM_VITA] = 20;
     }
     g->team_dofus[0] = g->team_dofus[1] = -1;
     g->dofus_ready[0] = g->dofus_ready[1] = 0;
@@ -1786,7 +1976,7 @@ static void net_poll(Game *g)
         buf[n] = 0;
         char *nl = strchr(buf, '\n'); if (nl) *nl = 0;
 
-        char cmd[16]; int who, a, b, c, d; unsigned sd;
+        char cmd[16]; int who, a, b, c, d, e; unsigned sd;
         if (sscanf(buf, "%15s", cmd) != 1) continue;
         if (g->net.role == NET_HOST && !strcmp(cmd, "HELLO")) {
             g->net.peer = from;
@@ -1878,12 +2068,13 @@ static void net_poll(Game *g)
                              &who, &a, &b, &c, &d) == 5) {
             if (who >= 0 && who < 2 * g->team_size
                 && !unit_is_mine(g, who)
-                && a >= 0 && b >= 0 && c >= 0 && d >= 0
-                && a + b + c + d == ELEMENT_POINTS) {
+                && a >= 0 && b >= 0 && c >= 0 && d >= 0 && e >= 0
+                && a + b + c + d + e == ELEMENT_POINTS) {
                 g->f[who].elements[ELEM_AIR] = a;
                 g->f[who].elements[ELEM_FIRE] = b;
                 g->f[who].elements[ELEM_EARTH] = c;
                 g->f[who].elements[ELEM_WATER] = d;
+                g->f[who].elements[ELEM_VITA] = e;
                 g->draft_ready[who] = 2;
                 advance_setup(g);
             }
@@ -2023,6 +2214,8 @@ static void build_fighter(Game *g, int idx)
     snprintf(f->nickname, sizeof f->nickname, "Joueur %d", idx + 1);
     f->pano = g->stuff_chosen[idx];
     f->hp_max = MAX_HP;
+    /* Vitalite : +1 PV max pour 2 points de Vitalite                */
+    f->hp_max += f->elements[ELEM_VITA] / 2;
     if (f->pano >= 0 && f->pano < N_PANOPLIES)
         f->hp_max += PANOPLIES[f->pano].hp_bonus;
     if (g->team_dofus[f->team] >= 0)
@@ -2139,6 +2332,23 @@ static void start_new_game(Game *g, unsigned seed)
         if (left > right) left = right = center_x;
         for (i = left; i <= right; i++)
             g->cell[j][i] = CELL_GROUND;
+    }
+
+    /* Decor : quelques props sur le sol (arbres, buissons, fleurs...) */
+    {
+        static const unsigned char props[6] = {7, 9, 15, 16, 17, 18};
+        for (j = 0; j < g->map_height; j++)
+            for (i = 0; i < g->map_width; i++) {
+                unsigned r = (unsigned)(i * 2654435761u + j * 40503u
+                                        + seed * 97u);
+                r = (r ^ (r >> 13)) * 1274126177u;
+                g->decor[j][i] = 0;
+                if (g->cell[j][i] != CELL_GROUND) continue;
+                /* la zone de depart reste degagee                       */
+                if (j >= spawn_top && j <= spawn_bottom) continue;
+                if ((r >> 9) % 100 < 16)          /* ~16% de cases        */
+                    g->decor[j][i] = props[(r >> 17) % 6] + 1;
+            }
     }
 
     /* Obstacles placés hors de la zone de départ, par paires miroir. */
@@ -2347,6 +2557,7 @@ static void prepare_ai_team(Game *g)
         g->f[unit].elements[ELEM_FIRE] = 0;
         g->f[unit].elements[ELEM_EARTH] = 0;
         g->f[unit].elements[ELEM_WATER] = 0;
+        g->f[unit].elements[ELEM_VITA] = 0;
     }
 }
 
@@ -2609,6 +2820,7 @@ static void songe_build_monsters(Game *g, int level, unsigned seed)
         f->hp = f->hp_max;
         f->initiative = 10 + level;         /* l'equipe joue en premier    */
         f->elements[ELEM_AIR] = 10 + level;
+        f->elements[ELEM_VITA] = 0;
         f->anim = ANIM_IDLE;
         for (k = 0; k < N_EQUIPPED; k++) {
             f->spells[k] = MONSTER_SPELLS[k];
@@ -2912,8 +3124,15 @@ static void summon_attack(Game *g, int owner, int slot, int tx, int ty)
     if (tx < 0 || ty < 0 || tx >= g->map_width || ty >= g->map_height)
         return;
     if (g->cell[ty][tx] != CELL_GROUND) return;
+    /* animation : on retient l'ancien depart pour interpoler           */
+    sm->from_x = (float)sm->x;
+    sm->from_y = (float)sm->y;
     sm->x = tx;
     sm->y = ty;
+    sm->move_until = SDL_GetTicks() + 280;
+    sm->lunge_x = tx;
+    sm->lunge_y = ty;
+    sm->attack_until = SDL_GetTicks() + 420;
     sm->anim = ANIM_ATTACK;
     sm->anim_frame = 0;
     sm->anim_until = SDL_GetTicks() + ANIM_ATK_MS;
@@ -4465,6 +4684,65 @@ static int iso_pick(const Game *g, int mx, int my, int *pi, int *pj)
     return 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Lumiere : halo radial, ombre douce, pools de lumiere sur l'arene    */
+/* ------------------------------------------------------------------ */
+static void build_glow_texture(SDL_Renderer *renderer)
+{
+    int size = 128, x, y;
+    SDL_Surface *surf;
+    Uint32 *px;
+    surf = SDL_CreateRGBSurfaceWithFormat(0, size, size, 32,
+                                         SDL_PIXELFORMAT_RGBA32);
+    if (!surf) return;
+    px = (Uint32 *)surf->pixels;
+    for (y = 0; y < size; y++) {
+        for (x = 0; x < size; x++) {
+            double dx = ((double)x - size / 2.0) / (size / 2.0);
+            double dy = ((double)y - size / 2.0) / (size / 2.0);
+            double d = sqrt(dx * dx + dy * dy);
+            int a = 255 - (int)(255.0 * d);
+            if (a < 0) a = 0;
+            a = (a * a) / 255;          /* courbe douce                  */
+            px[y * size + x] = ((Uint32)a << 24) | 0x00FFFFFF;
+        }
+    }
+    g_glow_tex = SDL_CreateTextureFromSurface(renderer, surf);
+    SDL_FreeSurface(surf);
+    if (g_glow_tex)
+        SDL_SetTextureBlendMode(g_glow_tex, SDL_BLENDMODE_BLEND);
+}
+
+/* halo lumineux (mode additif)                                        */
+static void draw_glow(SDL_Renderer *r, int cx, int cy, int radius,
+                      SDL_Color c)
+{
+    SDL_Rect d;
+    if (!g_glow_tex) return;
+    d.x = cx - radius; d.y = cy - radius;
+    d.w = radius * 2; d.h = radius * 2;
+    SDL_SetTextureBlendMode(g_glow_tex, SDL_BLENDMODE_ADD);
+    SDL_SetTextureColorMod(g_glow_tex, c.r, c.g, c.b);
+    SDL_SetTextureAlphaMod(g_glow_tex, c.a);
+    SDL_RenderCopy(r, g_glow_tex, NULL, &d);
+    SDL_SetTextureBlendMode(g_glow_tex, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureAlphaMod(g_glow_tex, 255);
+}
+
+/* ombre portee douce (au sol, aplatie)                                 */
+static void draw_soft_shadow(SDL_Renderer *r, int cx, int cy,
+                              int rx, int ry, int alpha)
+{
+    SDL_Rect d;
+    if (!g_glow_tex) return;
+    d.x = cx - rx; d.y = cy - ry;
+    d.w = rx * 2; d.h = ry * 2;
+    SDL_SetTextureColorMod(g_glow_tex, 0, 0, 0);
+    SDL_SetTextureAlphaMod(g_glow_tex, alpha);
+    SDL_RenderCopy(r, g_glow_tex, NULL, &d);
+    SDL_SetTextureAlphaMod(g_glow_tex, 255);
+}
+
 static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
 {
     int px, py, hw = ISO_TILE_W / 2, hh = ISO_TILE_H / 2;
@@ -4519,9 +4797,13 @@ static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
                           px, py + 2 * hh, px + hw, py + hh,
                           ISO_EDGE_H, 100);
     }
-    if (g_tilesheet)
-        iso_textured_diamond(r, g_tilesheet, floor_src, px, py, 0, 255);
-    else
+    if (g_tilesheet) {
+        /* variation de teinte par case : le sol n'est plus uniforme    */
+        unsigned h = (unsigned)(i * 73856093u) ^ (unsigned)(j * 19349663u);
+        int v = 236 + (int)((h >> 9) % 19);      /* 236..254           */
+        iso_textured_diamond(r, g_tilesheet, floor_src, px, py, 0,
+                             (Uint8)v);
+    } else
         iso_fill_diamond(r, g, i, j, (SDL_Color){60, 140, 60, 255});
 }
 
@@ -4852,13 +5134,16 @@ static void draw_paper_character(SDL_Renderer *renderer, int row,
     target.y = cy - h;             /* les pieds touchent le sol          */
     target.w = w;
     target.h = h;
-    /* dos de la feuille : copie miroir, assombrie et decalee */
+    /* dos de la feuille : copie miroir, decalee de 1 px seulement pour
+       qu'on ne voie pas deux sprites distincts                        */
     back = target;
     back.x += thickness;
     back.y += thickness / 2;
-    SDL_SetTextureColorMod(g_characters_sheet, 74, 62, 54);
+    SDL_SetTextureColorMod(g_characters_sheet, 96, 84, 76);
+    SDL_SetTextureAlphaMod(g_characters_sheet, 210);
     SDL_RenderCopyEx(renderer, g_characters_sheet, &source, &back,
                      0.0, NULL, SDL_FLIP_HORIZONTAL);
+    SDL_SetTextureAlphaMod(g_characters_sheet, 255);
     /* face avant */
     if (tint_opponent)
         SDL_SetTextureColorMod(g_characters_sheet, 255,
@@ -4895,12 +5180,15 @@ static void draw_paper_creature(SDL_Renderer *renderer, int frame,
     target.y = cy - h;
     target.w = w;
     target.h = h;
+    /* dos de la feuille : decalage de 1 px pour eviter le doublon    */
     back = target;
     back.x += thickness;
     back.y += thickness / 2;
-    SDL_SetTextureColorMod(g_creatures_sheet, 78, 66, 58);
+    SDL_SetTextureColorMod(g_creatures_sheet, 96, 84, 74);
+    SDL_SetTextureAlphaMod(g_creatures_sheet, 205);
     SDL_RenderCopyEx(renderer, g_creatures_sheet, &source, &back,
                      0.0, NULL, SDL_FLIP_HORIZONTAL);
+    SDL_SetTextureAlphaMod(g_creatures_sheet, 255);
     if (tint == 1)      /* monstre : touche violette de la nuit      */
         SDL_SetTextureColorMod(g_creatures_sheet, 235, 205, 255);
     else if (tint == 2) /* allie : touche verte                      */
@@ -4929,15 +5217,15 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
     if (f->cls == CLASS_MONSTER) {
         /* monstre du Songe : decoupe papier de creature                   */
         int frame = g->monster_tmpl[idx];
-        iso_fill_diamond(r, g, f->x, f->y, (SDL_Color){0, 0, 0, 85});
-        draw_paper_creature(r, frame, sx, sy, 34, 3, 1);
+        draw_soft_shadow(r, sx, sy, 20, 9, 110);
+        draw_paper_creature(r, frame, sx, sy, 36, 1, 1);
     } else if (g_characters_sheet && f->cls >= 0 && f->cls < N_CLASSES) {
         /* ombre portee sous le combattant (papier 2.5D)                  */
-        iso_fill_diamond(r, g, f->x, f->y, (SDL_Color){0, 0, 0, 85});
+        draw_soft_shadow(r, sx, sy, 19, 8, 120);
         draw_paper_character(r, CLASS_CHARACTER_ROW[f->cls],
                              character_sequence_for_anim(f->anim),
-                             f->anim_frame, sx, sy, 36,
-                             mine ? 0 : (g->colorblind_mode ? 2 : 1), 3);
+                             f->anim_frame, sx, sy, 38,
+                             mine ? 0 : (g->colorblind_mode ? 2 : 1), 1);
     } else {
         iso_fill_diamond(r, g, f->x, f->y,
                          (SDL_Color){mine ? 40 : 200,
@@ -4954,9 +5242,13 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
         else
             mark = mine ? (SDL_Color){40, 255, 80, 255}
                         : (SDL_Color){255, 55, 55, 255};
-        /* halo doux sous le marqueur                                    */
-        iso_fill_diamond(r, g, f->x, f->y,
-                         (SDL_Color){mark.r, mark.g, mark.b, 55});
+        /* halo doux sous le marqueur (mode additif)                     */
+        {
+            int cx, cy;
+            iso_center(g, f->x, f->y, &cx, &cy);
+            draw_glow(r, cx, cy - 8, 34,
+                      (SDL_Color){mark.r, mark.g, mark.b, 110});
+        }
         iso_outline_diamond(r, g, f->x, f->y, mark);
         {
             int px, py;
@@ -5013,16 +5305,60 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
 }
 
 /* dessine une invocation (creature invoquee) sur l'arene              */
+/* ------------------------------------------------------------------ */
+/* Props decoratifs : arbres, buissons, fleurs poses sur le sol        */
+/* ------------------------------------------------------------------ */
+static void draw_decor(SDL_Renderer *r, Game *g, int i, int j)
+{
+    int frame, sx, sy;
+    if (g->decor[j][i] == 0) return;
+    frame = g->decor[j][i] - 1;
+    if (frame < 0 || frame >= N_CREATURES) return;
+    iso_center(g, i, j, &sx, &sy);
+    draw_soft_shadow(r, sx, sy, 11, 5, 70);
+    draw_paper_creature(r, frame, sx, sy, 22, 1, 0);
+}
+
 static void draw_summon(SDL_Renderer *r, Game *g, int idx)
 {
     Summon *sm = &g->summons[idx];
     int sx, sy, frame;
+    float fx, fy, lift = 0.0f;
+    Uint32 now = SDL_GetTicks();
     if (!sm->active) return;
-    iso_center(g, sm->x, sm->y, &sx, &sy);
-    iso_fill_diamond(r, g, sm->x, sm->y, (SDL_Color){0, 0, 0, 70});
+    /* position animee : interpolation + petit saut                     */
+    fx = (float)sm->x;
+    fy = (float)sm->y;
+    if (now < sm->move_until) {
+        float t = (float)(sm->move_until - now) / 280.0f;   /* 1 -> 0  */
+        if (t > 1.0f) t = 1.0f;
+        fx = sm->from_x + ((float)sm->x - sm->from_x) * (1.0f - t);
+        fy = sm->from_y + ((float)sm->y - sm->from_y) * (1.0f - t);
+        lift = (float)sin((1.0f - t) * 3.14159265f) * 7.0f;
+    }
+    /* centre isometrique a partir d'une position fractionnaire         */
+    sx = map_origin_x(g) + (int)((fx - fy) * (ISO_TILE_W / 2));
+    sy = map_origin_y(g) + (int)((fx + fy) * (ISO_TILE_H / 2)) + ISO_TILE_H / 2;
+    /* elan d'attaque vers la cible                                    */
+    if (now < sm->attack_until) {
+        float t = (float)(sm->attack_until - now) / 420.0f;
+        if (t > 1.0f) t = 1.0f;
+        {
+            float push = (float)sin(t * 3.14159265f) * 5.0f;
+            int dx = (int)(sm->lunge_x - fx);
+            int dy = (int)(sm->lunge_y - fy);
+            float len = (float)sqrt((double)(dx * dx + dy * dy));
+            if (len > 0.001f) {
+                sx += (int)(push * dx / len);
+                sy += (int)(push * dy / len * 0.5f);
+            }
+        }
+    }
+    sy -= (int)lift;
+    draw_soft_shadow(r, sx, sy, 14, 6, 95);
     frame = (sm->tmpl >= 0 && sm->tmpl < SUMMON_FRAME_COUNT)
             ? sm->tmpl : 0;
-    draw_paper_creature(r, frame, sx, sy, 26, 2,
+    draw_paper_creature(r, frame, sx, sy, 28, 1,
                         unit_is_mine(g, sm->owner) ? 2 : 0);
     /* barre de vie de l'invocation                                     */
     {
@@ -6207,6 +6543,12 @@ static void wipe_all_data(Game *g)
     pref_erase("favorites.txt");
     pref_erase("songe.txt");
     pref_erase("challenges.txt");
+    if (g_sql.db) {
+        db_exec("DELETE FROM pin;");
+        db_exec("DELETE FROM favorites;");
+        db_exec("DELETE FROM records;");
+        db_exec("DELETE FROM challenges;");
+    }
     /* code PIN */
     g->pin_set = 0;
     g->pin_mode = 0;
@@ -6314,6 +6656,91 @@ static void ui_button(SDL_Renderer *r, SDL_Rect b, const char *label,
 }
 
 /* ------------------------------------------------------------------ */
+/* Stockage : SQLite (charge dynamiquement) ou fichiers texte          */
+/* ------------------------------------------------------------------ */
+/* SQLite est charge a l'execution via SDL_LoadObject : aucune          */
+/* dependance a la compilation, et le jeu continue de fonctionner avec  */
+/* les fichiers texte si la bibliotheque est absente.                    */
+/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* Migration : les anciens fichiers texte sont importes dans la base   */
+/* ------------------------------------------------------------------ */
+static void db_migrate_legacy(void)
+{
+    char path[512];
+    FILE *file;
+    int i;
+    if (!g_sql.db) return;
+    /* favoris */
+    pref_file("favorites.txt", path, sizeof path);
+    file = fopen(path, "r");
+    if (file) {
+        int any = 0;
+        for (i = 0; i < MAX_FAVORITES; i++) {
+            int cls, pano;
+            void *stmt = NULL;
+            if (fscanf(file, "%d %d", &cls, &pano) != 2) break;
+            if (cls < 0 || cls >= N_CLASSES
+                || pano < 0 || pano >= N_PANOPLIES) continue;
+            if (g_sql.prepare(g_sql.db,
+                    "INSERT OR REPLACE INTO favorites(slot,cls,pano) "
+                    "VALUES(?1,?2,?3)", -1, &stmt, NULL) == SQLITE_OK) {
+                g_sql.bind_int(stmt, 1, i);
+                g_sql.bind_int(stmt, 2, cls);
+                g_sql.bind_int(stmt, 3, pano);
+                g_sql.step(stmt);
+                g_sql.finalize(stmt);
+            }
+            any = 1;
+        }
+        fclose(file);
+        if (any) remove(path);
+    }
+    /* record du Songe */
+    pref_file("songe.txt", path, sizeof path);
+    file = fopen(path, "r");
+    if (file) {
+        int best = 0;
+        if (fscanf(file, "%d", &best) == 1 && best >= 0 && best < 100000) {
+            db_set_int("songe_best", best);
+            remove(path);
+        }
+        fclose(file);
+    }
+    /* code PIN */
+    pref_file("pin.txt", path, sizeof path);
+    file = fopen(path, "r");
+    if (file) {
+        char line[128];
+        char salt[64] = {0}, hash[64] = {0};
+        while (fgets(line, sizeof line, file)) {
+            if (!strncmp(line, "salt=", 5))
+                snprintf(salt, sizeof salt, "%s", line + 5);
+            else if (!strncmp(line, "hash=", 5))
+                snprintf(hash, sizeof hash, "%s", line + 5);
+        }
+        fclose(file);
+        {
+            char *nl;
+            nl = strchr(salt, '\n'); if (nl) *nl = 0;
+            nl = strchr(hash, '\n'); if (nl) *nl = 0;
+        }
+        if (salt[0] && hash[0]) {
+            void *stmt = NULL;
+            if (g_sql.prepare(g_sql.db,
+                    "INSERT OR REPLACE INTO pin(id,salt,hash) "
+                    "VALUES(1,?1,?2)", -1, &stmt, NULL) == SQLITE_OK) {
+                g_sql.bind_text(stmt, 1, salt, -1, SQLITE_TRANSIENT);
+                g_sql.bind_text(stmt, 2, hash, -1, SQLITE_TRANSIENT);
+                g_sql.step(stmt);
+                g_sql.finalize(stmt);
+            }
+            remove(path);
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Verrouillage par code PIN (a la banque, ou a MapleStory)            */
 /* ------------------------------------------------------------------ */
 
@@ -6371,6 +6798,23 @@ static void pin_load(Game *g)
     g->pin_set = 0;
     g->pin_salt[0] = 0;
     g->pin_hash[0] = 0;
+    /* base SQLite en priorite                                         */
+    if (g_sql.db) {
+        void *stmt = NULL;
+        if (g_sql.prepare(g_sql.db,
+                "SELECT salt,hash FROM pin WHERE id=1", -1, &stmt, NULL)
+            == SQLITE_OK) {
+            if (g_sql.step(stmt) == SQLITE_ROW) {
+                const unsigned char *a = g_sql.column_text(stmt, 0);
+                const unsigned char *b = g_sql.column_text(stmt, 1);
+                if (a) snprintf(g->pin_salt, sizeof g->pin_salt, "%s", a);
+                if (b) snprintf(g->pin_hash, sizeof g->pin_hash, "%s", b);
+            }
+            g_sql.finalize(stmt);
+        }
+        g->pin_set = (g->pin_salt[0] && g->pin_hash[0]) ? 1 : 0;
+        return;
+    }
     pin_path(path, sizeof path);
     if (!path[0]) return;
     file = fopen(path, "r");
@@ -6394,6 +6838,18 @@ static void pin_save(Game *g)
 {
     char path[512];
     FILE *file;
+    if (g_sql.db) {
+        void *stmt = NULL;
+        if (g_sql.prepare(g_sql.db,
+                "INSERT OR REPLACE INTO pin(id,salt,hash) VALUES(1,?1,?2)",
+                -1, &stmt, NULL) == SQLITE_OK) {
+            g_sql.bind_text(stmt, 1, g->pin_salt, -1, SQLITE_TRANSIENT);
+            g_sql.bind_text(stmt, 2, g->pin_hash, -1, SQLITE_TRANSIENT);
+            g_sql.step(stmt);
+            g_sql.finalize(stmt);
+        }
+        return;
+    }
     pin_path(path, sizeof path);
     if (!path[0]) return;
     file = fopen(path, "w");
@@ -7494,7 +7950,8 @@ static void draw_dofus(SDL_Renderer *r, TTF_Font *font, Game *g)
 
 static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
 {
-    static const char *names[ELEMENT_COUNT] = {"AIR", "FEU", "TERRE", "EAU"};
+    static const char *names[ELEMENT_COUNT] = {"AIR", "FEU", "TERRE", "EAU",
+                                               "VITA"};
     Fighter *f = &g->f[setup_unit_index(g)];
     int i, total = 0;
     char line[128];
@@ -7508,7 +7965,7 @@ static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
               20, 48, grey);
     draw_text(r, font, "Les boutons bougent la repartition par 5 points. La vie est un jeu de boutons.",
               20, 72, grey);
-    draw_text(r, font, "Air (Agilite), Feu (Intelligence), Terre (Force), Eau (Chance) : 4 manieres de perdre.",
+    draw_text(r, font, "Air (Agilite), Feu (Intelligence), Terre (Force), Eau (Chance), Vita (PV max).",
               20, 96, grey);
     for (i = 0; i < ELEMENT_COUNT; i++) {
         SDL_Rect minus = element_btn(i, 0), plus = element_btn(i, 1);
@@ -7624,6 +8081,9 @@ int main(int argc, char **argv)
         game.stuff_ready[i] = -1;
         for (j = 0; j < N_CLASS_SPELLS; j++) game.draft[i][j] = 0;
     }
+    /* base de donnees : SQLite si la bibliotheque est presente          */
+    db_open();
+    db_migrate_legacy();
     favorites_load(&game);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
@@ -7689,6 +8149,7 @@ int main(int argc, char **argv)
 #endif
 
     g_tilesheet = load_asset(ren, "assets/tiles/tilesheet.png");
+    build_glow_texture(ren);
     load_ui_atlas(ren);
     load_visual_effects(ren);
     load_audio();
@@ -8336,11 +8797,13 @@ int main(int argc, char **argv)
                             if (total == ELEMENT_POINTS) {
                                 int unit = (int)(f - game.f);
                                 char msg[96];
-                                snprintf(msg, sizeof msg, "ELEMENTS %d %d %d %d %d",
+                                snprintf(msg, sizeof msg,
+                                         "ELEMENTS %d %d %d %d %d %d",
                                          unit, f->elements[ELEM_AIR],
                                          f->elements[ELEM_FIRE],
                                          f->elements[ELEM_EARTH],
-                                         f->elements[ELEM_WATER]);
+                                         f->elements[ELEM_WATER],
+                                         f->elements[ELEM_VITA]);
                                 net_send(&game, msg);
                                 game.draft_ready[unit] = 2;
                                 advance_setup(&game);
@@ -8571,12 +9034,31 @@ int main(int argc, char **argv)
             SDL_SetRenderDrawColor(ren, 150, 165, 190, 28);
             SDL_RenderFillRect(ren, &(SDL_Rect){0, BAND_H, WIN_W,
                                                WIN_H - BAND_H});
-            /* combattants ET invocations tries par profondeur         */
+            /* poeles de lumiere : la scene est eclairee par l'equipe    */
             {
-                int depth[MAX_FIGHTERS + MAX_SUMMONS];
-                int kind[MAX_FIGHTERS + MAX_SUMMONS];
-                int ref[MAX_FIGHTERS + MAX_SUMMONS];
-                int nent = 0, si;
+                int k;
+                for (k = 0; k < count; k++) {
+                    int cx, cy;
+                    if (!game.f[k].alive) continue;
+                    iso_center(&game, game.f[k].x, game.f[k].y, &cx, &cy);
+                    if (k == game.turn) {
+                        draw_glow(ren, cx, cy - 10, 58,
+                                  (SDL_Color){255, 226, 170, 120});
+                    } else if (unit_is_mine(&game, k)) {
+                        draw_glow(ren, cx, cy - 10, 42,
+                                  (SDL_Color){150, 200, 255, 60});
+                    } else {
+                        draw_glow(ren, cx, cy - 10, 42,
+                                  (SDL_Color){255, 170, 150, 60});
+                    }
+                }
+            }
+            /* combattants, invocations ET decors tries par profondeur   */
+            {
+                int depth[MAX_FIGHTERS + MAX_SUMMONS + GRID_H * GRID_W];
+                int kind[MAX_FIGHTERS + MAX_SUMMONS + GRID_H * GRID_W];
+                int ref[MAX_FIGHTERS + MAX_SUMMONS + GRID_H * GRID_W];
+                int nent = 0, si, ci, cj;
                 for (fighter = 0; fighter < count; fighter++) {
                     depth[nent] = game.f[fighter].x + game.f[fighter].y;
                     kind[nent] = 0;
@@ -8590,6 +9072,14 @@ int main(int argc, char **argv)
                     ref[nent] = si;
                     nent++;
                 }
+                for (cj = 0; cj < game.map_height; cj++)
+                    for (ci = 0; ci < game.map_width; ci++) {
+                        if (!game.decor[cj][ci]) continue;
+                        depth[nent] = ci + cj;
+                        kind[nent] = 2;
+                        ref[nent] = cj * GRID_W + ci;
+                        nent++;
+                    }
                 for (a = 1; a < nent; a++) {
                     int dd = depth[a], kk = kind[a], rr = ref[a];
                     b = a;
@@ -8606,8 +9096,11 @@ int main(int argc, char **argv)
                 for (a = 0; a < nent; a++) {
                     if (kind[a] == 0)
                         draw_fighter(ren, &game, ref[a], font);
-                    else
+                    else if (kind[a] == 1)
                         draw_summon(ren, &game, ref[a]);
+                    else
+                        draw_decor(ren, &game, ref[a] % GRID_W,
+                                   ref[a] / GRID_W);
                 }
             }
             draw_hover_mark(ren, &game, hover_i, hover_j);
@@ -8677,6 +9170,7 @@ int main(int argc, char **argv)
 
     if (game.net.sock != SOCK_INVALID)
         net_close(game.net.sock);
+    db_close();
     if (g_ui_atlas) SDL_DestroyTexture(g_ui_atlas);
     if (g_tilesheet) SDL_DestroyTexture(g_tilesheet);
     if (g_characters_sheet) SDL_DestroyTexture(g_characters_sheet);
