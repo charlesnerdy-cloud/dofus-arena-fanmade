@@ -237,3 +237,34 @@ lancement, saisie masquée ensuite, 5 essais puis blocage de 30 s).
 Le code n'est jamais stocké en clair : sel aléatoire + hash
 (FNV‑1a 64 bits × 50 000) dans `pin.txt` (dossier de préférences SDL).
 Le bouton **CODE OUBLIE ?** efface le code et la progression.
+
+---
+
+## 🎤 Microphone : accord de la musique + anti-toxicité
+
+Depuis la **V3.8**, le jeu peut écouter votre microphone (**désactivé par
+défaut**, à activer dans *Options → Microphone*).
+
+> 🔒 **Vie privée** : tout est traité **en local**, dans la mémoire du
+> processus. Aucune capture n'est écrite sur le disque, aucun son n'est
+> envoyé sur le réseau, et rien ne quitte votre machine. Vous pouvez couper
+> le micro à tout moment depuis les options.
+
+### Ce que le jeu en fait
+
+| Fonction | Détail |
+|---|---|
+| **Accord de la musique** | Quand vous parlez ou chantez, le jeu détecte la hauteur de votre voix (autocorrélation) et joue une **note de référence** à cette hauteur, comme un accordeur. La musique se décale pour lui laisser la place. |
+| **Anti-toxicité** | Une jauge monte quand le volume dépasse le seuil « cri » et redescend quand vous redescendez. Au-delà de 60 %, la musique baisse encore et l'écran affiche **« BAISSE LE TON ! »**. |
+| **Indicateur** | Un widget dans le bandeau de combat et dans le menu : niveau du micro en dB, note détectée (DO, LA#, …) et jauge d'agressivité. |
+
+### Détails techniques
+
+* Capture : SDL2 (`SDL_OpenAudioDevice` en mode capture), 44,1 kHz, mono
+* Niveau : RMS → décibels, jauge 0–100
+* Hauteur : autocorrélation sur 1024 échantillons, plage 80–900 Hz
+* Note : conversion en nom de note calé sur La3 (220 Hz)
+* La note de référence est une onde sinusale générée à la volée
+  (`Mix_QuickLoad_RAW`) avec un fondu aux extrémités
+* La musique est atténuée (65 %, puis 35 % si le ton monte) via
+  `Mix_VolumeMusic`

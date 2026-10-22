@@ -160,6 +160,16 @@ static SDL_Texture *g_spell_icons;
 static SDL_Texture *g_emote_sheet;
 static SDL_Texture *g_creatures_sheet;
 static SDL_Rect g_creature_frames[N_CREATURES];
+static int   g_music_duck = 100;    /* volume de la musique (%)          */
+/* micro local : capture, niveau, hauteur de voix, anti-toxicite        */
+static SDL_AudioDeviceID g_mic_device = 0;
+static int      g_mic_enabled = 0;      /* micro ouvert                   */
+static float    g_mic_level = 0.0f;     /* 0..1 : volume instantane       */
+static float    g_mic_pitch = 0.0f;     /* Hz : hauteur estimee (0 = none)*/
+static int      g_mic_voice = 0;        /* 1 = une voix est detectee      */
+static int      g_mic_toxic = 0;        /* 0..100 : niveau d'agressivite  */
+static int      g_mic_db = -60;         /* niveau en dB                   */
+static Uint32   g_mic_last_voice = 0;
 static SDL_Window *g_window;            /* fenetre principale (plein ecran) */
 
 static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
@@ -3674,7 +3684,8 @@ static void draw_ui_banner(SDL_Renderer *renderer, SDL_Rect destination)
 static void apply_audio_settings(const Game *g)
 {
     if (!g_audio_ready) return;
-    Mix_VolumeMusic(g->music_volume * MIX_MAX_VOLUME / 100);
+    Mix_VolumeMusic((int)(g->music_volume * MIX_MAX_VOLUME / 100)
+                    * g_music_duck / 100);
     Mix_Volume(-1, g->sfx_volume * MIX_MAX_VOLUME / 100);
     set_social_sound_volume();
 }
@@ -5103,7 +5114,8 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
         "Mode daltonien",
         "Reduire les flashs (epilepsie)",
         "Sous-titres si effets muets",
-        "Plein ecran sans bordure (F11)"
+        "Plein ecran sans bordure (F11)",
+        "Microphone (accord + anti-toxicite)"
     };
     SDL_Rect panel = settings_panel();
     SDL_Color white = {245, 235, 215, 255};
@@ -5116,7 +5128,7 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_ui_panel(r, panel);
     draw_ui_banner(r, (SDL_Rect){88, 70, 496, 48});
     draw_text(r, font, "PARAMETRES", 270, 84, white);
-    for (i = 0; i < 7; i++) {
+    for (i = 0; i < 8; i++) {
         SDL_Rect row = settings_row(i);
         SDL_SetRenderDrawColor(r, 31, 27, 28, 240);
         SDL_RenderFillRect(r, &row);
@@ -5142,7 +5154,8 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
             int enabled = i == 3 ? g->colorblind_mode
                         : i == 4 ? g->reduce_flashing
                         : i == 5 ? g->subtitles_when_muted
-                                 : g->fullscreen;
+                        : i == 6 ? g->fullscreen
+                                 : g_mic_enabled;
             SDL_SetRenderDrawColor(r, enabled ? 57 : 65,
                                    enabled ? 105 : 53,
                                    enabled ? 70 : 49, 255);
@@ -5310,6 +5323,346 @@ static void draw_player_status(SDL_Renderer *r, Game *g, TTF_Font *font,
     (void)dark;
 }
 
+/* ------------------------------------------------------------------ */
+/* Description textuelle d'un sort                                    */
+/* ------------------------------------------------------------------ */
+static void skill_description(const Skill *sk, char *out, size_t n)
+{
+    int tmpl = summon_template_of(sk);
+    if (!sk) { if (n) out[0] = 0; return; }
+    if (tmpl >= 0) {
+        snprintf(out, n,
+                 "Invoque %s : %d PV, %d degats, portee %d, %d PM. "
+                 "Il se bat a votre place.",
+                 SUMMON_TEMPLATES[tmpl].name, SUMMON_TEMPLATES[tmpl].hp,
+                 SUMMON_TEMPLATES[tmpl].atk, SUMMON_TEMPLATES[tmpl].range,
+                 SUMMON_TEMPLATES[tmpl].pm);
+        return;
+    }
+    if (sk->effect) {
+        snprintf(out, n,
+                 "Transformation : +%d %% de degats et +2 PM jusqu'a la fin "
+                 "du combat.", sk->power);
+        return;
+    }
+    switch (sk->kind) {
+    case SK_ATK:
+        if (sk->range <= 1)
+            snprintf(out, n, "Frappe une cible adjacente : %d degats.",
+                     sk->power);
+        else
+            snprintf(out, n, "Touche une cible a %d cases maximum : %d degats.",
+                     sk->range, sk->power);
+        break;
+    case SK_HEAL:
+        if (sk->range <= 0)
+            snprintf(out, n, "Rend %d PV a la cible (vous-meme).", sk->power);
+        else
+            snprintf(out, n, "Rend %d PV a un allie a %d cases maximum.",
+                     sk->power, sk->range);
+        break;
+    case SK_BUFF:
+        snprintf(out, n, "Augmente les degats de %d %% jusqu'a la fin du "
+                 "combat.", sk->power);
+        break;
+    case SK_SPECIAL:
+    default:
+        if (sk->power > 0)
+            snprintf(out, n, "Cible adverse : %d degats et malus d'Air "
+                     "(initiative perdue). Sur un allie : %d PV de soin.",
+                     sk->power, sk->power);
+        else
+            snprintf(out, n, "Effet utilitaire : deplacer, retirer des "
+                     "ressources ou proteger. Aucun degat direct.");
+        break;
+    }
+}
+
+/* coupe un texte en lignes de largeur maxi (renvoie le nb de lignes)   */
+static int text_wrap(const char *src, char lines[3][96], int maxw)
+{
+    int count = 0;
+    const char *p = src;
+    while (*p && count < 3) {
+        int len = 0;
+        const char *q = p;
+        while (*q && len < maxw) {
+            if (*q == ' ' && len > maxw - 12) break;
+            q++; len++;
+        }
+        snprintf(lines[count], 96, "%.*s", len, p);
+        if (!*q) { count++; break; }
+        p = q + 1;
+        count++;
+    }
+    return count;
+}
+/* ------------------------------------------------------------------ */
+/* Micro local : niveau de la voix, hauteur (pour l'accord) et jauge    */
+/* d'anti-toxicite.  Rien n'est enregistre ni envoye : tout reste     */
+/* dans la memoire du process.                                          */
+/* ------------------------------------------------------------------ */
+#define MIC_RATE      44100
+#define MIC_CHANNELS  1
+#define MIC_FRAMES    1024
+
+/* autocorrelation : estime la periode de la voix (en echantillons)     */
+static float mic_estimate_pitch(const Sint16 *samples, int n)
+{
+    int lag, best_lag = 0;
+    double best = 0.0;
+    float sr = (float)MIC_RATE;
+    int min_lag = (int)(sr / 900.0f);     /* 900 Hz max */
+    int max_lag = (int)(sr / 80.0f);      /* 80 Hz min  */
+    if (n < 2048) return 0.0f;
+    for (lag = min_lag; lag <= max_lag && lag < n / 2; lag++) {
+        double sum = 0.0, e1 = 0.0, e2 = 0.0;
+        int i;
+        for (i = 0; i < n - lag; i++) {
+            double a = samples[i];
+            double b = samples[i + lag];
+            sum += a * b;
+            e1 += a * a;
+            e2 += b * b;
+        }
+        if (e1 <= 0.0 || e2 <= 0.0) continue;
+        {
+            double r = sum / sqrt(e1 * e2);
+            if (r > best) { best = r; best_lag = lag; }
+        }
+    }
+    if (best_lag <= 0 || best < 0.55f) return 0.0f;
+    return sr / (float)best_lag;
+}
+
+static void mic_callback(void *userdata, Uint8 *stream, int len)
+{
+    Sint16 *samples = (Sint16 *)stream;
+    int n = len / (int)sizeof(Sint16);
+    double sum = 0.0;
+    float level;
+    int i;
+    (void)userdata;
+    if (n <= 0) return;
+    for (i = 0; i < n; i++)
+        sum += (double)samples[i] * samples[i];
+    level = (float)(sqrt(sum / (double)n) / 32768.0);
+    g_mic_level = level;
+    /* hauteur estimee : uniquement si le signal est suffisant          */
+    if (level > 0.02f && n >= 2048)
+        g_mic_pitch = mic_estimate_pitch(samples, n);
+    else
+        g_mic_pitch = 0.0f;
+}
+
+static int mic_open(void)
+{
+    SDL_AudioSpec want, have;
+    if (g_mic_device) return 1;
+    SDL_zero(want);
+    want.freq = MIC_RATE;
+    want.format = AUDIO_S16SYS;
+    want.channels = MIC_CHANNELS;
+    want.samples = MIC_FRAMES;
+    want.callback = mic_callback;
+    g_mic_device = SDL_OpenAudioDevice(NULL, 1, &want, &have,
+                                       SDL_AUDIO_ALLOW_ANY_CHANGE);
+    if (!g_mic_device) {
+        fprintf(stderr, "Micro indisponible: %s\n", SDL_GetError());
+        return 0;
+    }
+    SDL_PauseAudioDevice(g_mic_device, 0);
+    g_mic_enabled = 1;
+    return 1;
+}
+
+static void mic_close(void)
+{
+    if (g_mic_device) {
+        SDL_CloseAudioDevice(g_mic_device);
+        g_mic_device = 0;
+    }
+    g_mic_enabled = 0;
+    g_mic_level = 0.0f;
+    g_mic_pitch = 0.0f;
+    g_mic_voice = 0;
+    g_mic_toxic = 0;
+}
+
+/* nom de la note approchee (La3 = 220 Hz)                             */
+static const char *mic_note_name(float hz)
+{
+    static const char *names[12] = {"DO", "DO#", "RE", "RE#", "MI", "FA",
+                                    "FA#", "SOL", "SOL#", "LA", "LA#", "SI"};
+    static const char *oct[8] = {"1", "2", "3", "4", "5", "6", "7", "8"};
+    int n, o;
+    if (hz < 20.0f) return "--";
+    n = (int)((hz + 0.5f) / 55.0f);      /* index sur La3 (220 Hz)        */
+    o = 3 + (int)floor((double)n / 12.0);
+    if (o < 0) o = 0;
+    if (o > 7) o = 7;
+    return names[((n % 12) + 12) % 12];
+}
+
+/* accordeur : onde sinusale jouee a la hauteur de la voix détectée    */
+static Mix_Chunk *g_tone_chunk = NULL;
+static int   g_tone_channel = -1;
+static int   g_tone_hz = 0;
+
+/* fabrique une note sinusale de 0,25 s (avec fondu)                    */
+static Mix_Chunk *mic_make_tone(int hz)
+{
+    int rate = 44100, channels = 2;
+    Uint16 format = AUDIO_S16SYS;
+    int len, i, c;
+    Sint16 *buf;
+    Mix_Chunk *chunk;
+    if (hz < 40) hz = 40;
+    if (hz > 1200) hz = 1200;
+    if (!g_audio_ready) return NULL;
+    if (Mix_QuerySpec(&rate, &format, &channels) != 0) {
+        rate = 44100; format = AUDIO_S16SYS; channels = 2;
+    }
+    if (format != AUDIO_S16SYS) return NULL;   /* format simple         */
+    if (channels < 1) channels = 1;
+    len = rate / 4;
+    buf = (Sint16 *)SDL_calloc((size_t)len * (size_t)channels,
+                               sizeof(Sint16));
+    if (!buf) return NULL;
+    for (i = 0; i < len; i++) {
+        double t = (double)i / (double)rate;
+        double env = 1.0;
+        double fade = (double)len * 0.12;
+        Sint16 v;
+        if ((double)i < fade) env = (double)i / fade;
+        if ((double)(len - i) < fade) env = (double)(len - i) / fade;
+        v = (Sint16)(sin(2.0 * 3.14159265358979 * hz * t) * env * 9000.0);
+        for (c = 0; c < channels; c++)
+            buf[i * channels + c] = v;
+    }
+    chunk = Mix_QuickLoad_RAW((Uint8 *)buf,
+                              (Uint32)(len * channels * (int)sizeof(Sint16)));
+    SDL_free(buf);
+    return chunk;
+}
+
+/* met a jour la jauge d'anti-toxicite et l'accord de la musique       */
+static void mic_update(Game *g)
+{
+    Uint32 now = SDL_GetTicks();
+    int shout;
+    if (!g_mic_enabled) return;
+    /* niveau en dB */
+    if (g_mic_level > 0.0001f) {
+        float db = 20.0f * log10f(g_mic_level);
+        g_mic_db = (int)db;
+    } else {
+        g_mic_db = -60;
+    }
+    /* detection de voix (suivi continu) */
+    if (g_mic_level > 0.035f && g_mic_pitch > 60.0f) {
+        g_mic_voice = 1;
+        g_mic_last_voice = now;
+    } else if (now - g_mic_last_voice > 350) {
+        g_mic_voice = 0;
+    }
+    /* anti-toxicite : on penalise les crans, on oublie vite            */
+    shout = (g_mic_toxic > 0) ? 0 : 0;
+    (void)shout;
+    if (g_mic_level > 0.35f) {
+        g_mic_toxic += 4;                /* on crie                       */
+    } else if (g_mic_level < 0.12f) {
+        g_mic_toxic -= 2;                /* on se calme                   */
+    }
+    if (g_mic_toxic < 0) g_mic_toxic = 0;
+    if (g_mic_toxic > 100) g_mic_toxic = 100;
+    /* accord : la note chantee devient la note de reference              */
+    if (g_mic_voice && g_mic_pitch > 60.0f) {
+        int hz = (int)(g_mic_pitch);
+        if (hz != g_tone_hz) {
+            Mix_Chunk *nc;
+            if (g_tone_chunk) Mix_FreeChunk(g_tone_chunk);
+            g_tone_chunk = mic_make_tone(hz);
+            g_tone_hz = hz;
+            if (g_tone_channel >= 0) Mix_HaltChannel(g_tone_channel);
+            g_tone_channel = -1;
+        }
+        if (g_tone_chunk) {
+            if (g_tone_channel < 0 || !Mix_Playing(g_tone_channel)) {
+                g_tone_channel = Mix_PlayChannel(-1, g_tone_chunk, -1);
+                if (g_tone_channel >= 0)
+                    Mix_Volume(g_tone_channel,
+                               (int)(MIX_MAX_VOLUME * 0.18));
+            }
+        }
+    } else if (g_tone_channel >= 0) {
+        Mix_HaltChannel(g_tone_channel);
+        g_tone_channel = -1;
+        g_tone_hz = 0;
+    }
+    /* la musique s'ecarte quand on parle, et baisse si on crie          */
+    {
+        int want = 100;
+        if (g_mic_voice) want = 65;
+        if (g_mic_toxic > 55) want = 35;
+        if (want != g_music_duck) {
+            g_music_duck = want;
+            if (g_audio_ready)
+                Mix_VolumeMusic((int)(g->music_volume * MIX_MAX_VOLUME / 100)
+                                * want / 100);
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Widget micro : niveau, note chantee, jauge d'anti-toxicite         */
+/* ------------------------------------------------------------------ */
+static void draw_mic_widget(SDL_Renderer *r, TTF_Font *font, Game *g,
+                            int x, int y, int w, int h)
+{
+    SDL_Color white = {235, 230, 215, 255};
+    SDL_Color grey  = {150, 145, 135, 255};
+    SDL_Color red   = {235, 90, 80, 255};
+    SDL_Color green = {120, 230, 140, 255};
+    SDL_Rect panel = {x, y, w, h};
+    int level_w, tox_w;
+    draw_nine_slice_tinted(r, g_hp_sheet ? g_hp_sheet : g_ui9[UI9_PANEL_TAN],
+                           panel, 12, 58, 48, 38);
+    if (!g_mic_enabled) {
+        draw_text(r, font, "MICRO DESACTIVE", x + 8, y + 4, grey);
+        return;
+    }
+    g_mic_level = g_mic_level;   /* lecture directe des globales */
+    /* jauge de niveau */
+    level_w = (w - 90) * (int)(g_mic_level * 100.0f) / 100;
+    if (level_w < 0) level_w = 0;
+    SDL_SetRenderDrawColor(r, 30, 26, 22, 220);
+    SDL_RenderFillRect(r, &(SDL_Rect){x + 8, y + 22, w - 90, 8});
+    SDL_SetRenderDrawColor(r, g_mic_level > 0.35f ? red.r : green.r,
+                           g_mic_level > 0.35f ? red.g : green.g,
+                           g_mic_level > 0.35f ? red.b : green.b, 255);
+    SDL_RenderFillRect(r, &(SDL_Rect){x + 8, y + 22, level_w, 8});
+    SDL_SetRenderDrawColor(r, 150, 120, 70, 255);
+    SDL_RenderDrawRect(r, &(SDL_Rect){x + 8, y + 22, w - 90, 8});
+    /* jauge d'anti-toxicite */
+    tox_w = (w - 90) * g_mic_toxic / 100;
+    SDL_SetRenderDrawColor(r, 30, 20, 20, 220);
+    SDL_RenderFillRect(r, &(SDL_Rect){x + 8, y + 34, w - 90, 6});
+    SDL_SetRenderDrawColor(r, 235, 120, 60, 255);
+    SDL_RenderFillRect(r, &(SDL_Rect){x + 8, y + 34, tox_w, 6});
+    /* note chantee + niveau */
+    {
+        char l[64];
+        snprintf(l, sizeof l, "%s%s", mic_note_name(g_mic_pitch),
+                 g_mic_voice ? " *" : "");
+        draw_text(r, font, l, x + w - 74, y + 4, white);
+        snprintf(l, sizeof l, "%d dB", g_mic_db);
+        draw_text(r, font, l, x + w - 74, y + 20, grey);
+    }
+    if (g_mic_toxic > 60)
+        draw_text(r, font, "BAISSE LE TON !", x + 8, y + h - 14, red);
+}
+
 static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
 {
     Fighter *me = &g->f[g->turn];
@@ -5322,6 +5675,8 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
     SDL_RenderFillRect(r, &(SDL_Rect){2, 2, WIN_W - 4, BAND_H - 4});
     /* panneau d'etat du joueur (nouvelle interface)                    */
     draw_player_status(r, g, font, 8, 6, 330, 74);
+    /* widget micro : niveau, note, anti-toxicite                        */
+    draw_mic_widget(r, font, g, 700, 6, 180, 50);
     char line[128];
     SDL_Color white = {255,255,255,255};
     snprintf(line, sizeof line,
@@ -5383,19 +5738,15 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
                                    sk->kind == SK_BUFF ? "Buff" :
                                    sk->kind == SK_SUMMON ? "Invocation"
                                                         : "Special";
+                char desc[160], wrap[3][96];
+                int nl, j;
                 tip_begin(sk->name);
-                tip_add("%s - %dPA - portee %d", kind, sk->pa, sk->range);
-                if (sk->kind == SK_SUMMON) {
-                    int t = summon_template_of(sk);
-                    if (t >= 0)
-                        tip_add("Invoque : %s (PV %d, ATK %d)",
-                                SUMMON_TEMPLATES[t].name,
-                                SUMMON_TEMPLATES[t].hp,
-                                SUMMON_TEMPLATES[t].atk);
-                } else {
-                    tip_add("Effet %d  -  CD %d/%d", sk->power,
-                            me->cd_left[k], sk->cooldown);
-                }
+                skill_description(sk, desc, sizeof desc);
+                nl = text_wrap(desc, wrap, 46);
+                for (j = 0; j < nl; j++)
+                    tip_add("%s", wrap[j]);
+                tip_add("%s - %d PA - portee %d - CD %d/%d", kind, sk->pa,
+                        sk->range, me->cd_left[k], sk->cooldown);
                 tip_add("Survolez une cible pour l'estimation des degats.");
             }
         }
@@ -5545,6 +5896,7 @@ static void draw_mouse_bubble(SDL_Renderer *r, TTF_Font *font, int mx, int my,
 /* ------------------------------------------------------------------ */
 /* Infobulle genérique : panneau sombre, titre doré, lignes lisibles   */
 /* ------------------------------------------------------------------ */
+
 static void draw_tooltip(SDL_Renderer *r, TTF_Font *font, int mx, int my)
 {
     int w = 0, h, i, x, y, ty;
@@ -5761,6 +6113,8 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
 
     draw_text(r, font, "Credits: Thanks All. (OwO) ... Alucard.",
               20, 458, grey);
+    /* micro : niveau, note chantee, anti-toxicite                        */
+    draw_mic_widget(r, font, g, 20, 486, 300, 46);
     {
         if (pt_in(menu_settings_btn(), mx, my)) {
             tip_begin("Options");
@@ -6737,10 +7091,10 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
     if (g->challenge_seed) {
         snprintf(line, sizeof line, "Defi %u - bot neuronal",
                  g->challenge_seed);
-        draw_text(r, font, line, 330, 20, grey);
+        draw_text(r, font, line, 330, 44, grey);
     } else if (g->solo_mode) {
         draw_text(r, font, "Votre adversaire IA prepare son equipe. Il est deja sur.",
-                  330, 20, grey);
+                  330, 44, grey);
     }
     int i;
     for (i = 0; i < N_CLASSES; i++) {
@@ -6872,21 +7226,15 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
             SDL_Rect b = {10 + col * 330, 40 + row * 48, 320, 44};
             Skill *s = &CLASSES[cls].spells[i];
             if (pt_in(b, mx, my)) {
-                int tmpl = summon_template_of(s);
+                char desc[160], wrap[3][96];
+                int nl, j;
                 tip_begin(s->name);
-                if (tmpl >= 0) {
-                    tip_add("Invocation de %s", SUMMON_TEMPLATES[tmpl].name);
-                    tip_add("PV %d - degats %d - portee %d",
-                            SUMMON_TEMPLATES[tmpl].hp,
-                            SUMMON_TEMPLATES[tmpl].atk,
-                            SUMMON_TEMPLATES[tmpl].range);
-                } else if (s->effect) {
-                    tip_add("Transformation : +%d %% de degats, +2 PM.",
-                            s->power);
-                } else {
-                    tip_add("Effet %d - %d PA - portee %d - CD %d tours",
-                            s->power, s->pa, s->range, s->cooldown);
-                }
+                skill_description(s, desc, sizeof desc);
+                nl = text_wrap(desc, wrap, 46);
+                for (j = 0; j < nl; j++)
+                    tip_add("%s", wrap[j]);
+                tip_add("%d PA - portee %d - CD %d tours", s->pa, s->range,
+                        s->cooldown);
                 tip_add(g->draft[unit][i] ? "Deja dans votre deck."
                                            : "Cliquez pour l'ajouter.");
             }
@@ -7511,7 +7859,7 @@ int main(int argc, char **argv)
                                     apply_audio_settings(&game);
                                 }
                             }
-                            for (row = 3; row < 7; row++) {
+                            for (row = 3; row < 8; row++) {
                                 if (!pt_in(settings_toggle_btn(row), mx, my))
                                     continue;
                                 if (row == 3) {
@@ -7521,8 +7869,26 @@ int main(int argc, char **argv)
                                 } else if (row == 5) {
                                     game.subtitles_when_muted =
                                         !game.subtitles_when_muted;
-                                } else {
+                                } else if (row == 6) {
                                     apply_fullscreen(&game, !game.fullscreen);
+                                } else {
+                                    if (g_mic_enabled) {
+                                        mic_close();
+                                        g_music_duck = 100;
+                                        apply_audio_settings(&game);
+                                        snprintf(game.menu_status,
+                                                 sizeof game.menu_status,
+                                                 "Micro coupe.");
+                                    } else if (mic_open()) {
+                                        snprintf(game.menu_status,
+                                                 sizeof game.menu_status,
+                                                 "Micro actif : la musique "
+                                                 "s'accorde sur votre voix.");
+                                    } else {
+                                        snprintf(game.menu_status,
+                                                 sizeof game.menu_status,
+                                                 "Aucun micro disponible.");
+                                    }
                                 }
                             }
                         }
@@ -8089,6 +8455,7 @@ int main(int argc, char **argv)
         }
         anti_humil_restore(&game);
         anim_update(&game);
+        mic_update(&game);
 
         SDL_SetRenderDrawColor(ren, 15, 15, 15, 255);
         SDL_RenderClear(ren);
