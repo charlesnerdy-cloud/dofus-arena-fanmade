@@ -159,6 +159,16 @@ static SDL_Texture *g_spell_icons;
 static SDL_Texture *g_emote_sheet;
 static SDL_Texture *g_creatures_sheet;
 static SDL_Rect g_creature_frames[N_CREATURES];
+
+/* Cadre utile d'une frame : rectangle des pixels opaques.             */
+typedef struct {
+    int x0, y0, x1, y1;
+} ContentBox;
+
+static ContentBox g_char_boxes[CHARACTER_ROW_COUNT]
+                              [CHARACTER_SEQUENCE_COUNT]
+                              [CHARACTER_SEQUENCE_FRAME_COUNT];
+static ContentBox g_creature_boxes[N_CREATURES];
 static SDL_Texture *g_vfx_frames[VFX_FRAME_COUNT];
 static SDL_Renderer *g_ren;      /* pour la conversion souris -> logique */
 
@@ -1010,13 +1020,23 @@ static void challenges_build(Game *g)
 {
     int day = challenge_day_number();
     unsigned rng = (unsigned)day * 2654435761u + 12345u;
-    int i, pick, used[N_CLASSES];
+    int i, used[N_CLASSES];
+    int used_kind[6];
     memset(used, 0, sizeof used);
+    memset(used_kind, 0, sizeof used_kind);
     g->challenge_day = day;
     for (i = 0; i < DAILY_CHALLENGES; i++) {
         ChallengeKind kind = (ChallengeKind)(rng % 6);
         int param = 0;
         rng = rng * 1664525u + 1013904223u;
+        /* pas deux defis de meme type le meme jour                    */
+        if (used_kind[kind]) {
+            int k, pick = (int)((rng >> 16) % 6);
+            for (k = 0; k < 6; k++)
+                if (!used_kind[(pick + k) % 6]) { pick = (pick + k) % 6; break; }
+            kind = (ChallengeKind)pick;
+        }
+        used_kind[kind] = 1;
         switch (kind) {
             case CH_FAST:    param = 6 + (int)((rng >> 8) % 5); break;
             case CH_CLASS: {
@@ -3707,24 +3727,62 @@ static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
 static int pt_in(SDL_Rect r, int x, int y);
 
 /* Charge la planche de creatures (invocations + monstres du Songe).      */
+static void content_box(SDL_Surface *s, int sx, int sy, int sw, int sh,
+                        ContentBox *out);
+
 static void load_creatures_sheet(SDL_Renderer *renderer)
 {
+    SDL_Surface *surface;
     int i;
-    g_creatures_sheet = load_asset(renderer, "assets/character/creatures.png");
+    surface = IMG_Load("assets/character/creatures.png");
+    if (!surface) {
+        fprintf(stderr, "Bestiaire indisponible (assets/character/creatures.png): %s\n",
+                IMG_GetError());
+        return;
+    }
     for (i = 0; i < N_CREATURES; i++) {
         g_creature_frames[i].x = i * 16;
         g_creature_frames[i].y = 0;
         g_creature_frames[i].w = 16;
         g_creature_frames[i].h = 16;
+        content_box(surface, g_creature_frames[i].x, g_creature_frames[i].y,
+                    16, 16, &g_creature_boxes[i]);
     }
+    g_creatures_sheet = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    if (!g_creatures_sheet)
+        fprintf(stderr, "Texture bestiaire indisponible.\n");
+}
+
+/* Charge l'atlas de personnages et calcule le cadre utile de chaque
+   frame pour centrer proprement les decoupes sur les cases.            */
+static void load_characters_sheet(SDL_Renderer *renderer)
+{
+    SDL_Surface *surface;
+    int row, seq, f;
+    surface = IMG_Load("assets/character/Characters.png");
+    if (!surface) {
+        fprintf(stderr, "Atlas personnages indisponible: %s\n", IMG_GetError());
+        return;
+    }
+    for (row = 0; row < CHARACTER_ROW_COUNT; row++)
+        for (seq = 0; seq < CHARACTER_SEQUENCE_COUNT; seq++)
+            for (f = 0; f < CHARACTER_SEQUENCE_FRAME_COUNT; f++)
+                content_box(surface, CHARACTER_FRAME_X[seq][f],
+                            row * CHARACTER_FRAME_H,
+                            CHARACTER_FRAME_WIDTH[seq], CHARACTER_FRAME_H,
+                            &g_char_boxes[row][seq][f]);
+    g_characters_sheet = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    if (!g_characters_sheet)
+        fprintf(stderr, "Texture personnages indisponible.\n");
 }
 
 static void load_visual_effects(SDL_Renderer *renderer)
 {
     int i;
     char path[160];
-    g_characters_sheet =
-        load_asset(renderer, "assets/character/Characters.png");
+    load_characters_sheet(renderer);
 #ifndef __ANDROID__
     g_spell_icons = load_asset(renderer, "assets/character/spells_icon/spell4.webp");
 #endif
@@ -4428,34 +4486,79 @@ static void draw_battle_tooltip(SDL_Renderer *r, TTF_Font *font, Game *g,
 /* Rendu « papier » : decoupe 3D (face + dos epais) et ombre portee   */
 /* ------------------------------------------------------------------ */
 
+/* calcule le rectangle des pixels visibles d'une frame                 */
+static void content_box(SDL_Surface *s, int sx, int sy, int sw, int sh,
+                        ContentBox *out)
+{
+    int x, y;
+    out->x0 = sw; out->y0 = sh; out->x1 = -1; out->y1 = -1;
+    if (!s || sw <= 0 || sh <= 0) {
+        out->x0 = out->y0 = 0;
+        out->x1 = sw > 0 ? sw - 1 : 0;
+        out->y1 = sh > 0 ? sh - 1 : 0;
+        return;
+    }
+    if (SDL_MUSTLOCK(s) && SDL_LockSurface(s) != 0) return;
+    for (y = 0; y < sh; y++) {
+        Uint32 *row = (Uint32 *)((Uint8 *)s->pixels + y * s->pitch) + sx;
+        for (x = 0; x < sw; x++) {
+            Uint8 r, g, b, a;
+            SDL_GetRGBA(row[x], s->format, &r, &g, &b, &a);
+            if (a > 16) {
+                if (x < out->x0) out->x0 = x;
+                if (y < out->y0) out->y0 = y;
+                if (x > out->x1) out->x1 = x;
+                if (y > out->y1) out->y1 = y;
+            }
+        }
+    }
+    if (SDL_MUSTLOCK(s)) SDL_UnlockSurface(s);
+    if (out->x1 < 0) {           /* frame vide : on prend tout */
+        out->x0 = out->y0 = 0;
+        out->x1 = sw - 1;
+        out->y1 = sh - 1;
+    }
+}
+
 /* Personnage en feuille epaisse : le dos (miroir assombri) decale de
-   quelques pixels donne l'epaisseur de la decoupe.                     */
+   quelques pixels donne l'epaisseur de la decoupe.  Le personnage est
+   centre horizontalement sur la case et pose (pieds) sur son centre.  */
 static void draw_paper_character(SDL_Renderer *renderer, int row,
                                  int sequence, int frame,
-                                 SDL_Rect destination, int tint_opponent,
-                                 int thickness)
+                                 int cx, int cy, int target_h,
+                                 int tint_opponent, int thickness)
 {
-    SDL_Rect source;
-    SDL_Rect target = destination;
+    const ContentBox *b;
+    SDL_Rect source, target, back;
     int frame_index = frame % CHARACTER_SEQUENCE_FRAME_COUNT;
+    int cw, ch, w, h;
+    float scale;
     if (!g_characters_sheet || row < 0 || row >= CHARACTER_ROW_COUNT
         || sequence < 0 || sequence >= CHARACTER_SEQUENCE_COUNT)
         return;
-    source.x = CHARACTER_FRAME_X[sequence][frame_index];
-    source.y = row * CHARACTER_FRAME_H;
-    source.w = CHARACTER_FRAME_WIDTH[sequence];
-    source.h = CHARACTER_FRAME_H;
-    target.w = destination.w * source.w / CHARACTER_FRAME_W;
-    target.x += (destination.w - target.w) / 2;
+    frame_index = frame % CHARACTER_SEQUENCE_FRAME_COUNT;
+    b = &g_char_boxes[row][sequence][frame_index];
+    cw = b->x1 - b->x0 + 1;
+    ch = b->y1 - b->y0 + 1;
+    if (cw <= 0 || ch <= 0 || target_h <= 0) return;
+    scale = (float)target_h / (float)ch;
+    w = (int)(cw * scale);
+    h = (int)(ch * scale);
+    source.x = CHARACTER_FRAME_X[sequence][frame_index] + b->x0;
+    source.y = row * CHARACTER_FRAME_H + b->y0;
+    source.w = cw;
+    source.h = ch;
+    target.x = cx - w / 2;         /* centre sur la case                 */
+    target.y = cy - h;             /* les pieds touchent le sol          */
+    target.w = w;
+    target.h = h;
     /* dos de la feuille : copie miroir, assombrie et decalee */
-    {
-        SDL_Rect back = target;
-        back.x += thickness;
-        back.y += thickness / 2;
-        SDL_SetTextureColorMod(g_characters_sheet, 74, 62, 54);
-        SDL_RenderCopyEx(renderer, g_characters_sheet, &source, &back,
-                         0.0, NULL, SDL_FLIP_HORIZONTAL);
-    }
+    back = target;
+    back.x += thickness;
+    back.y += thickness / 2;
+    SDL_SetTextureColorMod(g_characters_sheet, 74, 62, 54);
+    SDL_RenderCopyEx(renderer, g_characters_sheet, &source, &back,
+                     0.0, NULL, SDL_FLIP_HORIZONTAL);
     /* face avant */
     if (tint_opponent)
         SDL_SetTextureColorMod(g_characters_sheet, 255,
@@ -4469,27 +4572,43 @@ static void draw_paper_character(SDL_Renderer *renderer, int row,
 
 /* Creature en decoupe papier (invocations et monstres du Songe)        */
 static void draw_paper_creature(SDL_Renderer *renderer, int frame,
-                                SDL_Rect destination, int thickness,
-                                int tint)
+                                int cx, int cy, int target_h,
+                                int thickness, int tint)
 {
+    const ContentBox *b;
+    SDL_Rect source, target, back;
+    int cw, ch, w, h;
+    float scale;
     if (!g_creatures_sheet || frame < 0 || frame >= N_CREATURES) return;
-    {
-        SDL_Rect src = g_creature_frames[frame];
-        SDL_Rect back = destination;
-        back.x += thickness;
-        back.y += thickness / 2;
-        SDL_SetTextureColorMod(g_creatures_sheet, 78, 66, 58);
-        SDL_RenderCopyEx(renderer, g_creatures_sheet, &src, &back,
-                         0.0, NULL, SDL_FLIP_HORIZONTAL);
-        if (tint == 1)      /* monstre : touche violette de la nuit      */
-            SDL_SetTextureColorMod(g_creatures_sheet, 235, 205, 255);
-        else if (tint == 2) /* allie : touche verte                      */
-            SDL_SetTextureColorMod(g_creatures_sheet, 220, 255, 230);
-        else
-            SDL_SetTextureColorMod(g_creatures_sheet, 255, 255, 255);
-        SDL_RenderCopy(renderer, g_creatures_sheet, &src, &destination);
+    b = &g_creature_boxes[frame];
+    cw = b->x1 - b->x0 + 1;
+    ch = b->y1 - b->y0 + 1;
+    if (cw <= 0 || ch <= 0 || target_h <= 0) return;
+    scale = (float)target_h / (float)ch;
+    w = (int)(cw * scale);
+    h = (int)(ch * scale);
+    source.x = g_creature_frames[frame].x + b->x0;
+    source.y = g_creature_frames[frame].y + b->y0;
+    source.w = cw;
+    source.h = ch;
+    target.x = cx - w / 2;
+    target.y = cy - h;
+    target.w = w;
+    target.h = h;
+    back = target;
+    back.x += thickness;
+    back.y += thickness / 2;
+    SDL_SetTextureColorMod(g_creatures_sheet, 78, 66, 58);
+    SDL_RenderCopyEx(renderer, g_creatures_sheet, &source, &back,
+                     0.0, NULL, SDL_FLIP_HORIZONTAL);
+    if (tint == 1)      /* monstre : touche violette de la nuit      */
+        SDL_SetTextureColorMod(g_creatures_sheet, 235, 205, 255);
+    else if (tint == 2) /* allie : touche verte                      */
+        SDL_SetTextureColorMod(g_creatures_sheet, 220, 255, 230);
+    else
         SDL_SetTextureColorMod(g_creatures_sheet, 255, 255, 255);
-    }
+    SDL_RenderCopy(renderer, g_creatures_sheet, &source, &target);
+    SDL_SetTextureColorMod(g_creatures_sheet, 255, 255, 255);
 }
 
 /* dessine le combattant : frame courante du spritesheet ou repli
@@ -4511,21 +4630,13 @@ static void draw_fighter(SDL_Renderer *r, Game *g, int idx, TTF_Font *font)
         /* monstre du Songe : decoupe papier de creature                   */
         int frame = g->monster_tmpl[idx];
         iso_fill_diamond(r, g, f->x, f->y, (SDL_Color){0, 0, 0, 85});
-        d.w = TILE + 8;
-        d.h = TILE + 4;
-        d.x = sx - d.w / 2;
-        d.y = sy - d.h + 4;
-        draw_paper_creature(r, frame, d, 3, 1);
+        draw_paper_creature(r, frame, sx, sy, 34, 3, 1);
     } else if (g_characters_sheet && f->cls >= 0 && f->cls < N_CLASSES) {
         /* ombre portee sous le combattant (papier 2.5D)                  */
         iso_fill_diamond(r, g, f->x, f->y, (SDL_Color){0, 0, 0, 85});
-        d.w = TILE + 4;
-        d.h = TILE + 2;
-        d.x = sx - d.w / 2;
-        d.y = sy - d.h + 4;
         draw_paper_character(r, CLASS_CHARACTER_ROW[f->cls],
                              character_sequence_for_anim(f->anim),
-                             f->anim_frame, d,
+                             f->anim_frame, sx, sy, 36,
                              mine ? 0 : (g->colorblind_mode ? 2 : 1), 3);
     } else {
         iso_fill_diamond(r, g, f->x, f->y,
@@ -4606,21 +4717,16 @@ static void draw_summon(SDL_Renderer *r, Game *g, int idx)
 {
     Summon *sm = &g->summons[idx];
     int sx, sy, frame;
-    SDL_Rect d;
     if (!sm->active) return;
     iso_center(g, sm->x, sm->y, &sx, &sy);
     iso_fill_diamond(r, g, sm->x, sm->y, (SDL_Color){0, 0, 0, 70});
-    d.w = 34;
-    d.h = 34;
-    d.x = sx - d.w / 2;
-    d.y = sy - d.h + 4;
     frame = (sm->tmpl >= 0 && sm->tmpl < SUMMON_FRAME_COUNT)
             ? sm->tmpl : 0;
-    draw_paper_creature(r, frame, d, 2,
+    draw_paper_creature(r, frame, sx, sy, 26, 2,
                         unit_is_mine(g, sm->owner) ? 2 : 0);
     /* barre de vie de l'invocation                                     */
     {
-        SDL_Rect hb = {sx - 14, sy - 26, 28, 5};
+        SDL_Rect hb = {sx - 14, sy - 24, 28, 5};
         int fill = (hb.w * sm->hp) / (sm->hp_max > 0 ? sm->hp_max : 1);
         SDL_SetRenderDrawColor(r, 12, 12, 16, 220);
         SDL_RenderFillRect(r, &hb);
@@ -4648,6 +4754,9 @@ static SDL_Rect songe_btn_host(void) { SDL_Rect r = {40, 300, 240, 44}; return r
 static SDL_Rect songe_btn_join(void) { SDL_Rect r = {300, 246, 240, 44}; return r; }
 static SDL_Rect songe_btn_ipfield(void) { SDL_Rect r = {300, 300, 240, 40}; return r; }
 static SDL_Rect songe_btn_back(void) { SDL_Rect r = {256, 380, 160, 40}; return r; }
+/* clavier virtuel de l'ecran Songe (saisie de l'IP)                    */
+static SDL_Rect songe_kbd(int i) { SDL_Rect r = {20 + (i%6)*55, 424 + (i/6)*45, 50, 40}; return r; }
+static SDL_Rect songe_kbd_ok(void) { SDL_Rect r = {20 + 6*55, 469, 160, 40}; return r; }
 /* ecran Defis du jour                                                 */
 static SDL_Rect challenge_card(int i) { SDL_Rect r = {24, 120 + i*130, 624, 116}; return r; }
 static SDL_Rect challenge_btn(int i)  { SDL_Rect r = {560, 190 + i*130, 76, 34}; return r; }
@@ -5431,6 +5540,30 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_text(r, font, line[0] ? line : "IP IPv4 de l'hote",
                   b.x + 8, b.y + 12,
                   g->ip_editing ? (SDL_Color){255, 220, 80, 255} : grey);
+        if (pt_in(b, mx, my)) {
+            tip_begin("Adresse IP de l'hote");
+            tip_add("Cliquez pour saisir l'IP a la souris.");
+        }
+    }
+    /* clavier virtuel de saisie de l'IP                                */
+    if (g->ip_editing) {
+        static const char *KEYS[12] = {"1","2","3","4","5","6",
+                                      "7","8","9","0",".","Bksp"};
+        SDL_Rect shade = {16, 414, 520, 100};
+        SDL_SetRenderDrawColor(r, 12, 10, 10, 235);
+        SDL_RenderFillRect(r, &shade);
+        SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
+        SDL_RenderDrawRect(r, &shade);
+        for (i = 0; i < 12; i++) {
+            SDL_Rect b = songe_kbd(i);
+            int hovered = pt_in(b, mx, my);
+            ui_button(r, b, KEYS[i], font, hovered, 0, 1);
+        }
+        {
+            SDL_Rect b = songe_kbd_ok();
+            int hovered = pt_in(b, mx, my);
+            ui_button(r, b, "OK", font, hovered, 0, 1);
+        }
     }
     {
         SDL_Rect b = songe_btn_back();
@@ -5448,7 +5581,8 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderFillRect(r, &d);
         SDL_SetRenderDrawColor(r, 90, 78, 66, 255);
         SDL_RenderDrawRect(r, &d);
-        draw_paper_creature(r, SUMMON_FRAME_COUNT + i, d, 2, 0);
+        draw_paper_creature(r, SUMMON_FRAME_COUNT + i, d.x + d.w / 2,
+                            d.y + d.h - 4, 40, 2, 0);
         if (pt_in(d, mx, my)) {
             const SummonTemplate *t = &MONSTER_TEMPLATES[i];
             tip_begin(t->name);
@@ -6204,6 +6338,21 @@ int main(int argc, char **argv)
                 } else if (game.state == ST_MENU && game.settings_open) {
                     if (k == SDLK_ESCAPE)
                         game.settings_open = 0;
+                } else if ((game.state == ST_SONGE
+                            || game.state == ST_CHALLENGES
+                            || game.state == ST_ACHIEVEMENTS)
+                           && k == SDLK_ESCAPE) {
+                    game.state = ST_MENU;
+                    game.ip_editing = 0;
+                    SDL_StopTextInput();
+                } else if (game.state == ST_SONGE && game.ip_editing) {
+                    if (k == SDLK_RETURN || k == SDLK_ESCAPE) {
+                        game.ip_editing = 0;
+                        SDL_StopTextInput();
+                    } else if (k == SDLK_BACKSPACE
+                               && strlen(game.ip_text) > 0) {
+                        game.ip_text[strlen(game.ip_text) - 1] = 0;
+                    }
                 } else if (game.state == ST_MENU && game.ip_editing) {
                     size_t len = strlen(game.ip_text);
                     if (k == SDLK_RETURN || k == SDLK_ESCAPE) {
@@ -6262,7 +6411,8 @@ int main(int argc, char **argv)
                     }
                 }
             } else if (ev.type == SDL_TEXTINPUT
-                       && game.state == ST_MENU && game.ip_editing) {
+                       && (game.state == ST_MENU || game.state == ST_SONGE)
+                       && game.ip_editing) {
                 const char *text = ev.text.text;
                 while (*text && strlen(game.ip_text) < sizeof game.ip_text - 1) {
                     size_t len = strlen(game.ip_text);
@@ -6276,6 +6426,9 @@ int main(int argc, char **argv)
                        && ev.button.button == SDL_BUTTON_LEFT) {
                 int mx, my;
                 point_logical(ev.button.x, ev.button.y, &mx, &my);
+                if (getenv("DAF_DEBUG"))
+                    fprintf(stderr, "RAWCLICK %d %d %d %d\n",
+                            ev.button.x, ev.button.y, mx, my);
                 if (game.state == ST_MENU) {
                     if (game.settings_open) {
                         int row;
@@ -6443,6 +6596,28 @@ int main(int argc, char **argv)
                         game.ip_editing = !game.ip_editing;
                         if (game.ip_editing) SDL_StartTextInput();
                         else SDL_StopTextInput();
+                    } else if (game.ip_editing) {
+                        /* clavier virtuel : saisie de l'IP a la souris     */
+                        int kb;
+                        static const char K[12] =
+                            {'1','2','3','4','5','6','7','8','9','0','.','\b'};
+                        for (kb = 0; kb < 12; kb++) {
+                            SDL_Rect b = songe_kbd(kb);
+                            if (!pt_in(b, mx, my)) continue;
+                            {
+                                size_t len = strlen(game.ip_text);
+                                if (K[kb] == '\b') {
+                                    if (len > 0) game.ip_text[len-1] = 0;
+                                } else if (len < sizeof game.ip_text - 1) {
+                                    game.ip_text[len] = K[kb];
+                                    game.ip_text[len+1] = 0;
+                                }
+                            }
+                        }
+                        if (pt_in(songe_kbd_ok(), mx, my)) {
+                            game.ip_editing = 0;
+                            SDL_StopTextInput();
+                        }
                     } else {
                         for (q = 0; q < 5; q++)
                             if (pt_in(songe_party_btn(q), mx, my)) {
@@ -6483,7 +6658,9 @@ int main(int argc, char **argv)
                         game.state = ST_MENU;
                     } else {
                         for (q = 0; q < DAILY_CHALLENGES; q++) {
-                            if (!pt_in(challenge_btn(q), mx, my)) continue;
+                            /* toute la carte est cliquable              */
+                            if (!pt_in(challenge_card(q), mx, my)
+                                && !pt_in(challenge_btn(q), mx, my)) continue;
                             if (game.challenge_done[q]) break;
                             if (game.net.sock != SOCK_INVALID) break;
                             start_challenge(&game, q);

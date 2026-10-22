@@ -7,7 +7,8 @@ PREFIX   ?= /usr/local
 BINDIR   ?= $(PREFIX)/bin
 
 TARGET   = dofus-arena
-SRC      = game.c
+# la source principale peut s'appeler game.c ou main.c
+SRC      = $(if $(wildcard game.c),game.c,main.c)
 
 ifeq ($(OS),Windows_NT)
 TARGET   = dofus-arena.exe

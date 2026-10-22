@@ -58,12 +58,14 @@ jobs:
           mkdir -p android/app/src/main/java/org/libsdl/app
           cp -R android/app/jni/SDL/android-project/app/src/main/java/org/libsdl/app/. \
             android/app/src/main/java/org/libsdl/app/
-          cp game.c android/app/jni/src/game.c
+          if [ -f game.c ]; then cp game.c android/app/jni/src/game.c;
+          else cp main.c android/app/jni/src/game.c; fi
           mkdir -p android/app/jni/src/tools
           cp tools/bot_model.h android/app/jni/src/tools/bot_model.h
           mkdir -p android/app/src/main/assets/assets
           cp -R assets/BGM assets/Sounds assets/UI/UI.png \
-            assets/character/Characters.png assets/bubble_emotes.png \
+            assets/character/Characters.png assets/character/creatures.png \
+            assets/bubble_emotes.png \
             assets/VFX assets/tiles/tilesheet.png \
             android/app/src/main/assets/assets/
 
