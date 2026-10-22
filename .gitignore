@@ -1,0 +1,16 @@
+dofus-arena
+android/app/build/
+android/.gradle/
+android/app/jni/SDL/
+android/app/jni/SDL_image/
+android/app/jni/SDL_ttf/
+android/app/jni/SDL_mixer/
+Dofus-Arena-Android-arm64.apk
+monjeu
+android/app/src/main/assets/assets/
+android/app/jni/src/main.c
+android/app/jni/src/tools/
+android/app/jni/tools/
+android/gradlebuild*.log
+__pycache__/
+*.pyc
