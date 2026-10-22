@@ -6353,7 +6353,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     {
         draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
                        (SDL_Rect){22, 15, 24, 25});
-        draw_text(r, font, "DOFUS ARENA - LEGEND (FTW°)", 54, 13, white);
+        draw_text(r, font, "Dofus Arena Gaia Project's version", 54, 13, white);
         draw_text(r, font, "Seul, a deux, ou dans un reve qui n'en finit pas",
               54, 31, grey);
         draw_character_sprite(r, CLASS_CHARACTER_ROW[0], 0, 0,
@@ -8146,12 +8146,32 @@ int main(int argc, char **argv)
     if (TTF_Init() != 0) { fprintf(stderr, "TTF\n"); return 1; }
     if (!net_init()) { fprintf(stderr, "WSA\n"); return 1; }
 
-    win = SDL_CreateWindow("Dofus Arena - Legend (FTW°)",
+    win = SDL_CreateWindow("Dofus Arena Gaïa Project's version",
                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                           WIN_W, WIN_H, 0);
+                           1280, 800, SDL_WINDOW_RESIZABLE);
     if (!win) {
         fprintf(stderr, "Fenetre SDL indisponible: %s\n", SDL_GetError());
         return 1;
+    }
+    {
+        SDL_Surface *icon_surf = SDL_CreateRGBSurface(0, 32, 32, 32,
+            0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+        if (icon_surf) {
+            SDL_Rect icon_rect;
+            SDL_FillRect(icon_surf, NULL,
+                         SDL_MapRGBA(icon_surf->format, 0, 0, 0, 0));
+            icon_rect.x = 14; icon_rect.y = 18; icon_rect.w = 4; icon_rect.h = 12;
+            SDL_FillRect(icon_surf, &icon_rect,
+                         SDL_MapRGBA(icon_surf->format, 120, 72, 30, 255));
+            icon_rect.x = 6; icon_rect.y = 4; icon_rect.w = 20; icon_rect.h = 16;
+            SDL_FillRect(icon_surf, &icon_rect,
+                         SDL_MapRGBA(icon_surf->format, 34, 139, 34, 255));
+            icon_rect.x = 10; icon_rect.y = 2; icon_rect.w = 12; icon_rect.h = 8;
+            SDL_FillRect(icon_surf, &icon_rect,
+                         SDL_MapRGBA(icon_surf->format, 50, 180, 50, 255));
+            SDL_SetWindowIcon(win, icon_surf);
+            SDL_FreeSurface(icon_surf);
+        }
     }
     ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!ren) {
