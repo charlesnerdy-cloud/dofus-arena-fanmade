@@ -1210,6 +1210,7 @@ typedef struct {
     long long anti_humil_last_ns;      /* horodatage ns du dernier acte */
     int       emote_menu_open;
     int       in_game_menu_open;
+    int       pause_open;         /* menu Pause global (ECHAP)          */
     int       surrender_confirm;
     int       settings_open;
     int       music_volume;
@@ -5070,17 +5071,21 @@ static SDL_Rect songe_kbd_ok(void) { SDL_Rect r = {20 + 6*55, 441, 160, 38}; ret
 static SDL_Rect challenge_card(int i) { SDL_Rect r = {24, 96 + i*116, 624, 106}; return r; }
 static SDL_Rect challenge_btn(int i)  { SDL_Rect r = {560, 148 + i*116, 76, 32}; return r; }
 static SDL_Rect challenge_back_btn(void) { SDL_Rect r = {440, 424, 140, 32}; return r; }
-static SDL_Rect settings_panel(void) { SDL_Rect r = {72, 64, 528, 480}; return r; }
+/* boutons de l'ecran Succes (memes rectangles pour le dessin et le clic)*/
+static SDL_Rect ach_up_btn(void)   { SDL_Rect r = {600, 60, 40, 30}; return r; }
+static SDL_Rect ach_down_btn(void) { SDL_Rect r = {600, 430, 40, 30}; return r; }
+static SDL_Rect ach_back_btn(void) { SDL_Rect r = {440, 430, 150, 32}; return r; }
+static SDL_Rect settings_panel(void) { SDL_Rect r = {72, 30, 528, 440}; return r; }
 static SDL_Rect settings_row(int row)
-{ SDL_Rect r = {96, 132 + row * 50, 480, 40}; return r; }
+{ SDL_Rect r = {96, 86 + row * 46, 480, 40}; return r; }
 static SDL_Rect settings_minus_btn(int row)
-{ SDL_Rect r = {454, 136 + row * 50, 36, 32}; return r; }
+{ SDL_Rect r = {454, 90 + row * 46, 36, 32}; return r; }
 static SDL_Rect settings_plus_btn(int row)
-{ SDL_Rect r = {500, 136 + row * 50, 36, 32}; return r; }
+{ SDL_Rect r = {500, 90 + row * 46, 36, 32}; return r; }
 static SDL_Rect settings_toggle_btn(int row)
-{ SDL_Rect r = {444, 136 + row * 50, 120, 32}; return r; }
+{ SDL_Rect r = {444, 90 + row * 46, 120, 32}; return r; }
 static SDL_Rect settings_back_btn(void)
-{ SDL_Rect r = {264, 494, 144, 34}; return r; }
+{ SDL_Rect r = {430, 450, 144, 26}; return r; }
 static SDL_Rect favorite_btn(int i)  { SDL_Rect r = {20 + i*126, 414, 118, 32}; return r; }
 /* clavier virtuel pour l'IP (12 touches : 123456 / 7890.⌫ / OK)        */
 static SDL_Rect menu_kbd(int i)     { SDL_Rect r = {20 + (i%6)*55, 180 + (i/6)*45, 50, 40}; return r; }
@@ -5126,8 +5131,8 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
     SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
     SDL_RenderFillRect(r, &panel);
     draw_ui_panel(r, panel);
-    draw_ui_banner(r, (SDL_Rect){88, 70, 496, 48});
-    draw_text(r, font, "PARAMETRES", 270, 84, white);
+    draw_ui_banner(r, (SDL_Rect){88, 34, 496, 42});
+    draw_text(r, font, "PARAMETRES", 270, 46, white);
     for (i = 0; i < 8; i++) {
         SDL_Rect row = settings_row(i);
         SDL_SetRenderDrawColor(r, 31, 27, 28, 240);
@@ -5177,9 +5182,10 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, back);
         SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
         SDL_RenderDrawRect(r, &back);
-        draw_text(r, font, "RETOUR", back.x + 42, back.y + 9, white);
+        draw_text(r, font, "RETOUR", back.x + 42, back.y + 5, white);
     }
-    draw_text(r, font, "ECHAP pour revenir (ou furter avec les reglages)", 236, 556, muted);
+    draw_text(r, font, "ECHAP pour revenir (ou furter avec les reglages)",
+              100, 452, muted);
 }
 
 static void draw_audio_subtitle(SDL_Renderer *r, TTF_Font *font, Game *g)
@@ -5857,9 +5863,9 @@ static void draw_achievements(SDL_Renderer *r, TTF_Font *font, Game *g)
                   g_achievements[idx] ? green : grey);
     }
     {
-        SDL_Rect up = {600, 56, 40, 28};
-        SDL_Rect down = {600, 384, 40, 28};
-        SDL_Rect back = {260, 560, 150, 34};
+        SDL_Rect up = ach_up_btn();
+        SDL_Rect down = ach_down_btn();
+        SDL_Rect back = ach_back_btn();
         SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
         SDL_RenderFillRect(r, &up);
         SDL_RenderFillRect(r, &down);
@@ -6024,7 +6030,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
             tip_add("F11 pour le plein ecran sans bordure.");
         }
     }
-    draw_text(r, font, "Format (le gore ne compte que sur le papier) :", 350, 48, grey);
+    draw_text(r, font, "Format (le gore ne compte que sur le papier) :", 560, 58, grey);
     {
         static const int sizes[3] = {1, 2, 5};
         int i;
@@ -6114,7 +6120,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_text(r, font, "Credits: Thanks All. (OwO) ... Alucard.",
               20, 458, grey);
     /* micro : niveau, note chantee, anti-toxicite                        */
-    draw_mic_widget(r, font, g, 20, 486, 300, 46);
+    draw_mic_widget(r, font, g, 570, 250, 290, 46);
     {
         if (pt_in(menu_settings_btn(), mx, my)) {
             tip_begin("Options");
@@ -6829,6 +6835,55 @@ static void draw_defs(SDL_Renderer *r, TTF_Font *font, Game *g)
 }
 
 /* ------------------------------------------------------------------ */
+/* Menu Pause global : touche ECHAP, sur tous les ecrans                */
+/* ------------------------------------------------------------------ */
+static SDL_Rect pause_panel(void) { SDL_Rect r = {WIN_W/2 - 160, WIN_H/2 - 116, 320, 232}; return r; }
+static SDL_Rect pause_option(int i) { SDL_Rect r = {WIN_W/2 - 140, WIN_H/2 - 58 + i * 50, 280, 42}; return r; }
+
+static int pause_option_count(const Game *g)
+{
+    return (g->state == ST_BATTLE) ? 4 : 3;
+}
+
+static void draw_pause_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
+{
+    static const char *labels[4] = {
+        "Reprendre",
+        "Menu principal",
+        "Se rendre (combat)",
+        "Quitter le jeu"
+    };
+    SDL_Rect panel = pause_panel();
+    SDL_Color white = {245, 235, 215, 255};
+    SDL_Color gold  = {255, 214, 120, 255};
+    SDL_Color grey  = {170, 165, 155, 255};
+    int n = pause_option_count(g);
+    int i, mx, my;
+    mouse_logical(&mx, &my);
+    if (!g->pause_open) return;
+    /* le fond s'assombrit */
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 175);
+    SDL_RenderFillRect(r, &(SDL_Rect){0, 0, WIN_W, WIN_H});
+    draw_ui_panel(r, panel);
+    draw_ui_banner(r, (SDL_Rect){panel.x + 6, panel.y + 6, panel.w - 12, 40});
+    draw_text(r, font, "PAUSE", panel.x + 130, panel.y + 16, gold);
+    for (i = 0; i < n; i++) {
+        SDL_Rect b = pause_option(i);
+        int hover = pt_in(b, mx, my);
+        ui_button(r, b, labels[i], font, hover, 0, 1);
+        if (hover) {
+            tip_begin(labels[i]);
+            if (i == 0) tip_add("Referme ce menu et reprend la partie.");
+            else if (i == 1) tip_add("Quitte la partie en cours et revient au menu.");
+            else if (i == 2) tip_add("Vous perdez le combat sur-le-champ.");
+            else tip_add("Ferme le jeu (le code PIN reste memorise).");
+        }
+    }
+    draw_text(r, font, "ECHAP pour reprendre", panel.x + 76,
+              panel.y + panel.h - 24, grey);
+}
+
+/* ------------------------------------------------------------------ */
 /* Ecran Songe : expedition infinie, en solo ou en cooperation P2P     */
 /* ------------------------------------------------------------------ */
 static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
@@ -6942,7 +6997,7 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
     if (g->ip_editing) {
         static const char *KEYS[12] = {"1","2","3","4","5","6",
                                       "7","8","9","0",".","Bksp"};
-        SDL_Rect shade = {16, 386, 520, 98};
+        SDL_Rect shade = {16, 380, 520, 94};
         SDL_SetRenderDrawColor(r, 12, 10, 10, 235);
         SDL_RenderFillRect(r, &shade);
         SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
@@ -7355,15 +7410,16 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
             }
         }
         {
-            SDL_Rect b = {520, 556, 136, 32};
-            SDL_SetRenderDrawColor(r, 60, 140, 70, 255);
-            SDL_RenderFillRect(r, &b);
-            SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
-            SDL_RenderDrawRect(r, &b);
-            draw_text(r, font, "CONTINUER", b.x + 14, b.y + 6, white);
-            if (pt_in(b, mx, my)) {
-                tip_begin("Continuer");
-                tip_add("Valide la panoplie et passe a l'etape suivante.");
+            SDL_Rect b = {508, 442, 160, 32};
+            int hovered = pt_in(b, mx, my);
+            ui_button(r, b, "COMMENCER", font, hovered, 0,
+                      g->stuff_chosen[unit] >= 0);
+            if (hovered) {
+                tip_begin("Commencer le combat");
+                if (g->stuff_chosen[unit] >= 0)
+                    tip_add("Valide la panoplie et passe a l'etape suivante.");
+                else
+                    tip_add("Choisissez d'abord une panoplie.");
             }
         }
     }
@@ -7425,7 +7481,7 @@ static void draw_dofus(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_tooltip(r, font, mx, my);
     }
     {
-        SDL_Rect ok = {520, 500, 130, 34};
+        SDL_Rect ok = {520, 392, 130, 32};
         SDL_SetRenderDrawColor(r, g->team_dofus[team] >= 0 ? 55 : 45,
                                g->team_dofus[team] >= 0 ? 140 : 55,
                                g->team_dofus[team] >= 0 ? 65 : 55, 255);
@@ -7487,7 +7543,7 @@ static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_tooltip(r, font, mx, my);
     }
     {
-        SDL_Rect done = {100, 460, 250, 42};
+        SDL_Rect done = {100, 418, 250, 38};
         SDL_SetRenderDrawColor(r, total == ELEMENT_POINTS ? 55 : 45,
                                total == ELEMENT_POINTS ? 140 : 55,
                                total == ELEMENT_POINTS ? 65 : 55, 255);
@@ -7737,19 +7793,23 @@ int main(int argc, char **argv)
                         game.chat_input[len] = (char)k;
                         game.chat_input[len + 1] = 0;
                     }
+                } else if (k == SDLK_ESCAPE) {
+                    /* menu Pause global : disponible sur tous les ecrans  */
+                    if (game.state == ST_PIN) {
+                        /* l'ecran PIN reste verrouille : rien a faire      */
+                    } else if (game.pause_open) {
+                        game.pause_open = 0;
+                    } else {
+                        game.pause_open = 1;
+                        game.emote_menu_open = 0;
+                        game.chat_active = 0;
+                        game.ip_editing = 0;
+                        SDL_StopTextInput();
+                    }
                 } else if (k == SDLK_F11) {
                     apply_fullscreen(&game, !game.fullscreen);
                 } else if (game.state == ST_MENU && game.settings_open) {
-                    if (k == SDLK_ESCAPE)
-                        game.settings_open = 0;
-                } else if ((game.state == ST_SONGE
-                            || game.state == ST_CHALLENGES
-                            || game.state == ST_DEFS
-                            || game.state == ST_ACHIEVEMENTS)
-                           && k == SDLK_ESCAPE) {
-                    game.state = ST_MENU;
-                    game.ip_editing = 0;
-                    SDL_StopTextInput();
+                    game.settings_open = 0;
                 } else if (game.state == ST_SONGE && game.ip_editing) {
                     if (k == SDLK_RETURN || k == SDLK_ESCAPE) {
                         game.ip_editing = 0;
@@ -7767,19 +7827,8 @@ int main(int argc, char **argv)
                         game.ip_text[len - 1] = 0;
                     }
                 } else if (game.state == ST_BATTLE
-                           && (k == SDLK_ESCAPE || game.in_game_menu_open)) {
-                    if (k == SDLK_ESCAPE) {
-                        if (game.surrender_confirm)
-                            game.surrender_confirm = 0;
-                        else if (game.in_game_menu_open)
-                            game.in_game_menu_open = 0;
-                        else {
-                            game.in_game_menu_open = 1;
-                            game.emote_menu_open = 0;
-                            game.chat_active = 0;
-                            SDL_StopTextInput();
-                        }
-                    } else if (game.surrender_confirm) {
+                           && (game.in_game_menu_open || game.surrender_confirm)) {
+                    if (game.surrender_confirm) {
                         if (k == SDLK_RETURN || k == SDLK_y)
                             surrender_match(&game);
                         else if (k == SDLK_n)
@@ -7839,6 +7888,28 @@ int main(int argc, char **argv)
                 if (getenv("DAF_DEBUG"))
                     fprintf(stderr, "RAWCLICK %d %d %d %d\n",
                             ev.button.x, ev.button.y, mx, my);
+                if (game.pause_open) {
+                    /* le menu Pause capte tous les clics                */
+                    int n = pause_option_count(&game);
+                    int o;
+                    for (o = 0; o < n; o++) {
+                        if (!pt_in(pause_option(o), mx, my)) continue;
+                        if (o == 0) {
+                            game.pause_open = 0;
+                        } else if (o == 1) {
+                            game.pause_open = 0;
+                            return_to_main_menu(&game);
+                        } else if (o == 2) {
+                            game.pause_open = 0;
+                            surrender_match(&game);
+                        } else {
+                            game.pause_open = 0;
+                            running = 0;
+                        }
+                        break;
+                    }
+                    continue;
+                }
                 if (game.state == ST_MENU) {
                     if (game.settings_open) {
                         int row;
@@ -8236,7 +8307,7 @@ int main(int argc, char **argv)
                         }
                     }
                     {
-                        SDL_Rect done = {520, 446, 136, 28};
+                        SDL_Rect done = {508, 442, 160, 32};
                         if (pt_in(done, mx, my)
                             && game.stuff_chosen[unit] >= 0)
                             sync_stuff(&game, unit);
@@ -8296,12 +8367,12 @@ int main(int argc, char **argv)
                     }
                 } else if (game.state == ST_ACHIEVEMENTS) {
                     {
-                        SDL_Rect up = {600, 60, 40, 30};
-                        SDL_Rect down = {600, 440, 40, 30};
-                        SDL_Rect back = {440, 424, 150, 32};
-                        if (pt_in(up, mx, my)) game.achievement_scroll--;
-                        else if (pt_in(down, mx, my)) game.achievement_scroll++;
-                        else if (pt_in(back, mx, my)) game.state = ST_MENU;
+                        if (pt_in(ach_up_btn(), mx, my))
+                            game.achievement_scroll--;
+                        else if (pt_in(ach_down_btn(), mx, my))
+                            game.achievement_scroll++;
+                        else if (pt_in(ach_back_btn(), mx, my))
+                            game.state = ST_MENU;
                     }
                 } else if (game.state == ST_BATTLE) {
                     int y0 = 0;
@@ -8597,6 +8668,8 @@ int main(int argc, char **argv)
         }
         }
 
+        if (game.pause_open)
+            draw_pause_menu(ren, font, &game);
         draw_audio_subtitle(ren, font, &game);
         SDL_RenderPresent(ren);
         SDL_Delay(16);
