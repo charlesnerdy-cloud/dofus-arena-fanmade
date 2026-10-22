@@ -158,3 +158,59 @@ lorsqu'elle est présente, ou estime le fond dominant sur les bords pour les
 planches opaques ; réglez **Color tolerance** pour inclure ou exclure davantage
 de couleurs proches du fond. Vous pouvez aussi faire un clic droit sur un pixel
 de fond puis choisir **Use clicked pixel as background** pour l'échantillonner.
+---
+
+## 🎨 Nouvelle interface (HUD) et packs d'assets
+
+Depuis la **V3.5**, le jeu embarque une interface 9‑slice (panneaux et boutons
+redimensionnables) ainsi qu'un **panneau d'état du joueur** (portrait, jauge de
+vie, pastilles PA/PM, initiative) dans le bandeau de combat.
+
+### Panneaux 9‑slice fournis
+
+`assets/UI/pixel/` contient les panneaux utilisés :
+
+| Fichier | Usage |
+|---|---|
+| `panel_tan.png` | cadre parchemin (panneau d'état, onglets) |
+| `panel_brown.png` | cadre sombre (bandeau de combat) |
+| `panel_grey.png` | emplacement de sort |
+| `panel_white.png` / `btn_*.png` | boutons (vert, jaune, gris, rouge) |
+
+Licence : **CC0** (Kenney – Pixel UI Pack), la licence est jointe dans
+`assets/UI/pixel/LICENSE_kenney_pixel_ui.txt`.
+
+### Importer votre propre pack d'interface
+
+Le pack **Humble Pixel – Pocket Inventory Series 5 (Player Status)** (ou tout
+autre pack de HUD en PNG) peut être importé automatiquement :
+
+```bash
+# 1. Telecharger le zip sur itch.io, puis :
+python3 tools/hud_import.py ~/Downloads/pocket-inventory-player-status.zip
+
+# ou depuis un dossier
+python3 tools/hud_import.py ~/Downloads/hud_pngs/
+```
+
+Le script crée `assets/UI/hud.png` + `assets/UI/hud.frames.json`.
+Au **prochain lancement**, le jeu détecte ces fichiers et utilise
+automatiquement :
+
+* `portrait_frame` — cadre autour du portrait du joueur
+* `hp_bar` / `hp_bar_fill` — jauge de vie (fond + remplissage rouge)
+* `mana_bar` / `mana_bar_fill` — jauge de ressource
+* `pa` / `pm` — pastilles d'action et de mouvement
+* `slot` — emplacement de sort dans le bandeau
+
+Si un nom manque, le jeu garde son dessin interne (aucune erreur, aucun crash).
+Les fichiers de HUD importés ne sont **pas** versionnés par défaut : ajoutez-les
+explicitement si vous souhaitez les partager.
+
+### Code PIN
+
+Le jeu est verrouillé par un **code PIN à 6 chiffres** (creation au premier
+lancement, saisie masquée ensuite, 5 essais puis blocage de 30 s).
+Le code n'est jamais stocké en clair : sel aléatoire + hash
+(FNV‑1a 64 bits × 50 000) dans `pin.txt` (dossier de préférences SDL).
+Le bouton **CODE OUBLIE ?** efface le code et la progression.

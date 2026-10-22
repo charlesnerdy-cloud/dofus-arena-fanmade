@@ -162,6 +162,140 @@ static SDL_Texture *g_creatures_sheet;
 static SDL_Rect g_creature_frames[N_CREATURES];
 static SDL_Window *g_window;            /* fenetre principale (plein ecran) */
 
+static void draw_text(SDL_Renderer *r, TTF_Font *f, const char *txt,
+                      int x, int y, SDL_Color c);
+static SDL_Texture *load_asset(SDL_Renderer *r, const char *path);
+
+/* --- nouvelle interface : panneaux et boutons 9-slice ---------------- */
+typedef enum {
+    UI9_PANEL_TAN, UI9_PANEL_BROWN, UI9_PANEL_GREY, UI9_PANEL_WHITE,
+    UI9_BTN_YELLOW, UI9_BTN_GREEN, UI9_BTN_GREY, UI9_BTN_RED, UI9_COUNT
+} Ui9Id;
+
+static const char *UI9_FILES[UI9_COUNT] = {
+    "assets/UI/pixel/panel_tan.png",
+    "assets/UI/pixel/panel_brown.png",
+    "assets/UI/pixel/panel_grey.png",
+    "assets/UI/pixel/panel_white.png",
+    "assets/UI/pixel/btn_yellow.png",
+    "assets/UI/pixel/btn_green.png",
+    "assets/UI/pixel/btn_grey.png",
+    "assets/UI/pixel/btn_red.png",
+};
+static SDL_Texture *g_ui9[UI9_COUNT];
+
+/* --- HUD importe (optionnel) : assets/UI/hud.png + hud.frames.json ---- */
+static SDL_Texture *g_hud_sheet;
+typedef struct { int x, y, w, h; int ok; } HudFrame;
+static HudFrame g_hud_frame[8];
+static const char *HUD_NAMES[8] = {
+    "portrait_frame", "hp_bar", "hp_bar_fill", "pa",
+    "pm", "mana_bar", "mana_bar_fill", "slot"
+};
+enum { HUD_PORTRAIT, HUD_HPBAR, HUD_HPFILL, HUD_PA, HUD_PM,
+       HUD_MANABAR, HUD_MANAFILL, HUD_SLOT };
+
+/* charge le HUD importe ; facultatif (le jeu marche sans)              */
+static void load_hud_sheet(SDL_Renderer *renderer)
+{
+    SDL_Surface *surface;
+    FILE *file;
+    char line[512];
+    int i;
+    for (i = 0; i < 8; i++) g_hud_frame[i].ok = 0;
+    surface = IMG_Load("assets/UI/hud.png");
+    if (!surface) return;
+    file = fopen("assets/UI/hud.frames.json", "r");
+    if (!file) { SDL_FreeSurface(surface); return; }
+    while (fgets(line, sizeof line, file)) {
+        char name[64];
+        int x, y, w, h, k;
+        if (sscanf(line, "\"name\": \"%63[^\"]\"", name) != 1) continue;
+        if (sscanf(line, "\"x\": %d", &x) != 1) continue;
+        if (sscanf(line, "\"y\": %d", &y) != 1) continue;
+        if (sscanf(line, "\"w\": %d", &w) != 1) continue;
+        if (sscanf(line, "\"h\": %d", &h) != 1) continue;
+        for (k = 0; k < 8; k++)
+            if (!strcmp(name, HUD_NAMES[k]) && !g_hud_frame[k].ok) {
+                g_hud_frame[k].x = x; g_hud_frame[k].y = y;
+                g_hud_frame[k].w = w; g_hud_frame[k].h = h;
+                g_hud_frame[k].ok = 1;
+                break;
+            }
+    }
+    fclose(file);
+    g_hud_sheet = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+}
+
+/* dessine une frame du HUD importe a la position demandee              */
+static void draw_hud_frame(SDL_Renderer *r, int id, SDL_Rect dst, int tint)
+{
+    HudFrame *f;
+    SDL_Rect src;
+    if (!g_hud_sheet || id < 0 || id >= 8) return;
+    f = &g_hud_frame[id];
+    if (!f->ok) return;
+    src.x = f->x; src.y = f->y; src.w = f->w; src.h = f->h;
+    if (tint == 1) SDL_SetTextureColorMod(g_hud_sheet, 255, 90, 80);
+    else if (tint == 2) SDL_SetTextureColorMod(g_hud_sheet, 120, 220, 255);
+    else SDL_SetTextureColorMod(g_hud_sheet, 255, 255, 255);
+    SDL_RenderCopy(r, g_hud_sheet, &src, &dst);
+    SDL_SetTextureColorMod(g_hud_sheet, 255, 255, 255);
+}
+
+/* dessine un panneau 9-slice (bord de 16 px) etrille a toute taille   */
+static void draw_nine_slice(SDL_Renderer *r, SDL_Texture *t, SDL_Rect dst, int b)
+{
+    int tw, th, i;
+    SDL_Rect sc[9], dc[9];
+    if (!t) return;
+    SDL_QueryTexture(t, NULL, NULL, &tw, &th);
+    if (b <= 0 || b * 2 >= tw || b * 2 >= th || dst.w < b * 2
+        || dst.h < b * 2) {
+        SDL_RenderCopy(r, t, NULL, &dst);
+        return;
+    }
+    /* 0 coin haut-gauche  1 haut  2 coin haut-droit
+       3 gauche            4 centre 5 droite
+       6 coin bas-gauche   7 bas    8 coin bas-droit                */
+    sc[0].x = 0;         sc[0].y = 0;         sc[0].w = b; sc[0].h = b;
+    sc[1].x = b;         sc[1].y = 0;         sc[1].w = tw - 2*b; sc[1].h = b;
+    sc[2].x = tw - b;    sc[2].y = 0;         sc[2].w = b; sc[2].h = b;
+    sc[3].x = 0;         sc[3].y = b;         sc[3].w = b; sc[3].h = th - 2*b;
+    sc[4].x = b;         sc[4].y = b;         sc[4].w = tw - 2*b; sc[4].h = th - 2*b;
+    sc[5].x = tw - b;    sc[5].y = b;         sc[5].w = b; sc[5].h = th - 2*b;
+    sc[6].x = 0;         sc[6].y = th - b;    sc[6].w = b; sc[6].h = b;
+    sc[7].x = b;         sc[7].y = th - b;    sc[7].w = tw - 2*b; sc[7].h = b;
+    sc[8].x = tw - b;    sc[8].y = th - b;    sc[8].w = b; sc[8].h = b;
+    dc[0].x = dst.x;               dc[0].y = dst.y;               dc[0].w = b; dc[0].h = b;
+    dc[1].x = dst.x + b;           dc[1].y = dst.y;               dc[1].w = dst.w - 2*b; dc[1].h = b;
+    dc[2].x = dst.x + dst.w - b;   dc[2].y = dst.y;               dc[2].w = b; dc[2].h = b;
+    dc[3].x = dst.x;               dc[3].y = dst.y + b;           dc[3].w = b; dc[3].h = dst.h - 2*b;
+    dc[4].x = dst.x + b;           dc[4].y = dst.y + b;           dc[4].w = dst.w - 2*b; dc[4].h = dst.h - 2*b;
+    dc[5].x = dst.x + dst.w - b;   dc[5].y = dst.y + b;           dc[5].w = b; dc[5].h = dst.h - 2*b;
+    dc[6].x = dst.x;               dc[6].y = dst.y + dst.h - b;   dc[6].w = b; dc[6].h = b;
+    dc[7].x = dst.x + b;           dc[7].y = dst.y + dst.h - b;   dc[7].w = dst.w - 2*b; dc[7].h = b;
+    dc[8].x = dst.x + dst.w - b;   dc[8].y = dst.y + dst.h - b;   dc[8].w = b; dc[8].h = b;
+    for (i = 0; i < 9; i++)
+        SDL_RenderCopy(r, t, &sc[i], &dc[i]);
+}
+
+/* bouton 9-slice + libelle centre                                    */
+static void ui9_button(SDL_Renderer *r, SDL_Rect b, const char *label,
+                        TTF_Font *font, int hovered, int selected, int enabled)
+{
+    SDL_Texture *t = g_ui9[UI9_BTN_GREY];
+    SDL_Color col = {190, 185, 175, 255};
+    if (!enabled) { t = g_ui9[UI9_BTN_GREY]; col = (SDL_Color){140,136,132,255}; }
+    else if (selected) { t = g_ui9[UI9_BTN_YELLOW]; col = (SDL_Color){40,30,10,255}; }
+    else if (hovered) { t = g_ui9[UI9_BTN_YELLOW]; col = (SDL_Color){60,45,15,255}; }
+    else { t = g_ui9[UI9_BTN_GREEN]; col = (SDL_Color){245,245,235,255}; }
+    draw_nine_slice(r, t, b, 16);
+    if (label)
+        draw_text(r, font, label, b.x + 8, b.y + (b.h - 16) / 2, col);
+}
+
 /* Cadre utile d'une frame : rectangle des pixels opaques.             */
 typedef struct {
     int x0, y0, x1, y1;
@@ -3777,6 +3911,18 @@ static void load_creatures_sheet(SDL_Renderer *renderer)
         fprintf(stderr, "Texture bestiaire indisponible.\n");
 }
 
+/* Charge la nouvelle interface (panneaux 9-slice).  Si les fichiers
+   manquent, le jeu continue avec l'ancien atlas (aucun crash).        */
+static void load_ui9(SDL_Renderer *renderer)
+{
+    int i;
+    for (i = 0; i < UI9_COUNT; i++) {
+        g_ui9[i] = load_asset(renderer, UI9_FILES[i]);
+        if (!g_ui9[i])
+            fprintf(stderr, "Interface 9-slice absente: %s\n", UI9_FILES[i]);
+    }
+}
+
 /* Charge l'atlas de personnages et calcule le cadre utile de chaque
    frame pour centrer proprement les decoupes sur les cases.            */
 static void load_characters_sheet(SDL_Renderer *renderer)
@@ -3811,6 +3957,8 @@ static void load_visual_effects(SDL_Renderer *renderer)
 #endif
     g_emote_sheet = load_asset(renderer, "assets/bubble_emotes.png");
     load_creatures_sheet(renderer);
+    load_ui9(renderer);
+    load_hud_sheet(renderer);
     for (i = 0; i < VFX_FRAME_COUNT; i++) {
         snprintf(path, sizeof path,
                  "assets/VFX/Effect_BloodImpact/30fps/Frames/"
@@ -4819,7 +4967,7 @@ static SDL_Rect endturn_btn(int y0)  { SDL_Rect r = {10, y0 + 92, 150, 48}; retu
 static SDL_Rect chat_btn(int y0)     { SDL_Rect r = {170, y0 + 92, 90, 30}; return r; }
 static SDL_Rect chat_field(int y0)   { SDL_Rect r = {270, y0 + 92, 300, 30}; return r; }
 static SDL_Rect chat_send(int y0)    { SDL_Rect r = {580, y0 + 92, 80, 30}; return r; }
-static SDL_Rect ingame_menu_btn(int y0) { SDL_Rect r = {550, y0 + 3, 112, 22}; return r; }
+static SDL_Rect ingame_menu_btn(int y0) { SDL_Rect r = {868, y0 + 66, 112, 24}; return r; }
 static SDL_Rect ingame_menu_panel(void) { SDL_Rect r = {186, 196, 300, 248}; return r; }
 static SDL_Rect ingame_menu_option(int option)
 { SDL_Rect r = {201, 245 + option * 44, 270, 36}; return r; }
@@ -4918,14 +5066,120 @@ static void draw_audio_subtitle(SDL_Renderer *r, TTF_Font *font, Game *g)
               banner.y + 11, (SDL_Color){255, 240, 210, 255});
 }
 
+/* ------------------------------------------------------------------ */
+/* Nouvelle interface : panneau d'etat du joueur (HUD)                 */
+/* ------------------------------------------------------------------ */
+static void draw_player_status(SDL_Renderer *r, Game *g, TTF_Font *font,
+                               int x, int y, int w, int h)
+{
+    Fighter *me = &g->f[g->turn];
+    SDL_Color white = {250, 245, 230, 255};
+    SDL_Color gold  = {255, 214, 120, 255};
+    SDL_Color dark  = {30, 24, 20, 255};
+    SDL_Rect panel = {x, y, w, h};
+    int portrait = 42;
+    int bar_x, bar_y, bar_w, bar_h;
+
+    /* cadre 9-slice (parchemin)                                        */
+    draw_nine_slice(r, g_ui9[UI9_PANEL_TAN], panel, 16);
+    SDL_SetRenderDrawColor(r, 60, 44, 28, 160);
+    SDL_RenderDrawRect(r, &(SDL_Rect){x + 3, y + 3, w - 6, h - 6});
+
+    /* portrait du combattant                                           */
+    if (g_characters_sheet && me->cls >= 0 && me->cls < N_CLASSES) {
+        SDL_Rect frame = {x + 6, y + 6, portrait, portrait};
+        if (g_hud_frame[HUD_PORTRAIT].ok)
+            draw_hud_frame(r, HUD_PORTRAIT, frame, 0);
+        else
+            draw_nine_slice(r, g_ui9[UI9_PANEL_BROWN], frame, 12);
+        draw_character_sprite(r, CLASS_CHARACTER_ROW[me->cls], 0, 0,
+                              (SDL_Rect){x + 10, y + 10, portrait - 8,
+                                         portrait - 8}, 0);
+    }
+    /* nom + classe                                                     */
+    draw_text(r, font, CLASSES[me->cls].name, x + 6 + portrait + 6, y + 6,
+              gold);
+    {
+        char l[96];
+        snprintf(l, sizeof l, "T%d - P%d   PV %d/%d",
+                 me->team + 1, g->turn % g->team_size + 1, me->hp, me->hp_max);
+        draw_text(r, font, l, x + 6 + portrait + 6, y + 22, white);
+    }
+    /* jauge de vie (HUD importe si disponible, sinon dessin interne)    */
+    bar_x = x + 6 + portrait + 6;
+    bar_y = y + 40;
+    bar_w = w - (bar_x - x) - 10;
+    bar_h = 12;
+    if (g_hud_frame[HUD_HPBAR].ok) {
+        SDL_Rect hb = {bar_x, bar_y, bar_w, bar_h};
+        draw_hud_frame(r, HUD_HPBAR, hb, 0);
+        {
+            int fill = (bar_w * me->hp) / (me->hp_max > 0 ? me->hp_max : 1);
+            SDL_Rect hf = {bar_x, bar_y, fill > 0 ? fill : 0, bar_h};
+            draw_hud_frame(r, HUD_HPFILL, hf, 1);
+        }
+    } else {
+        SDL_SetRenderDrawColor(r, 40, 20, 18, 220);
+        SDL_RenderFillRect(r, &(SDL_Rect){bar_x, bar_y, bar_w, bar_h});
+        {
+            int fill = (bar_w * me->hp) / (me->hp_max > 0 ? me->hp_max : 1);
+            SDL_SetRenderDrawColor(r, 190, 45, 40, 255);
+            SDL_RenderFillRect(r, &(SDL_Rect){bar_x + 1, bar_y + 1,
+                                             fill > 1 ? fill - 1 : 0, bar_h - 2});
+            SDL_SetRenderDrawColor(r, 250, 180, 160, 120);
+            SDL_RenderFillRect(r, &(SDL_Rect){bar_x + 1, bar_y + 1,
+                                             fill > 1 ? fill - 1 : 0, 3});
+        }
+        SDL_SetRenderDrawColor(r, gold.r, gold.g, gold.b, 200);
+        SDL_RenderDrawRect(r, &(SDL_Rect){bar_x, bar_y, bar_w, bar_h});
+    }
+    /* PA / PM / initiative : pastilles                                  */
+    {
+        int i;
+        char l[32];
+        snprintf(l, sizeof l, "PA %d", me->pa);
+        draw_text(r, font, l, bar_x, bar_y + 16, white);
+        snprintf(l, sizeof l, "PM %d", me->pm);
+        draw_text(r, font, l, bar_x + 56, bar_y + 16, white);
+        snprintf(l, sizeof l, "INIT %d", me->initiative);
+        draw_text(r, font, l, bar_x + 116, bar_y + 16, white);
+        /* points d'action en pastilles                                    */
+        for (i = 0; i < me->pa && i < 8; i++) {
+            if (g_hud_frame[HUD_PA].ok)
+                draw_hud_frame(r, HUD_PA, (SDL_Rect){bar_x + 200 + i * 11,
+                                                    bar_y + 16, 9, 9}, 0);
+            else {
+                SDL_SetRenderDrawColor(r, 255, 220, 120, 255);
+                SDL_RenderFillRect(r, &(SDL_Rect){bar_x + 200 + i * 9,
+                                                 bar_y + 17, 6, 6});
+            }
+        }
+        for (i = 0; i < me->pm && i < 8; i++) {
+            if (g_hud_frame[HUD_PM].ok)
+                draw_hud_frame(r, HUD_PM, (SDL_Rect){bar_x + 200 + i * 11,
+                                                    bar_y + 26, 9, 9}, 0);
+            else {
+                SDL_SetRenderDrawColor(r, 120, 220, 255, 255);
+                SDL_RenderFillRect(r, &(SDL_Rect){bar_x + 200 + i * 9,
+                                                 bar_y + 26, 6, 6});
+            }
+        }
+    }
+    (void)dark;
+}
+
 static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
 {
     Fighter *me = &g->f[g->turn];
     int y0 = 0;                     /* bandeau en haut (mode paysage)      */
     SDL_Rect panel = {0, y0, WIN_W, BAND_H};
-    SDL_SetRenderDrawColor(r, 30, 30, 30, 255);
+    SDL_SetRenderDrawColor(r, 26, 22, 20, 255);
     SDL_RenderFillRect(r, &panel);
-    draw_ui_panel(r, (SDL_Rect){2, y0 + 2, WIN_W - 4, BAND_H - 4});
+    draw_nine_slice(r, g_ui9[UI9_PANEL_BROWN], panel, 16);
+    SDL_SetRenderDrawColor(r, 12, 10, 9, 235);
+    SDL_RenderFillRect(r, &(SDL_Rect){2, 2, WIN_W - 4, BAND_H - 4});
+    /* panneau d'etat du joueur (nouvelle interface)                    */
+    draw_player_status(r, g, font, 8, 6, 330, 74);
     char line[128];
     SDL_Color white = {255,255,255,255};
     snprintf(line, sizeof line,
@@ -4935,27 +5189,25 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
              me->hp, me->hp_max, me->pa, me->pm, me->initiative);
     draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
                    (SDL_Rect){8, y0 + 5, 24, 25});
-    draw_text(r, font, line, 38, y0 + 6, white);
+    draw_text(r, font, line, 350, y0 + 68, white);
     if (g->songe_mode) {
         char lv[64];
         snprintf(lv, sizeof lv, "SONGE - NIVEAU %d (record %d)",
                  g->songe_level, g->songe_best);
-        draw_text(r, font, lv, 672, y0 + 6, (SDL_Color){255, 214, 120, 255});
+        draw_text(r, font, lv, 620, y0 + 68, (SDL_Color){255, 214, 120, 255});
     }
 
     int k;
     for (k = 0; k < N_EQUIPPED; k++) {
         Skill *s = &me->spells[k];
-        SDL_Rect b = {10 + k * 165, y0 + 26, 160, 58};
+        SDL_Rect b = {350 + k * 165, y0 + 6, 160, 58};
         SDL_Rect icon = {b.x + 4, b.y + 8, 30, 36};
-        if (g->sel_skill == k)
-            SDL_SetRenderDrawColor(r, 112, 82, 38, 255);
-        else
-            SDL_SetRenderDrawColor(r, 55, 48, 42, 255);
-        SDL_RenderFillRect(r, &b);
-        draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, b);
-        SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
-        SDL_RenderDrawRect(r, &b);
+        draw_nine_slice(r, g_ui9[UI9_PANEL_GREY], b, 12);
+        if (g->sel_skill == k) {
+            draw_nine_slice(r, g_ui9[UI9_PANEL_TAN], b, 12);
+            SDL_SetRenderDrawColor(r, 255, 214, 120, 200);
+            SDL_RenderDrawRect(r, &b);
+        }
         if (g_spell_icons) {
             SDL_Rect icon_src = spell_icon_rect(me->spell_icon[k]);
             SDL_RenderCopy(r, g_spell_icons, &icon_src, &icon);
@@ -4975,7 +5227,7 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
         mouse_logical(&mx, &my);
         tip_reset();
         for (k = 0; k < N_EQUIPPED; k++) {
-            SDL_Rect b = {10 + k * 165, y0 + 30, 160, 56};
+            SDL_Rect b = {350 + k * 165, y0 + 6, 160, 58};
             if (pt_in(b, mx, my)) {
                 Skill *sk = &me->spells[k];
                 const char *kind = sk->kind == SK_ATK ? "Attaque" :
@@ -7523,7 +7775,7 @@ int main(int argc, char **argv)
                         /* barre de sorts : clic pour selectionner      */
                         int k;
                         for (k = 0; k < N_EQUIPPED; k++) {
-                            SDL_Rect b = {10 + k*165, y0 + 30, 160, 56};
+                            SDL_Rect b = {350 + k*165, y0 + 6, 160, 58};
                             if (pt_in(b, mx, my))
                                 game.sel_skill = (game.sel_skill == k) ? -1 : k;
                         }
