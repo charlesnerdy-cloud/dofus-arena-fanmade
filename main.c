@@ -2334,9 +2334,10 @@ static void start_new_game(Game *g, unsigned seed)
             g->cell[j][i] = CELL_GROUND;
     }
 
-    /* Decor : quelques props sur le sol (arbres, buissons, fleurs...) */
+    /* Decor : props sur le sol (arbres, buissons, fleurs, coffres...)  */
     {
-        static const unsigned char props[6] = {7, 9, 15, 16, 17, 18};
+        static const unsigned char props[8] = {7, 9, 15, 16, 17, 18,
+                                               8, 19};   /* + coffre/torche */
         for (j = 0; j < g->map_height; j++)
             for (i = 0; i < g->map_width; i++) {
                 unsigned r = (unsigned)(i * 2654435761u + j * 40503u
@@ -2346,8 +2347,8 @@ static void start_new_game(Game *g, unsigned seed)
                 if (g->cell[j][i] != CELL_GROUND) continue;
                 /* la zone de depart reste degagee                       */
                 if (j >= spawn_top && j <= spawn_bottom) continue;
-                if ((r >> 9) % 100 < 16)          /* ~16% de cases        */
-                    g->decor[j][i] = props[(r >> 17) % 6] + 1;
+                if ((r >> 9) % 100 < 20)          /* ~20% de cases        */
+                    g->decor[j][i] = props[(r >> 17) % 8] + 1;
             }
     }
 
@@ -4753,16 +4754,21 @@ static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
     if (cell == CELL_VOID) return;
 
     if (cell == CELL_WALL) {
-        /* bloc 2.5D : deux faces + dessus relevé                       */
+        /* bloc 2.5D : deux faces + dessus releve                       */
         if (g_tilesheet) {
+            /* variation d'ombrage : les murs ne sont plus tous egaux   */
+            unsigned h = (unsigned)(i * 83492791u) ^ (unsigned)(j * 2654435761u);
+            int v1 = 132 + (int)((h >> 7) % 34);   /* face gauche      */
+            int v2 = 96  + (int)((h >> 13) % 30);   /* face droite      */
+            int v3 = 238 + (int)((h >> 19) % 17);   /* dessus          */
             iso_side_face(r, g_tilesheet, wall_src,
                           px - hw, py + hh, px, py + 2 * hh,
-                          ISO_WALL_H, 150);
+                          ISO_WALL_H, (Uint8)v1);
             iso_side_face(r, g_tilesheet, wall_src,
                           px, py + 2 * hh, px + hw, py + hh,
-                          ISO_WALL_H, 110);
+                          ISO_WALL_H, (Uint8)v2);
             iso_textured_diamond(r, g_tilesheet, wall_src, px, py,
-                                 ISO_WALL_H, 255);
+                                 ISO_WALL_H, (Uint8)v3);
         } else {
             SDL_SetRenderDrawColor(r, 85, 60, 40, 255);
             SDL_RenderDrawLine(r, px - hw, py + hh - ISO_WALL_H, px, py + 2*hh - ISO_WALL_H);
@@ -5316,6 +5322,11 @@ static void draw_decor(SDL_Renderer *r, Game *g, int i, int j)
     if (frame < 0 || frame >= N_CREATURES) return;
     iso_center(g, i, j, &sx, &sy);
     draw_soft_shadow(r, sx, sy, 11, 5, 70);
+    /* la torche est une source de lumière                              */
+    if (frame == 19) {
+        draw_glow(r, sx, sy - 10, 40, (SDL_Color){255, 190, 90, 150});
+        draw_glow(r, sx, sy - 12, 20, (SDL_Color){255, 240, 190, 170});
+    }
     draw_paper_creature(r, frame, sx, sy, 22, 1, 0);
 }
 
