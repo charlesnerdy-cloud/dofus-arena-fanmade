@@ -1349,6 +1349,7 @@ typedef struct {
     int       map_width;
     int       map_height;
     int       map_theme;
+    unsigned  map_seed;      /* graine du decor (hauteurs, props)    */
     Fighter   f[MAX_FIGHTERS];
     int       my_index;
     int       turn;
@@ -2299,6 +2300,7 @@ static int integer_sqrt(int value)
 static void start_new_game(Game *g, unsigned seed)
 {
     unsigned rng = seed ? seed : 1u;
+    g->map_seed = seed ? seed : 1u;
     int i, j, center_x, center_y, spawn_top, spawn_bottom;
     g->map_width = 9 + map_random_bounded(&rng, GRID_W - 8);
     g->map_height = 7 + map_random_bounded(&rng, GRID_H - 6);
@@ -4744,6 +4746,20 @@ static void draw_soft_shadow(SDL_Renderer *r, int cx, int cy,
     SDL_SetTextureAlphaMod(g_glow_tex, 255);
 }
 
+/* Hauteur d'un bloc obstacle : 3 volumes + une legere variete.
+   Deterministe (meme graine -> memedecor a chaque lancement).          */
+static int obstacle_height(const Game *g, int i, int j)
+{
+    unsigned h = (unsigned)(i * 83492791u) ^ (unsigned)(j * 2654435761u)
+                 ^ (g->map_seed * 2654435761u);
+    h = (h ^ (h >> 13)) * 1274126177u;
+    switch ((h >> 11) % 3) {
+        case 0: return ISO_WALL_H - 8;      /* bas                   */
+        case 1: return ISO_WALL_H + 4;      /* moyen                 */
+        default: return ISO_WALL_H + 14;     /* haut (immeuble)      */
+    }
+}
+
 static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
 {
     int px, py, hw = ISO_TILE_W / 2, hh = ISO_TILE_H / 2;
@@ -4754,21 +4770,36 @@ static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
     if (cell == CELL_VOID) return;
 
     if (cell == CELL_WALL) {
-        /* bloc 2.5D : deux faces + dessus releve                       */
+        /* bloc 3D : deux faces extrudees + dessus releve               */
         if (g_tilesheet) {
             /* variation d'ombrage : les murs ne sont plus tous egaux   */
             unsigned h = (unsigned)(i * 83492791u) ^ (unsigned)(j * 2654435761u);
             int v1 = 132 + (int)((h >> 7) % 34);   /* face gauche      */
             int v2 = 96  + (int)((h >> 13) % 30);   /* face droite      */
             int v3 = 238 + (int)((h >> 19) % 17);   /* dessus          */
+            int hgt = obstacle_height(g, i, j);
             iso_side_face(r, g_tilesheet, wall_src,
                           px - hw, py + hh, px, py + 2 * hh,
-                          ISO_WALL_H, (Uint8)v1);
+                          hgt, (Uint8)v1);
             iso_side_face(r, g_tilesheet, wall_src,
                           px, py + 2 * hh, px + hw, py + hh,
-                          ISO_WALL_H, (Uint8)v2);
+                          hgt, (Uint8)v2);
             iso_textured_diamond(r, g_tilesheet, wall_src, px, py,
-                                 ISO_WALL_H, (Uint8)v3);
+                                 hgt, (Uint8)v3);
+            /* arête éclairée : donne le volume au bloc                 */
+            {
+                int ty = py - hgt;
+                SDL_SetRenderDrawColor(r, 255, 240, 210, 90);
+                SDL_RenderDrawLine(r, px - hw, ty + hh, px, ty);
+                SDL_RenderDrawLine(r, px, ty, px + hw, ty + hh);
+            }
+            /* pied du bloc : ombre au sol                               */
+            {
+                int sy2 = py + 2 * hh;
+                SDL_SetRenderDrawColor(r, 0, 0, 0, 60);
+                SDL_RenderDrawLine(r, px - hw, sy2, px, sy2 + hh);
+                SDL_RenderDrawLine(r, px, sy2 + hh, px + hw, sy2);
+            }
         } else {
             SDL_SetRenderDrawColor(r, 85, 60, 40, 255);
             SDL_RenderDrawLine(r, px - hw, py + hh - ISO_WALL_H, px, py + 2*hh - ISO_WALL_H);
@@ -4794,14 +4825,16 @@ static void draw_tile(SDL_Renderer *r, Game *g, int i, int j, int cell)
     {
         int sw = (j + 1 < g->map_height) ? g->cell[j + 1][i] : CELL_VOID;
         int se = (i + 1 < g->map_width)  ? g->cell[j][i + 1] : CELL_VOID;
+        int edge = ISO_EDGE_H + (int)(((unsigned)(i * 7 + j * 13)
+                                      % 9) - 4);
         if (sw == CELL_VOID)
             iso_side_face(r, g_tilesheet ? g_tilesheet : NULL, floor_src,
                           px - hw, py + hh, px, py + 2 * hh,
-                          ISO_EDGE_H, 130);
+                          edge, 130);
         if (se == CELL_VOID)
             iso_side_face(r, g_tilesheet ? g_tilesheet : NULL, floor_src,
                           px, py + 2 * hh, px + hw, py + hh,
-                          ISO_EDGE_H, 100);
+                          edge, 100);
     }
     if (g_tilesheet) {
         /* variation de teinte par case : le sol n'est plus uniforme    */
