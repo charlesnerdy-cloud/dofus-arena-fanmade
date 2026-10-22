@@ -8082,6 +8082,11 @@ int main(int argc, char **argv)
     game.songe_party = 1;
     game.songe_level = 0;
     challenges_build(&game);
+    /* base de donnees : SQLite si la bibliotheque est presente.
+     * Doit etre ouverte AVANT les chargements, sinon le jeu lit les
+     * anciens fichiers texte au lieu de la base.                          */
+    db_open();
+    db_migrate_legacy();
     challenges_load(&game);
     songe_record_load(&game);
     for (i = 0; i < MAX_FIGHTERS; i++) {
@@ -8092,9 +8097,6 @@ int main(int argc, char **argv)
         game.stuff_ready[i] = -1;
         for (j = 0; j < N_CLASS_SPELLS; j++) game.draft[i][j] = 0;
     }
-    /* base de donnees : SQLite si la bibliotheque est presente          */
-    db_open();
-    db_migrate_legacy();
     favorites_load(&game);
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
