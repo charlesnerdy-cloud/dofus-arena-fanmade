@@ -6062,7 +6062,7 @@ int main(int argc, char **argv)
 
     win = SDL_CreateWindow("Dofus Arena Gaïa Project's version",
                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                           800, 600, SDL_WINDOW_RESIZABLE);
+                           1280, 800, SDL_WINDOW_RESIZABLE);
     if (!win) {
         fprintf(stderr, "Fenetre SDL indisponible: %s\n", SDL_GetError());
         return 1;
