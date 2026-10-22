@@ -6291,11 +6291,11 @@ static void draw_tooltip(SDL_Renderer *r, TTF_Font *font, int mx, int my)
     if (!g_tip_title[0] && g_tip_count == 0) return;
     for (i = 0; i < g_tip_count; i++) {
         int len = (int)strlen(g_tip_lines[i]);
-        if (len * 7 + 24 > w) w = len * 7 + 24;
+        if (len * 9 + 24 > w) w = len * 9 + 24;
     }
     if (g_tip_title[0]) {
         int len = (int)strlen(g_tip_title);
-        if (len * 8 + 28 > w) w = len * 8 + 28;
+        if (len * 10 + 28 > w) w = len * 10 + 28;
     }
     if (w < 90) w = 90;
     ty = g_tip_title[0] ? 22 : 6;
