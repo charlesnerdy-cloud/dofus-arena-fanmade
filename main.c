@@ -93,8 +93,9 @@ typedef int Sock;
 #define VFX_FRAME_COUNT 30
 #define VFX_FRAME_MS 33
 #define VFX_REDUCED_DURATION_MS 1200
-#define WIN_W  (GRID_W * TILE)
-#define WIN_H  (GRID_H * TILE + 160)   /* bandeau UI en bas            */
+#define WIN_W  1024
+#define WIN_H  480
+#define BAND_H 160                     /* bandeau UI (haut, mode paysage) */
 #define PORT   7777
 #define NET_KEEPALIVE_MS 1000
 #define NET_TIMEOUT_MS   8000
@@ -1800,7 +1801,8 @@ static int map_origin_x(const Game *g)
 
 static int map_origin_y(const Game *g)
 {
-    return ((GRID_H * TILE) - map_pixel_h(g)) / 2;
+    /* la scene occupe la partie basse de l'ecran (bandeau UI en haut)   */
+    return BAND_H + ((WIN_H - BAND_H) - map_pixel_h(g)) / 2;
 }
 
 /* Sommet haut du losange de la case (i, j)                             */
@@ -2257,11 +2259,11 @@ static void challenges_check(Game *g)
         g->challenge_points += g->challenge_reward[idx];
         challenges_save(g);
         snprintf(g->menu_status, sizeof g->menu_status,
-                 "Defi valide ! +%d points (total %d).",
+                 "Defi valide ! +%d points (total %d). cafeserved.",
                  g->challenge_reward[idx], g->challenge_points);
     } else {
         snprintf(g->menu_status, sizeof g->menu_status,
-                 "Defi non valide : %s", g->challenge_desc[idx]);
+                 "Defi non valide : %s (l'on y croit moins qu'avant)", g->challenge_desc[idx]);
     }
     g->active_challenge = -1;
 }
@@ -2407,7 +2409,7 @@ static void songe_next_level(Game *g)
     }
     songe_start_level(g, level, seed);
     snprintf(g->menu_status, sizeof g->menu_status,
-             "Niveau %d du Songe !", level);
+             "Niveau %d du Songe ! Les monstres-etres rangent leurs meubles.", level);
 }
 
 /* record du mode Songe (fichier de preferences)                        */
@@ -3912,7 +3914,7 @@ static void draw_emote_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
             draw_text(renderer, font, label, option.x + 3, option.y + 2, white);
         }
     }
-    draw_text(renderer, font, "EMOTES - 1 a 8 ou clic", bg.x + 46,
+    draw_text(renderer, font, "EMOTES - 1 a 8, ou clic (cliquer, c'est encore plus simple)", bg.x + 46,
               bg.y + 4, white);
 }
 
@@ -3941,7 +3943,7 @@ static void draw_ingame_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
         draw_ui_panel(renderer, panel);
         SDL_SetRenderDrawColor(renderer, 215, 80, 70, 255);
         SDL_RenderDrawRect(renderer, &panel);
-        draw_text(renderer, font, "Surrender this match?", panel.x + 78,
+        draw_text(renderer, font, "Abandonner ce match ? (tres mauvaise idee, mais c'est votre vie)", panel.x + 78,
                   panel.y + 28, white);
         for (i = 0; i < 2; i++) {
             SDL_Rect button = surrender_dialog_button(i);
@@ -3965,7 +3967,7 @@ static void draw_ingame_menu(Game *g, SDL_Renderer *renderer, TTF_Font *font)
     draw_ui_panel(renderer, panel);
     SDL_SetRenderDrawColor(renderer, 200, 170, 115, 255);
     SDL_RenderDrawRect(renderer, &panel);
-    draw_text(renderer, font, "GAME MENU", panel.x + 104, panel.y + 16, white);
+    draw_text(renderer, font, "PAUSE-MENU", panel.x + 104, panel.y + 16, white);
     for (i = 0; i < 4; i++) {
         SDL_Rect button = ingame_menu_option(i);
         int hover = pt_in(button, mx, my);
@@ -4743,7 +4745,7 @@ static SDL_Rect menu_btn_solo(void)  { SDL_Rect r = {350, 170, 200, 40}; return 
 static SDL_Rect menu_btn_bot_model(void) { SDL_Rect r = {350, 216, 200, 34}; return r; }
 static SDL_Rect menu_btn_ipfield(void){SDL_Rect r = {350, 120, 200, 40};return r; }
 static SDL_Rect menu_size_btn(int i) { SDL_Rect r = {350 + i*66, 70, 60, 40}; return r; }
-static SDL_Rect menu_settings_btn(void) { SDL_Rect r = {550, 70, 112, 40}; return r; }
+static SDL_Rect menu_settings_btn(void) { SDL_Rect r = {880, 70, 124, 40}; return r; }
 static SDL_Rect menu_btn_songe(void) { SDL_Rect r = {20, 170, 320, 40}; return r; }
 static SDL_Rect menu_btn_challenges(void) { SDL_Rect r = {20, 220, 320, 40}; return r; }
 static SDL_Rect menu_btn_achievements(void) { SDL_Rect r = {20, 270, 320, 40}; return r; }
@@ -4755,12 +4757,12 @@ static SDL_Rect songe_btn_join(void) { SDL_Rect r = {300, 246, 240, 44}; return 
 static SDL_Rect songe_btn_ipfield(void) { SDL_Rect r = {300, 300, 240, 40}; return r; }
 static SDL_Rect songe_btn_back(void) { SDL_Rect r = {256, 380, 160, 40}; return r; }
 /* clavier virtuel de l'ecran Songe (saisie de l'IP)                    */
-static SDL_Rect songe_kbd(int i) { SDL_Rect r = {20 + (i%6)*55, 424 + (i/6)*45, 50, 40}; return r; }
-static SDL_Rect songe_kbd_ok(void) { SDL_Rect r = {20 + 6*55, 469, 160, 40}; return r; }
+static SDL_Rect songe_kbd(int i) { SDL_Rect r = {20 + (i%6)*55, 396 + (i/6)*45, 50, 38}; return r; }
+static SDL_Rect songe_kbd_ok(void) { SDL_Rect r = {20 + 6*55, 441, 160, 38}; return r; }
 /* ecran Defis du jour                                                 */
-static SDL_Rect challenge_card(int i) { SDL_Rect r = {24, 120 + i*130, 624, 116}; return r; }
-static SDL_Rect challenge_btn(int i)  { SDL_Rect r = {560, 190 + i*130, 76, 34}; return r; }
-static SDL_Rect challenge_back_btn(void) { SDL_Rect r = {266, 540, 140, 38}; return r; }
+static SDL_Rect challenge_card(int i) { SDL_Rect r = {24, 96 + i*116, 624, 106}; return r; }
+static SDL_Rect challenge_btn(int i)  { SDL_Rect r = {560, 148 + i*116, 76, 32}; return r; }
+static SDL_Rect challenge_back_btn(void) { SDL_Rect r = {440, 424, 140, 32}; return r; }
 static SDL_Rect settings_panel(void) { SDL_Rect r = {72, 64, 528, 512}; return r; }
 static SDL_Rect settings_row(int row)
 { SDL_Rect r = {96, 144 + row * 52, 480, 42}; return r; }
@@ -4772,17 +4774,17 @@ static SDL_Rect settings_toggle_btn(int row)
 { SDL_Rect r = {444, 149 + row * 52, 120, 32}; return r; }
 static SDL_Rect settings_back_btn(void)
 { SDL_Rect r = {264, 510, 144, 38}; return r; }
-static SDL_Rect favorite_btn(int i)  { SDL_Rect r = {20 + i*126, 445, 118, 34}; return r; }
+static SDL_Rect favorite_btn(int i)  { SDL_Rect r = {20 + i*126, 414, 118, 32}; return r; }
 /* clavier virtuel pour l'IP (12 touches : 123456 / 7890.⌫ / OK)        */
 static SDL_Rect menu_kbd(int i)     { SDL_Rect r = {20 + (i%6)*55, 180 + (i/6)*45, 50, 40}; return r; }
 /* autres rectangles cliquables                                      */
 static SDL_Rect pick_class_rect(int i){SDL_Rect r = {15 + (i%3)*220, 55 + (i/3)*30, 212, 28}; return r; }
 static SDL_Rect pick_favorite_rect(int i){SDL_Rect r = {20 + (i%3)*220, 340 + (i/3)*34, 210, 30}; return r; }
-static SDL_Rect draft_btn(void)     { SDL_Rect r = {20, 502, 260, 34};  return r; }
-static SDL_Rect stuff_card(int i)    { SDL_Rect r = {16 + (i%3)*216, 54 + (i/3)*60, 208, 54}; return r; }
-static SDL_Rect stuff_favorite_btn(int i){SDL_Rect r = {16 + i*100, 556, 92, 32}; return r;}
+static SDL_Rect draft_btn(void)     { SDL_Rect r = {20, 434, 260, 32};  return r; }
+static SDL_Rect stuff_card(int i)    { SDL_Rect r = {16 + (i%3)*216, 54 + (i/3)*49, 208, 45}; return r; }
+static SDL_Rect stuff_favorite_btn(int i){SDL_Rect r = {16 + i*100, 446, 92, 28}; return r;}
 static SDL_Rect element_btn(int element, int add) { SDL_Rect r = {460 + add*70, 160 + element*60, 60, 36}; return r; }
-static SDL_Rect endturn_btn(int y0)  { SDL_Rect r = {10, y0 + 92, 150, 50}; return r; }
+static SDL_Rect endturn_btn(int y0)  { SDL_Rect r = {10, y0 + 92, 150, 48}; return r; }
 static SDL_Rect chat_btn(int y0)     { SDL_Rect r = {170, y0 + 92, 90, 30}; return r; }
 static SDL_Rect chat_field(int y0)   { SDL_Rect r = {270, y0 + 92, 300, 30}; return r; }
 static SDL_Rect chat_send(int y0)    { SDL_Rect r = {580, y0 + 92, 80, 30}; return r; }
@@ -4837,7 +4839,7 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
                 draw_text(r, font, value, 540, row.y + 12, white);
             }
         } else if (i == 2) {
-            draw_text(r, font, "672 x 640 (fixe)", 448, row.y + 12, white);
+            draw_text(r, font, "672 x 640 (fixe, comme nos habitudes)", 448, row.y + 12, white);
         } else {
             SDL_Rect toggle = settings_toggle_btn(i);
             int enabled = i == 3 ? g->colorblind_mode
@@ -4866,7 +4868,7 @@ static void draw_settings(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderDrawRect(r, &back);
         draw_text(r, font, "RETOUR", back.x + 42, back.y + 11, white);
     }
-    draw_text(r, font, "ECHAP pour revenir au menu", 236, 558, muted);
+    draw_text(r, font, "ECHAP pour revenir (ou furter avec les reglages)", 236, 558, muted);
 }
 
 static void draw_audio_subtitle(SDL_Renderer *r, TTF_Font *font, Game *g)
@@ -4886,11 +4888,11 @@ static void draw_audio_subtitle(SDL_Renderer *r, TTF_Font *font, Game *g)
 static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
 {
     Fighter *me = &g->f[g->turn];
-    int y0 = GRID_H * TILE;
-    SDL_Rect panel = {0, y0, WIN_W, 160};
+    int y0 = 0;                     /* bandeau en haut (mode paysage)      */
+    SDL_Rect panel = {0, y0, WIN_W, BAND_H};
     SDL_SetRenderDrawColor(r, 30, 30, 30, 255);
     SDL_RenderFillRect(r, &panel);
-    draw_ui_panel(r, (SDL_Rect){2, y0 + 2, WIN_W - 4, 156});
+    draw_ui_panel(r, (SDL_Rect){2, y0 + 2, WIN_W - 4, BAND_H - 4});
     char line[128];
     SDL_Color white = {255,255,255,255};
     snprintf(line, sizeof line,
@@ -4903,16 +4905,16 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
     draw_text(r, font, line, 38, y0 + 6, white);
     if (g->songe_mode) {
         char lv[64];
-        snprintf(lv, sizeof lv, "SONGE - NIVEAU %d  (record %d)",
+        snprintf(lv, sizeof lv, "SONGE - NIVEAU %d (record %d)",
                  g->songe_level, g->songe_best);
-        draw_text(r, font, lv, 38, y0 + 20, (SDL_Color){255, 214, 120, 255});
+        draw_text(r, font, lv, 672, y0 + 6, (SDL_Color){255, 214, 120, 255});
     }
 
     int k;
     for (k = 0; k < N_EQUIPPED; k++) {
         Skill *s = &me->spells[k];
-        SDL_Rect b = {10 + k * 165, y0 + 30, 160, 56};
-        SDL_Rect icon = {b.x + 4, b.y + 10, 30, 36};
+        SDL_Rect b = {10 + k * 165, y0 + 26, 160, 58};
+        SDL_Rect icon = {b.x + 4, b.y + 8, 30, 36};
         if (g->sel_skill == k)
             SDL_SetRenderDrawColor(r, 112, 82, 38, 255);
         else
@@ -4927,12 +4929,12 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
         }
         char t[96];
         snprintf(t, sizeof t, "%d %.15s", k+1, s->name);
-        draw_text(r, font, t, b.x + 38, b.y + 7, white);
+        draw_text(r, font, t, b.x + 38, b.y + 5, white);
         snprintf(t, sizeof t, "%dPA P%d", s->pa, s->range);
-        draw_text(r, font, t, b.x + 38, b.y + 30, white);
+        draw_text(r, font, t, b.x + 38, b.y + 24, white);
         snprintf(t, sizeof t, "effet %d  CD %d/%d",
                  s->power, me->cd_left[k], s->cooldown);
-        draw_text(r, font, t, b.x + 38, b.y + 42, white);
+        draw_text(r, font, t, b.x + 38, b.y + 41, white);
     }
     /* infobulle d'aide au survol d'un sort                             */
     {
@@ -4985,13 +4987,12 @@ static void draw_skillbar(SDL_Renderer *r, Game *g, TTF_Font *font)
     draw_ui_sprite(r, (SDL_Rect){252, 31, 20, 18}, be);
     SDL_SetRenderDrawColor(r, 255, 255, 255, 255);
     SDL_RenderDrawRect(r, &be);
-    draw_text(r, font, my_turn ? "FIN DE TOUR" : "attendez...",
+    draw_text(r, font, my_turn ? "FIN DE TOUR" : "on patiente...",
               be.x + 12, be.y + 6, white);
-    draw_text(r, font, "clic case = se deplacer / cibler",
-              be.x + 12, be.y + 26, white);
+    draw_text(r, font, "clic = avancer / viser", be.x, be.y + 50, white);
     if (me->pano >= 0)
         /* ligne du bas, a droite de l'aide : pas de chevauchement      */
-        draw_text(r, font, PANOPLIES[me->pano].name, 340, be.y + 26, white);
+        draw_text(r, font, PANOPLIES[me->pano].name, 600, be.y + 52, white);
     {
         SDL_Rect menu_button = ingame_menu_btn(y0);
         SDL_SetRenderDrawColor(r, g->in_game_menu_open ? 105 : 70,
@@ -5063,7 +5064,7 @@ static void draw_achievements(SDL_Renderer *r, TTF_Font *font, Game *g)
     SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
     SDL_RenderClear(r);
     draw_ui_panel(r, (SDL_Rect){8, 6, WIN_W - 16, WIN_H - 12});
-    draw_text(r, font, "ACHIEVEMENTS (69)", 20, 14, white);
+    draw_text(r, font, "ACHIEVEMENTS (69, et le 70 vous observe)", 20, 14, white);
     for (i = 0; i < 18 && start + i < 69; i++) {
         int idx = start + i;
         snprintf(line, sizeof line, "%s Succes %d",
@@ -5072,8 +5073,8 @@ static void draw_achievements(SDL_Renderer *r, TTF_Font *font, Game *g)
                   g_achievements[idx] ? green : grey);
     }
     {
-        SDL_Rect up = {600, 60, 40, 30};
-        SDL_Rect down = {600, 440, 40, 30};
+        SDL_Rect up = {600, 56, 40, 28};
+        SDL_Rect down = {600, 384, 40, 28};
         SDL_Rect back = {260, 560, 150, 34};
         SDL_SetRenderDrawColor(r, 70, 70, 90, 255);
         SDL_RenderFillRect(r, &up);
@@ -5084,9 +5085,9 @@ static void draw_achievements(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderDrawRect(r, &up);
         SDL_RenderDrawRect(r, &down);
         SDL_RenderDrawRect(r, &back);
-        draw_text(r, font, "UP", up.x + 10, up.y + 8, white);
-        draw_text(r, font, "DOWN", down.x + 2, down.y + 8, white);
-        draw_text(r, font, "RETOUR", back.x + 34, back.y + 10, white);
+        draw_text(r, font, "UP", up.x + 10, up.y + 6, white);
+        draw_text(r, font, "DOWN", down.x + 2, down.y + 6, white);
+        draw_text(r, font, "RETOUR", back.x + 34, back.y + 8, white);
         {
             int mx, my;
             mouse_logical(&mx, &my);
@@ -5172,18 +5173,18 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
     }
     SDL_SetRenderDrawColor(r, 20, 17, 18, 255);
     SDL_RenderClear(r);
-    draw_ui_panel(r, (SDL_Rect){8, 6, WIN_W - 16, 508});
+    draw_ui_panel(r, (SDL_Rect){8, 6, WIN_W - 16, WIN_H - 12});
     draw_ui_banner(r, (SDL_Rect){14, 8, WIN_W - 28, 48});
     {
         draw_ui_sprite(r, (SDL_Rect){4, 2, 29, 31},
                        (SDL_Rect){22, 15, 24, 25});
         draw_text(r, font, "DOFUS ARENA - LEGEND (FTW°)", 54, 13, white);
-        draw_text(r, font, "Solo contre l'IA, duel P2P, Songe et defis du jour",
+        draw_text(r, font, "Seul, a deux, ou dans un reve qui n'en finit pas",
               54, 31, grey);
         draw_character_sprite(r, CLASS_CHARACTER_ROW[0], 0, 0,
-                              (SDL_Rect){556, 250, 56, 56}, 0);
+                              (SDL_Rect){900, 150, 56, 56}, 0);
         draw_character_sprite(r, CLASS_CHARACTER_ROW[1], 0, 0,
-                              (SDL_Rect){608, 250, 56, 56}, 1);
+                              (SDL_Rect){960, 150, 56, 56}, 1);
     }
     {
         SDL_Rect settings = menu_settings_btn();
@@ -5224,7 +5225,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
             tip_add("Score actuel : %d points", g->challenge_points);
         }
     }
-    draw_text(r, font, "Format :", 350, 48, grey);
+    draw_text(r, font, "Format (le gore ne compte que sur le papier) :", 350, 48, grey);
     {
         static const int sizes[3] = {1, 2, 5};
         int i;
@@ -5281,7 +5282,7 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
               g->ip_editing ? "_" : "");
     draw_text(r, font, line[0] ? line : "IP IPv4 de l'hote", bi.x + 8, bi.y + 12,
               g->ip_editing ? (SDL_Color){255,220,80,255} : grey);
-    draw_text(r, font, "UDP : 7777", 560, 132, white);
+    draw_text(r, font, "UDP 7777", 560, 132, white);
     if (pt_in(bi, mx, my)) {
         tip_begin("Adresse IP de l'hote");
         tip_add("Exemple : 192.168.1.24 (LAN) ou IP publique.");
@@ -5311,7 +5312,8 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         }
     }
 
-    draw_text(r, font, "Credits: Thanks All. (OwO) ... Alucard.", 20, 500, grey);
+    draw_text(r, font, "Credits: Thanks All. (OwO) ... Alucard.",
+              20, 458, grey);
     {
         if (pt_in(menu_settings_btn(), mx, my)) {
             tip_begin("Options");
@@ -5319,14 +5321,15 @@ static void draw_menu(SDL_Renderer *r, TTF_Font *font, Game *g)
         }
     }
 
-    draw_text(r, font, "LAN : saisissez l'IP locale de l'hote.", 20, 320, grey);
-    draw_text(r, font, "Internet : IP publique + redirection UDP 7777 sur la box",
-              20, 344, grey);
-    draw_text(r, font, "et autorisation du jeu dans le pare-feu de l'hote.",
-              20, 368, grey);
-    draw_text(r, font, "L'hote communique son IP publique au joueur distant.",
-              20, 392, grey);
-    draw_text(r, font, "FAVORIS (classe + panoplie) :", 20, 422, white);
+    draw_text(r, font, "LAN : l'IP locale de l'hote.", 680, 300, grey);
+    draw_text(r, font, "Le plus simple, et le moins triste.", 680, 322, grey);
+    draw_text(r, font, "Internet : IP publique +", 680, 356, grey);
+    draw_text(r, font, "redirection UDP 7777 sur la box.", 680, 378, grey);
+    draw_text(r, font, "Et un trou dans le pare-feu de l'hote.", 680, 400, grey);
+    draw_text(r, font, "L'hote partage son IP publique : il est gentil.",
+              680, 422, grey);
+    draw_text(r, font, "FAVORIS (classe + panoplie) : vos vieux comptes chemins",
+              20, 392, white);
     {
         int i;
         for (i = 0; i < MAX_FAVORITES; i++) {
@@ -5454,7 +5457,7 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_ui_panel(r, (SDL_Rect){8, 6, WIN_W - 16, WIN_H - 12});
     draw_ui_banner(r, (SDL_Rect){14, 8, WIN_W - 28, 48});
     draw_text(r, font, "MODE SONGE", 24, 14, gold);
-    draw_text(r, font, "Expedition infinie contre les monstres du reve",
+    draw_text(r, font, "Un reve sans fin. Les monstres, eux, ont des horaires.",
               24, 34, grey);
 
     snprintf(line, sizeof line,
@@ -5462,7 +5465,7 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
              g->songe_best, songe_monster_count(g->songe_best + 1),
              g->songe_best + 1);
     draw_text(r, font, line, 24, 74, white);
-    draw_text(r, font, "Taille de l'equipe (1 a 5 joueurs) :", 24, 108, white);
+    draw_text(r, font, "Taille de l'equipe (1 a 5) : on partage le pain (et les coups).", 24, 108, white);
     for (i = 0; i < 5; i++) {
         SDL_Rect b = songe_party_btn(i);
         int selected = g->songe_party == i + 1;
@@ -5549,7 +5552,7 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
     if (g->ip_editing) {
         static const char *KEYS[12] = {"1","2","3","4","5","6",
                                       "7","8","9","0",".","Bksp"};
-        SDL_Rect shade = {16, 414, 520, 100};
+        SDL_Rect shade = {16, 386, 520, 98};
         SDL_SetRenderDrawColor(r, 12, 10, 10, 235);
         SDL_RenderFillRect(r, &shade);
         SDL_SetRenderDrawColor(r, 205, 170, 105, 255);
@@ -5574,9 +5577,10 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_text(r, font, "RETOUR", b.x + 42, b.y + 12, white);
     }
     /* bestiaire : apercu des monstres                                   */
-    draw_text(r, font, "Bestiaire du Songe :", 24, 440, white);
+    draw_text(r, font, "Bestiaire du Songe (ils ont tous un avis sur la meteo) :",
+              700, 300, white);
     for (i = 0; i < N_MONSTER_TEMPLATES; i++) {
-        SDL_Rect d = {24 + i * 62, 466, 48, 48};
+        SDL_Rect d = {700 + (i % 5) * 58, 328 + (i / 5) * 56, 48, 48};
         SDL_SetRenderDrawColor(r, 30, 26, 24, 255);
         SDL_RenderFillRect(r, &d);
         SDL_SetRenderDrawColor(r, 90, 78, 66, 255);
@@ -5593,13 +5597,13 @@ static void draw_songe(SDL_Renderer *r, TTF_Font *font, Game *g)
         }
     }
     if (g->menu_status[0])
-        draw_text(r, font, g->menu_status, 24, 530, green);
-    draw_text(r, font, "Niveau 1 : 1 monstre  -  niveau 3 : 2 monstres",
-              24, 560, grey);
-    draw_text(r, font, "Niveau 5 : 3 monstres  -  niveau 7 : 4 monstres",
-              24, 580, grey);
-    draw_text(r, font, "Au-dela : 5 monstres, de plus en plus forts",
-              24, 600, grey);
+        draw_text(r, font, g->menu_status, 24, 406, green);
+    draw_text(r, font, "Niveau 1 : 1 monstre (doux).  Niveau 3 : 2 (ca se gatte).",
+              24, 428, grey);
+    draw_text(r, font, "Niveau 5 : 3 monstres.  Niveau 7 : 4, et ils se sont coordonnes.",
+              24, 450, grey);
+    draw_text(r, font, "Au-dela : 5 monstres, et ils ont pris des cours de gym.",
+              24, 472, grey);
     draw_tooltip(r, font, mx, my);
 }
 
@@ -5623,7 +5627,7 @@ static void draw_challenges(SDL_Renderer *r, TTF_Font *font, Game *g)
     draw_ui_banner(r, (SDL_Rect){14, 8, WIN_W - 28, 48});
     draw_text(r, font, "DEFIS DU JOUR", 24, 14, gold);
     snprintf(line, sizeof line,
-             "3 defis par jour  -  score : %d points", g->challenge_points);
+             "3 defis par jour, un cafe par defi (le cafe reste a vous)", g->challenge_points);
     draw_text(r, font, line, 24, 34, grey);
     for (i = 0; i < DAILY_CHALLENGES; i++) {
         SDL_Rect card = challenge_card(i);
@@ -5640,12 +5644,12 @@ static void draw_challenges(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderDrawRect(r, &card);
         snprintf(line, sizeof line, "%d. %s", i + 1,
                  g->challenge_done[i] ? "Defi valide" : "Defi en cours");
-        draw_text(r, font, line, card.x + 12, card.y + 8,
+        draw_text(r, font, line, card.x + 12, card.y + 6,
                   finished ? green : gold);
-        draw_text(r, font, g->challenge_desc[i], card.x + 12, card.y + 34, white);
+        draw_text(r, font, g->challenge_desc[i], card.x + 12, card.y + 30, white);
         snprintf(line, sizeof line, "Recompense : %d points",
                  g->challenge_reward[i]);
-        draw_text(r, font, line, card.x + 12, card.y + 58, grey);
+        draw_text(r, font, line, card.x + 12, card.y + 52, grey);
         {
             SDL_Rect b = challenge_btn(i);
             int hov = pt_in(b, mx, my);
@@ -5656,7 +5660,7 @@ static void draw_challenges(SDL_Renderer *r, TTF_Font *font, Game *g)
             SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
             SDL_RenderDrawRect(r, &b);
             draw_text(r, font, finished ? "OK" : "JOUER",
-                      b.x + (finished ? 24 : 14), b.y + 10, white);
+                      b.x + (finished ? 24 : 14), b.y + 8, white);
             if (hov) {
                 tip_begin(finished ? "Defi deja valide" : "Jouer ce defi");
                 tip_add("%s", g->challenge_desc[i]);
@@ -5677,8 +5681,8 @@ static void draw_challenges(SDL_Renderer *r, TTF_Font *font, Game *g)
     snprintf(line, sizeof line,
              "Defis valides aujourd'hui : %d / %d", done, DAILY_CHALLENGES);
     draw_text(r, font, line, 24, 60, grey);
-    draw_text(r, font, "Les defis se renouvellent chaque jour.",
-              24, 590, grey);
+    draw_text(r, font, "Les defis se renouvellent chaque jour a minuit. Dormez, c'est utile.",
+              24, 460, grey);
     draw_tooltip(r, font, mx, my);
 }
 
@@ -5691,7 +5695,7 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
     int pmx, pmy;
     mouse_logical(&pmx, &pmy);
     tip_reset();
-    snprintf(line, sizeof line, "T%d - PERSONNAGE %d : choisissez la classe",
+    snprintf(line, sizeof line, "T%d - PERSONNAGE %d : la classe, ce choix qui pardonne peu",
              g->my_index + 1, g->setup_unit + 1);
     draw_text(r, font, line, 20, 20, white);
     if (g->challenge_seed) {
@@ -5699,7 +5703,7 @@ static void draw_pick(SDL_Renderer *r, TTF_Font *font, Game *g)
                  g->challenge_seed);
         draw_text(r, font, line, 330, 20, grey);
     } else if (g->solo_mode) {
-        draw_text(r, font, "Votre adversaire IA prepare son equipe.",
+        draw_text(r, font, "Votre adversaire IA prepare son equipe. Il est deja sur.",
                   330, 20, grey);
     }
     int i;
@@ -5795,8 +5799,8 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
     for (i = 0; i < N_CLASS_SPELLS; i++) {
         Skill *s = &CLASSES[cls].spells[i];
         int col = i % 2, row = i / 2;
-        SDL_Rect b = {10 + col * 330, 46 + row * 56, 320, 52};
-        SDL_Rect icon = {b.x + 5, b.y + 6, 30, 40};
+        SDL_Rect b = {10 + col * 330, 40 + row * 48, 320, 44};
+        SDL_Rect icon = {b.x + 5, b.y + 4, 28, 36};
         if (g->draft[unit][i])
             SDL_SetRenderDrawColor(r, 60, 160, 70, 255);
         else
@@ -5810,17 +5814,18 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
             SDL_RenderCopy(r, g_spell_icons, &icon_src, &icon);
         }
         snprintf(line, sizeof line, "%X %s", i+1, s->name);
-        draw_text(r, font, line, b.x + 42, b.y + 3, white);
+        draw_text(r, font, line, b.x + 40, b.y + 2, white);
         const char *kind = s->kind == SK_ATK ? "attaque" :
                            s->kind == SK_HEAL ? "soin"   :
                            s->kind == SK_BUFF ? "buff"   :
                            s->kind == SK_SUMMON ? "invocation" : "special";
         snprintf(line, sizeof line, "%s %d, %dPA, P%d, CD%d",
                  kind, s->power, s->pa, s->range, s->cooldown);
-        draw_text(r, font, line, b.x + 42, b.y + 21, white);
-        snprintf(line, sizeof line, "%s",
-                 g->draft[unit][i] ? "dans le deck" : "clic pour choisir");
-        draw_text(r, font, line, b.x + 42, b.y + 37, white);
+        draw_text(r, font, line, b.x + 40, b.y + 19, white);
+        if (g->draft[unit][i]) {
+            snprintf(line, sizeof line, "dans le deck");
+            draw_text(r, font, line, b.x + 40, b.y + 33, green);
+        }
     }
     {
         int mx, my, i;
@@ -5828,7 +5833,7 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
         tip_reset();
         for (i = 0; i < N_CLASS_SPELLS; i++) {
             int col = i % 2, row = i / 2;
-            SDL_Rect b = {10 + col * 330, 46 + row * 56, 320, 52};
+            SDL_Rect b = {10 + col * 330, 40 + row * 48, 320, 44};
             Skill *s = &CLASSES[cls].spells[i];
             if (pt_in(b, mx, my)) {
                 int tmpl = summon_template_of(s);
@@ -5871,11 +5876,11 @@ static void draw_draft(SDL_Renderer *r, TTF_Font *font, Game *g)
             if (g->draft_ready[unit_for_slot(g, 1 - g->my_index, slot)] == 1) {
                 snprintf(line, sizeof line, "T%d a valide son deck (%d/%d)",
                          2 - g->my_index, slot + 1, g->team_size);
-                draw_text(r, font, line, 300, 505 + slot*20, green);
+                draw_text(r, font, line, 300, 440 + slot*20, green);
             }
     }
-    draw_text(r, font, "Choisissez 4 sorts puis validez le deck.",
-              20, 560, (SDL_Color){150, 145, 135, 255});
+    draw_text(r, font, "4 sorts, pas un de plus. Comme un plateau, mais en plus violent.",
+              300, 440, (SDL_Color){150, 145, 135, 255});
 }
 
 /* ecran de choix de panoplie (apres le draft, avant le combat)          */
@@ -5892,8 +5897,8 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
     snprintf(line, sizeof line, "PERSO %d - choisissez votre panoplie",
              g->setup_unit + 1);
     draw_text(r, font, line, 20, 20, white);
-    draw_text(r, font, "Survolez une panoplie pour le detail des bonus.",
-              330, 20, (SDL_Color){160, 155, 145, 255});
+    draw_text(r, font, "Survolez une panoplie : le detail de ses bonus, promis.",
+              400, 38, (SDL_Color){160, 155, 145, 255});
     for (i = 0; i < N_PANOPLIES; i++) {
         Panoplie *p = &PANOPLIES[i];
         SDL_Rect b = stuff_card(i);
@@ -5909,8 +5914,8 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
                                selected ? gold.b : 150, 255);
         SDL_RenderDrawRect(r, &b);
         snprintf(line, sizeof line, "%d %s", i+1, p->name);
-        if ((int)strlen(line) > 27) line[27] = 0;
-        draw_text(r, font, line, b.x + 6, b.y + 4, white);
+        if ((int)strlen(line) > 20) line[20] = 0;
+        draw_text(r, font, line, b.x + 6, b.y + 3, white);
         /* resume court des bonus */
         {
             char bonus[128];
@@ -5927,7 +5932,8 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
             if (p->ret_pm)     n += snprintf(bonus+n, sizeof bonus-n, "RETPM-%d ", p->ret_pm);
             if (p->reflect)    n += snprintf(bonus+n, sizeof bonus-n, "RENVOI-%d", p->reflect);
             if (!bonus[0]) snprintf(bonus, sizeof bonus, "aucun bonus");
-            draw_text(r, font, bonus, b.x + 6, b.y + 24,
+            if ((int)strlen(bonus) > 22) bonus[22] = 0;
+            draw_text(r, font, bonus, b.x + 6, b.y + 21,
                       (SDL_Color){210, 205, 190, 255});
         }
         if (hovered) {
@@ -5944,10 +5950,10 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
     if (g->stuff_chosen[unit] >= 0) {
         snprintf(line, sizeof line, "Votre panoplie : %s",
                  PANOPLIES[g->stuff_chosen[unit]].name);
-        draw_text(r, font, line, 16, 600, green);
+        draw_text(r, font, line, 400, 20, green);
     }
     if (g->menu_status[0])
-        draw_text(r, font, g->menu_status, 300, 600, green);
+        draw_text(r, font, g->menu_status, 20, 38, green);
     {
         int i2;
         for (i2 = 0; i2 < MAX_FAVORITES; i2++) {
@@ -5957,7 +5963,7 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
             SDL_SetRenderDrawColor(r, 180, 180, 180, 255);
             SDL_RenderDrawRect(r, &b);
             snprintf(line, sizeof line, "SAUVER F%d", i2 + 1);
-            draw_text(r, font, line, b.x + 8, b.y + 9, white);
+            draw_text(r, font, line, b.x + 8, b.y + 7, white);
             if (pt_in(b, mx, my)) {
                 tip_begin("Enregistrer un favori");
                 tip_add("Memorise la classe et la panoplie en F%d.",
@@ -5970,7 +5976,7 @@ static void draw_stuff(SDL_Renderer *r, TTF_Font *font, Game *g)
             SDL_RenderFillRect(r, &b);
             SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
             SDL_RenderDrawRect(r, &b);
-            draw_text(r, font, "CONTINUER", b.x + 14, b.y + 8, white);
+            draw_text(r, font, "CONTINUER", b.x + 14, b.y + 6, white);
             if (pt_in(b, mx, my)) {
                 tip_begin("Continuer");
                 tip_add("Valide la panoplie et passe a l'etape suivante.");
@@ -5987,7 +5993,7 @@ static void draw_dofus(SDL_Renderer *r, TTF_Font *font, Game *g)
     char line[160];
     int i;
     int team = g->songe_mode ? 0 : g->my_index;
-    draw_text(r, font, "CHOISISSEZ LE DOFUS DE VOTRE EQUIPE", 20, 20, white);
+    draw_text(r, font, "CHOISISSEZ LE DOFUS (un objet, une bentonite, l'espoir)", 20, 20, white);
     for (i = 0; i < N_DOFUS; i++) {
         Panoplie *p = &DOFUS[i];
         SDL_Rect b = {20 + (i%2)*330, 60 + (i/2)*105, 320, 100};
@@ -6012,10 +6018,10 @@ static void draw_dofus(SDL_Renderer *r, TTF_Font *font, Game *g)
     if (g->team_dofus[team] >= 0) {
         snprintf(line, sizeof line, "Dofus choisi : %s",
                  DOFUS[g->team_dofus[team]].name);
-        draw_text(r, font, line, 20, 480, green);
+        draw_text(r, font, line, 20, 440, green);
     }
     if (g->menu_status[0])
-        draw_text(r, font, g->menu_status, 300, 480, green);
+        draw_text(r, font, g->menu_status, 400, 440, green);
     {
         int mx, my, i;
         mouse_logical(&mx, &my);
@@ -6042,7 +6048,7 @@ static void draw_dofus(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderFillRect(r, &ok);
         SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
         SDL_RenderDrawRect(r, &ok);
-        draw_text(r, font, "VALIDER", ok.x + 34, ok.y + 10, white);
+        draw_text(r, font, "VALIDER", ok.x + 34, ok.y + 9, white);
     }
 }
 
@@ -6058,12 +6064,12 @@ static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
     snprintf(line, sizeof line, "PERSO %d - repartissez %d points elementaires",
              g->setup_unit + 1, ELEMENT_POINTS);
     draw_text(r, font, line, 20, 20, white);
-    draw_text(r, font, "Initiative = Air (un malus Air reduit temporairement l'initiative).",
-              20, 50, grey);
-    draw_text(r, font, "Les boutons modifient la repartition par pas de 5 points.",
-              20, 75, grey);
-    draw_text(r, font, "Elements : Air (Agilite), Feu (Intelligence), Terre (Force), Eau (Chance).",
-              20, 100, grey);
+    draw_text(r, font, "Initiative = Air. Un malus d'Air ? Votre tour passe apres tout le monde.",
+              20, 48, grey);
+    draw_text(r, font, "Les boutons bougent la repartition par 5 points. La vie est un jeu de boutons.",
+              20, 72, grey);
+    draw_text(r, font, "Air (Agilite), Feu (Intelligence), Terre (Force), Eau (Chance) : 4 manieres de perdre.",
+              20, 96, grey);
     for (i = 0; i < ELEMENT_COUNT; i++) {
         SDL_Rect minus = element_btn(i, 0), plus = element_btn(i, 1);
         snprintf(line, sizeof line, "%s : %d", names[i], f->elements[i]);
@@ -6080,7 +6086,7 @@ static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
         draw_text(r, font, "+5", plus.x + 18, plus.y + 8, white);
     }
     snprintf(line, sizeof line, "Points repartis : %d/%d", total, ELEMENT_POINTS);
-    draw_text(r, font, line, 100, 410, white);
+    draw_text(r, font, line, 100, 372, white);
     {
         int mx, my;
         mouse_logical(&mx, &my);
@@ -6104,7 +6110,7 @@ static void draw_elements(SDL_Renderer *r, TTF_Font *font, Game *g)
         SDL_RenderFillRect(r, &done);
         SDL_SetRenderDrawColor(r, 220, 220, 220, 255);
         SDL_RenderDrawRect(r, &done);
-        draw_text(r, font, "VALIDER PERSONNAGE", done.x + 14, done.y + 12, white);
+        draw_text(r, font, "VALIDER PERSONNAGE", done.x + 14, done.y + 10, white);
     }
 }
 
@@ -6116,7 +6122,7 @@ static void draft_click(Game *g, int mx, int my)
     if (cls < 0) return;
     for (i = 0; i < N_CLASS_SPELLS; i++) {
         int col = i % 2, row = i / 2;
-        SDL_Rect b = {10 + col * 330, 46 + row * 56, 320, 52};
+        SDL_Rect b = {10 + col * 330, 40 + row * 48, 320, 44};
         if (mx >= b.x && mx < b.x + b.w && my >= b.y && my < b.y + b.h) {
             if (!g->draft[unit][i] && g->draft_count[unit] < N_EQUIPPED) {
                 g->draft[unit][i] = 1;
@@ -6196,7 +6202,7 @@ int main(int argc, char **argv)
 
     win = SDL_CreateWindow("Dofus Arena - Legend (FTW°)",
                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                           800, 600, SDL_WINDOW_RESIZABLE);
+                           WIN_W, WIN_H, 0);
     if (!win) {
         fprintf(stderr, "Fenetre SDL indisponible: %s\n", SDL_GetError());
         return 1;
@@ -6748,7 +6754,7 @@ int main(int argc, char **argv)
                         }
                     }
                     {
-                        SDL_Rect done = {520, 556, 136, 32};
+                        SDL_Rect done = {520, 446, 136, 28};
                         if (pt_in(done, mx, my)
                             && game.stuff_chosen[unit] >= 0)
                             sync_stuff(&game, unit);
@@ -6769,7 +6775,7 @@ int main(int argc, char **argv)
                             f->elements[element] += 5;
                     }
                     {
-                        SDL_Rect done = {100, 460, 250, 42};
+                        SDL_Rect done = {100, 418, 250, 38};
                         if (pt_in(done, mx, my)) {
                             total = 0;
                             for (i = 0; i < ELEMENT_COUNT; i++)
@@ -6796,7 +6802,7 @@ int main(int argc, char **argv)
                         if (pt_in(b, mx, my)) game.team_dofus[team] = i;
                     }
                     {
-                        SDL_Rect ok = {520, 500, 130, 34};
+                        SDL_Rect ok = {520, 392, 130, 32};
                         if (pt_in(ok, mx, my) && game.team_dofus[team] >= 0) {
                             char msg[32];
                             game.dofus_ready[team] = 1;
@@ -6810,13 +6816,13 @@ int main(int argc, char **argv)
                     {
                         SDL_Rect up = {600, 60, 40, 30};
                         SDL_Rect down = {600, 440, 40, 30};
-                        SDL_Rect back = {260, 560, 150, 34};
+                        SDL_Rect back = {440, 424, 150, 32};
                         if (pt_in(up, mx, my)) game.achievement_scroll--;
                         else if (pt_in(down, mx, my)) game.achievement_scroll++;
                         else if (pt_in(back, mx, my)) game.state = ST_MENU;
                     }
                 } else if (game.state == ST_BATTLE) {
-                    int y0 = GRID_H * TILE;
+                    int y0 = 0;
                     int handled = 0;
                     if (game.in_game_menu_open) {
                         if (game.surrender_confirm) {
@@ -6874,7 +6880,7 @@ int main(int argc, char **argv)
                             }
                         }
                     }
-                    if (!handled && my >= GRID_H * TILE) {
+                    if (!handled && my < BAND_H) {
                         /* barre de sorts : clic pour selectionner      */
                         int k;
                         for (k = 0; k < N_EQUIPPED; k++) {
@@ -7007,7 +7013,8 @@ int main(int argc, char **argv)
             draw_attack_targets(ren, &game);
             /* brume legere d'ambiance                                 */
             SDL_SetRenderDrawColor(ren, 150, 165, 190, 28);
-            SDL_RenderFillRect(ren, &(SDL_Rect){0, 0, WIN_W, GRID_H * TILE});
+            SDL_RenderFillRect(ren, &(SDL_Rect){0, BAND_H, WIN_W,
+                                               WIN_H - BAND_H});
             /* combattants ET invocations tries par profondeur         */
             {
                 int depth[MAX_FIGHTERS + MAX_SUMMONS];
@@ -7053,11 +7060,11 @@ int main(int argc, char **argv)
             /* vignette douce pour la profondeur                             */
             SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(ren, 0, 0, 0, 90);
-            SDL_RenderFillRect(ren, &(SDL_Rect){0, 0, 40, GRID_H * TILE});
-            SDL_RenderFillRect(ren, &(SDL_Rect){WIN_W - 40, 0, 40, GRID_H * TILE});
+            SDL_RenderFillRect(ren, &(SDL_Rect){0, BAND_H, 40, WIN_H - BAND_H});
+            SDL_RenderFillRect(ren, &(SDL_Rect){WIN_W - 40, BAND_H, 40,
+                                               WIN_H - BAND_H});
             SDL_SetRenderDrawColor(ren, 0, 0, 0, 60);
-            SDL_RenderFillRect(ren, &(SDL_Rect){0, 0, WIN_W, 24});
-            SDL_RenderFillRect(ren, &(SDL_Rect){0, GRID_H * TILE - 24, WIN_W, 24});
+            SDL_RenderFillRect(ren, &(SDL_Rect){0, WIN_H - 24, WIN_W, 24});
             draw_skillbar(ren, &game, font);
             if (game.in_game_menu_open)
                 draw_ingame_menu(&game, ren, font);
@@ -7067,26 +7074,38 @@ int main(int argc, char **argv)
         }
         case ST_GAMEOVER: {
             SDL_Color w = {255,255,255,255};
-            char msg[64];
+            char msg[96];
             SDL_Rect banner = {20, WIN_H/2 - 55, WIN_W - 40,
-                               game.solo_mode ? 86 : 58};
+                               (game.solo_mode || game.songe_mode) ? 86 : 58};
             SDL_SetRenderDrawColor(ren, 35, 28, 24, 235);
             SDL_RenderFillRect(ren, &banner);
             draw_ui_panel(ren, banner);
             SDL_SetRenderDrawColor(ren, 205, 170, 105, 255);
             SDL_RenderDrawRect(ren, &banner);
+            if (game.songe_mode) {
+                /* fin d'expedition : on Announces le niveau atteint        */
+                snprintf(msg, sizeof msg,
+                         "Songe termine au niveau %d ! (record %d)",
+                         game.songe_level, game.songe_best);
+                draw_text(ren, font, msg, WIN_W/2 - 210, banner.y + 16, w);
+                draw_text(ren, font,
+                          "Les monstres festoient. Vous, vous reflectissez.",
+                          WIN_W/2 - 215, banner.y + 50,
+                          (SDL_Color){220,210,185,255});
+                break;
+            }
             if (game.solo_mode)
-                snprintf(msg, sizeof msg, "%s ! (clic pour quitter)",
+                snprintf(msg, sizeof msg, "%s ! (clic pour rentrer)",
                          game.winner == game.my_index ? "Vous gagnez"
-                                                      : "L'IA gagne");
+                                                      : "L'IA gagne (elle s'entraine la nuit, elle)");
             else
-                snprintf(msg, sizeof msg, "%s gagne ! (clic pour quitter)",
+                snprintf(msg, sizeof msg, "%s gagne ! (clic pour rentrer)",
                          game.winner == game.my_index
-                         ? "Votre equipe" : "Equipe adverse");
+                         ? "Votre equipe (la proverbial)" : "L'equipe adverse (et elle le sabe)");
             draw_text(ren, font, msg, WIN_W/2 - 150, banner.y + 20, w);
             if (game.solo_mode)
                 draw_text(ren, font,
-                          "Astuce : surveille la portee et la ligne de vue.",
+                          "Astuce : le vert se deplace, le bleu vise, le rouge fait mal.",
                           WIN_W/2 - 190, banner.y + 54,
                           (SDL_Color){220,210,185,255});
             break;
