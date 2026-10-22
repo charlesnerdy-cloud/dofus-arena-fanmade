@@ -180,6 +180,29 @@ vie, pastilles PA/PM, initiative) dans le bandeau de combat.
 Licence : **CC0** (Kenney – Pixel UI Pack), la licence est jointe dans
 `assets/UI/pixel/LICENSE_kenney_pixel_ui.txt`.
 
+### Pack Humble Pixel « Paper UI System » (déjà intégré)
+
+Les packs **Humble Gift – Paper UI System** et **Smart UI** (CC0, Humble Pixel)
+sont **déjà intégrés** dans `assets/UI/humble/` :
+
+| Fichier | Usage |
+|---|---|
+| `hud_panel.png` | cadre papier du panneau d'état du joueur |
+| `bar_hp.png` / `bar_hp_frame.png` | barre de vie segmentée (rouge) |
+| `bar_mp.png` | barre de déplacement segmentée (vert) |
+| `header_ribbon.png` | ruban de titre |
+| `paper_sheet.png` | grande feuille de parchemin |
+| `LICENSE_humble_pixel.pdf` | licence d'origine |
+
+Pour mettre à jour ces assets depuis les ZIP téléchargés :
+
+```bash
+unzip -o "Humble Gift - Paper UI System.zip" -d /tmp/humble
+cp "/tmp/humble/Humble Gift - Paper UI System v1.1/Sprites/Content Appear Animation/Plain/6 Player HUD/1.png" assets/UI/humble/hud_panel.png
+cp "/tmp/humble/Humble Gift - Paper UI System v1.1/Sprites/Content/3 Progress Bars/2.png" assets/UI/humble/bar_hp.png
+# ... etc.
+```
+
 ### Importer votre propre pack d'interface
 
 Le pack **Humble Pixel – Pocket Inventory Series 5 (Player Status)** (ou tout

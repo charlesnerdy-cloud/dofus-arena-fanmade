@@ -184,6 +184,45 @@ static const char *UI9_FILES[UI9_COUNT] = {
 };
 static SDL_Texture *g_ui9[UI9_COUNT];
 
+/* --- Pack Humble Pixel "Paper UI System" (CC0, licence jointe) ------- */
+static SDL_Texture *g_hp_panel;      /* cadre papier du panneau d'etat  */
+static SDL_Texture *g_hp_bar;        /* segment de barre de vie         */
+static SDL_Texture *g_hp_bar_frame;  /* fond de la barre                */
+static SDL_Texture *g_hp_mp;         /* segment de ressource             */
+static SDL_Texture *g_hp_ribbon;     /* ruban de titre                   */
+static SDL_Texture *g_hp_sheet;      /* grande feuille de parchemin      */
+
+static void load_humble_ui(SDL_Renderer *renderer)
+{
+    g_hp_panel     = load_asset(renderer, "assets/UI/humble/hud_panel.png");
+    g_hp_bar       = load_asset(renderer, "assets/UI/humble/bar_hp.png");
+    g_hp_bar_frame = load_asset(renderer, "assets/UI/humble/bar_hp_frame.png");
+    g_hp_mp        = load_asset(renderer, "assets/UI/humble/bar_mp.png");
+    g_hp_ribbon    = load_asset(renderer, "assets/UI/humble/header_ribbon.png");
+    g_hp_sheet     = load_asset(renderer, "assets/UI/humble/paper_sheet.png");
+}
+
+/* barre segmentee : le remplissage est repete jusqu'a la largeur voulue */
+static void draw_seg_bar(SDL_Renderer *r, SDL_Texture *fill,
+                         SDL_Texture *frame, SDL_Rect dst, int pct)
+{
+    int i, fw;
+    if (frame) SDL_RenderCopy(r, frame, NULL, &dst);
+    if (!fill || pct <= 0) return;
+    fw = (dst.w * pct) / 100;
+    if (fw > dst.w) fw = dst.w;
+    for (i = 0; i * 16 < fw; i++) {
+        SDL_Rect src = {0, 0, 16, 16};
+        SDL_Rect d = {dst.x + i * 16, dst.y, 16, dst.h};
+        if (d.x + 16 > dst.x + fw) {
+            src.w = dst.x + fw - d.x;
+            d.w = src.w;
+        }
+        if (src.w <= 0) break;
+        SDL_RenderCopy(r, fill, &src, &d);
+    }
+}
+
 /* --- HUD importe (optionnel) : assets/UI/hud.png + hud.frames.json ---- */
 static SDL_Texture *g_hud_sheet;
 typedef struct { int x, y, w, h; int ok; } HudFrame;
@@ -3958,6 +3997,7 @@ static void load_visual_effects(SDL_Renderer *renderer)
     g_emote_sheet = load_asset(renderer, "assets/bubble_emotes.png");
     load_creatures_sheet(renderer);
     load_ui9(renderer);
+    load_humble_ui(renderer);
     load_hud_sheet(renderer);
     for (i = 0; i < VFX_FRAME_COUNT; i++) {
         snprintf(path, sizeof path,
@@ -5079,10 +5119,21 @@ static void draw_player_status(SDL_Renderer *r, Game *g, TTF_Font *font,
     SDL_Rect panel = {x, y, w, h};
     int portrait = 42;
     int bar_x, bar_y, bar_w, bar_h;
+    /* le cadre papier de Humble Pixel est clair : texte sombre          */
+    if (g_hp_panel) {
+        white = (SDL_Color){60, 48, 32, 255};
+        gold  = (SDL_Color){150, 96, 24, 255};
+    }
 
-    /* cadre 9-slice (parchemin)                                        */
-    draw_nine_slice(r, g_ui9[UI9_PANEL_TAN], panel, 16);
-    SDL_SetRenderDrawColor(r, 60, 44, 28, 160);
+    /* cadre : papier Humble Pixel si present, sinon 9-slice parchemin   */
+    if (g_hp_panel) {
+        SDL_SetTextureAlphaMod(g_hp_panel, 235);
+        SDL_RenderCopy(r, g_hp_panel, NULL, &panel);
+        SDL_SetTextureAlphaMod(g_hp_panel, 255);
+    } else {
+        draw_nine_slice(r, g_ui9[UI9_PANEL_TAN], panel, 16);
+    }
+    SDL_SetRenderDrawColor(r, 60, 44, 28, 120);
     SDL_RenderDrawRect(r, &(SDL_Rect){x + 3, y + 3, w - 6, h - 6});
 
     /* portrait du combattant                                           */
@@ -5110,7 +5161,15 @@ static void draw_player_status(SDL_Renderer *r, Game *g, TTF_Font *font,
     bar_y = y + 40;
     bar_w = w - (bar_x - x) - 10;
     bar_h = 12;
-    if (g_hud_frame[HUD_HPBAR].ok) {
+    if (g_hp_bar) {
+        /* barre segmentee Humble Pixel (rouge) + liseré doré            */
+        int fill = (bar_w * me->hp) / (me->hp_max > 0 ? me->hp_max : 1);
+        SDL_Rect hb = {bar_x, bar_y, bar_w, bar_h};
+        draw_seg_bar(r, g_hp_bar, g_hp_bar_frame, hb,
+                     (bar_w > 0) ? (fill * 100) / bar_w : 0);
+        SDL_SetRenderDrawColor(r, gold.r, gold.g, gold.b, 200);
+        SDL_RenderDrawRect(r, &hb);
+    } else if (g_hud_frame[HUD_HPBAR].ok) {
         SDL_Rect hb = {bar_x, bar_y, bar_w, bar_h};
         draw_hud_frame(r, HUD_HPBAR, hb, 0);
         {
@@ -5153,6 +5212,12 @@ static void draw_player_status(SDL_Renderer *r, Game *g, TTF_Font *font,
                 SDL_RenderFillRect(r, &(SDL_Rect){bar_x + 200 + i * 9,
                                                  bar_y + 17, 6, 6});
             }
+        }
+        if (g_hp_mp) {
+            /* barre de deplacement segmentee (vert)                      */
+            SDL_Rect mb = {bar_x, bar_y + 30, 120, 7};
+            draw_seg_bar(r, g_hp_mp, NULL, mb,
+                         (me->pm * 100) / (me->pm > 0 ? me->pm : 1));
         }
         for (i = 0; i < me->pm && i < 8; i++) {
             if (g_hud_frame[HUD_PM].ok)
